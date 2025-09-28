@@ -39,19 +39,38 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const DEFAULT_AVATAR = "/avatars/avatar-2.png";
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+// --- MODIFICATION START ---
+// 1. Create a default "dummy" user object for development.
+const dummyUser: User = {
+    id: "dev-user-01",
+    user_name: "DevUser",
+    email: "developer@example.com",
+    role: "admin",
+    user_avatar_url: DEFAULT_AVATAR,
+};
+// --- MODIFICATION END ---
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("metaverse_user");
-    const storedToken = localStorage.getItem("metaverse_token");
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  // --- MODIFICATION START ---
+  // 2. Set the initial state to our dummy user and set loading to false.
+  const [user, setUser] = useState<User | null>(dummyUser);
+  const [loading, setLoading] = useState(false);
+  // --- MODIFICATION END ---
+
+
+  // 3. The useEffect hook that checks localStorage is no longer needed.
+  /*
+   useEffect(() => {
+     const storedUser = localStorage.getItem("metaverse_user");
+     const storedToken = localStorage.getItem("metaverse_token");
     
-    if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
-  }, []);
+     if (storedUser && storedToken) {
+       setUser(JSON.parse(storedUser));
+     }
+     setLoading(false);
+   }, []);
+  */
 
   const login = async (
     email: string,
