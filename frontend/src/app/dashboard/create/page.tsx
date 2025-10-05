@@ -9,7 +9,12 @@ import CreateSpaceName from "@/components/CreateSpaceName";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 
-type Step = "loading" | "use-case" | "map-selection" | "customize-map" | "name-space";
+type Step =
+  | "loading"
+  | "use-case"
+  | "map-selection"
+  | "customize-map"
+  | "name-space";
 
 export default function CreateSpacePage() {
   const { user, loading: authLoading } = useAuth();
@@ -48,29 +53,37 @@ export default function CreateSpacePage() {
     setCreationData((prev) => ({ ...prev, map: selectedMap }));
     setStep("customize-map"); // Proceed to the new customize step
   };
-  
-  const handleCustomizeConfirm = (customization: { size: number; theme: string }) => {
-    setCreationData(prev => ({ ...prev, ...customization }));
+
+  const handleCustomizeConfirm = (customization: {
+    size: number;
+    theme: string;
+  }) => {
+    setCreationData((prev) => ({ ...prev, ...customization }));
     setStep("name-space"); // Proceed to naming step after customization
-  }
+  };
 
   const handleNameConfirm = (spaceName: string) => {
     const finalData = { ...creationData, name: spaceName };
     setCreationData(finalData);
 
     console.log("Creating space with following data:", finalData);
+
+    // Store the selected map in local storage to be used in the game scene
+    const mapKey = finalData.map === "corporate-hq" ? "office-01" : "office-02";
+    localStorage.setItem("selectedMap", mapKey);
+
     router.push(`/space/${spaceName}`);
   };
 
   const handleBack = (currentStep: Step) => {
-    if (currentStep === 'name-space') {
-      setStep('customize-map');
-    } else if (currentStep === 'customize-map') {
-      setStep('map-selection');
-    } else if (currentStep === 'map-selection') {
-      setStep('use-case');
+    if (currentStep === "name-space") {
+      setStep("customize-map");
+    } else if (currentStep === "customize-map") {
+      setStep("map-selection");
+    } else if (currentStep === "map-selection") {
+      setStep("use-case");
     }
-  }
+  };
 
   if (authLoading || step === "loading") {
     return <LoadingScreen />;
@@ -78,7 +91,7 @@ export default function CreateSpacePage() {
 
   // Helper function to render the current step's component
   const renderStep = () => {
-    switch(step) {
+    switch (step) {
       case "use-case":
         return <CreateSpaceUseCase onSelect={handleUseCaseSelect} />;
       case "map-selection":
@@ -90,23 +103,23 @@ export default function CreateSpacePage() {
         ) : null;
       case "customize-map":
         return creationData.map ? (
-            <CreateSpaceCustomize
-                selectedMapId={creationData.map}
-                onBack={() => handleBack('customize-map')}
-                onConfirm={handleCustomizeConfirm}
-            />
+          <CreateSpaceCustomize
+            selectedMapId={creationData.map}
+            onBack={() => handleBack("customize-map")}
+            onConfirm={handleCustomizeConfirm}
+          />
         ) : null;
       case "name-space":
         return (
-            <CreateSpaceName
-                onBack={() => handleBack('name-space')}
-                onConfirm={handleNameConfirm}
-            />
+          <CreateSpaceName
+            onBack={() => handleBack("name-space")}
+            onConfirm={handleNameConfirm}
+          />
         );
       default:
         return <LoadingScreen />;
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-[#2a2a3e] text-white flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">

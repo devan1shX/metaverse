@@ -32,6 +32,12 @@ export function MetaverseGame() {
   const [onlineUsers] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showUI, setShowUI] = useState(true);
+  const [selectedMap, setSelectedMap] = useState<string | null>(null);
+
+  useEffect(() => {
+    const map = localStorage.getItem("selectedMap");
+    setSelectedMap(map);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -108,7 +114,7 @@ export function MetaverseGame() {
       {/* Main content area with Game and Side Panel */}
       <div className="flex-1 relative">
         {/* Pass the avatarUrl to the PhaserGame component */}
-        <PhaserGame avatarUrl={user?.user_avatar_url} />
+        <PhaserGame avatarUrl={user?.user_avatar_url} mapId={selectedMap} />
 
         {/* Side Panel */}
         {showUI && (

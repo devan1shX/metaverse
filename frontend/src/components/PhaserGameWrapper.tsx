@@ -6,8 +6,10 @@ import { GameScene } from "./GameScene";
 
 export default function PhaserGameWrapper({
   avatarUrl,
+  mapId,
 }: {
   avatarUrl?: string;
+  mapId: string | null;
 }) {
   const gameRef = useRef<HTMLDivElement>(null);
   const phaserGameRef = useRef<Phaser.Game | null>(null);
@@ -49,6 +51,7 @@ export default function PhaserGameWrapper({
 
     if (phaserGameRef.current) {
       phaserGameRef.current.registry.set("avatarUrl", avatarUrl);
+      phaserGameRef.current.registry.set("mapId", mapId);
     }
 
     return () => {
@@ -57,7 +60,7 @@ export default function PhaserGameWrapper({
         phaserGameRef.current = null;
       }
     };
-  }, [avatarUrl]);
+  }, [avatarUrl, mapId]);
 
   return <div ref={gameRef} className="absolute inset-0 w-full h-full" />;
 }
