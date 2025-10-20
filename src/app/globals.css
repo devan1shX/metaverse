@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-apple-light-bg dark:bg-apple-dark-bg text-apple-black dark:text-apple-white;
+    @apply font-sans antialiased;
+  }
+}
+
+@layer components {
+  .auth-card {
+    @apply bg-apple-light-elevated/80 dark:bg-apple-dark-elevated/80 backdrop-blur-3xl;
+    @apply border border-apple-light-separator dark:border-apple-dark-separator;
+    @apply shadow-soft-light dark:shadow-soft-dark;
+  }
+  
+  .auth-button {
+    @apply w-full h-12 bg-apple-black dark:bg-apple-white text-apple-white dark:text-apple-black;
+    @apply font-semibold text-base rounded-xl;
+    @apply transition-all duration-300 ease-in-out;
+    @apply hover:scale-[1.03] active:scale-[0.99];
+    @apply disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+  
+  .auth-input {
+    @apply w-full h-14 px-5 bg-apple-light-bg/90 dark:bg-apple-dark-elevated;
+    @apply border-2 border-transparent;
+    @apply rounded-xl text-apple-black dark:text-apple-white placeholder-apple-light-label dark:placeholder-apple-dark-label;
+    @apply focus:outline-none focus:ring-4 focus:ring-apple-blue/20 focus:bg-apple-light-elevated dark:focus:bg-apple-dark-elevated;
+    @apply transition-all duration-300 ease-in-out;
+    @apply text-base font-medium;
+  }
+  
+  .auth-tab {
+    @apply relative flex-1 py-2 text-apple-light-label dark:text-apple-dark-label font-semibold text-center text-sm;
+    @apply transition-colors duration-300 ease-in-out;
+  }
+  
+  .auth-tab.active {
+    @apply text-apple-black dark:text-apple-white;
+  }
+  
+  .auth-background {
+    @apply fixed inset-0 -z-10;
+  }
+
+  .gradient-bg {
+    @apply absolute inset-0 bg-gradient-to-br from-gray-100 via-white to-gray-100 dark:from-gray-900 dark:via-black dark:to-gray-900 opacity-80;
+  }
+}
