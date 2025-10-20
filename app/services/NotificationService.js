@@ -718,6 +718,304 @@ class NotificationService {
       };
     }
   }
+
+  /**
+   * Get user notifications with pagination and filtering
+   * @param {string} userId - User ID
+   * @param {Object} options - Query options
+   * @returns {Promise<{success: boolean, notifications?: Array, totalCount?: number, hasMore?: boolean, error?: string}>}
+   */
+  async getUserNotifications(userId, options = {}) {
+    try {
+      const {
+        type,
+        status,
+        limit = 50,
+        offset = 0,
+        includeExpired = false
+      } = options;
+
+      logger.info('Getting user notifications', { userId, options });
+
+      const result = await this.getNotificationsForUser(userId, {
+        type,
+        status,
+        limit,
+        offset,
+        includeExpired
+      });
+
+      if (!result.success) {
+        return result;
+      }
+
+      return {
+        success: true,
+        notifications: result.notifications,
+        totalCount: result.totalCount,
+        hasMore: result.hasMore
+      };
+    } catch (error) {
+      logger.error('Error in getUserNotifications service', { 
+        error: error.message, 
+        stack: error.stack, 
+        userId 
+      });
+      return {
+        success: false,
+        error: 'Internal server error'
+      };
+    }
+  }
+
+  /**
+   * Mark notification as unread
+   * @param {string} notificationId - Notification ID
+   * @param {string} requestingUserId - User making the request
+   * @returns {Promise<{success: boolean, notification?: Notification, error?: string}>}
+   */
+  async markAsUnread(notificationId, requestingUserId) {
+    try {
+      logger.info('Marking notification as unread', { notificationId, requestingUserId });
+
+      // Get notification
+      const notification = await this.notificationRepository.findById(notificationId);
+      if (!notification) {
+        return {
+          success: false,
+          error: 'Notification not found'
+        };
+      }
+
+      // Check if user owns the notification
+      if (notification.userId !== requestingUserId) {
+        return {
+          success: false,
+          error: 'Not authorized to modify this notification'
+        };
+      }
+
+      // Update notification status
+      const updatedNotification = await this.notificationRepository.updateStatus(
+        notificationId, 
+        NotificationStatus.UNREAD
+      );
+
+      if (!updatedNotification) {
+        return {
+          success: false,
+          error: 'Failed to update notification'
+        };
+      }
+
+      logger.info('Notification marked as unread', { notificationId, requestingUserId });
+
+      return {
+        success: true,
+        notification: updatedNotification
+      };
+    } catch (error) {
+      logger.error('Error in markAsUnread service', { 
+        error: error.message, 
+        stack: error.stack, 
+        notificationId, 
+        requestingUserId 
+      });
+      return {
+        success: false,
+        error: 'Internal server error'
+      };
+    }
+  }
+
+  /**
+   * Update notification (admin only)
+   * @param {string} notificationId - Notification ID
+   * @param {Object} updates - Update data
+   * @param {string} requestingUserId - Admin user making the request
+   * @returns {Promise<{success: boolean, notification?: Notification, error?: string}>}
+   */
+  async updateNotification(notificationId, updates, requestingUserId) {
+    try {
+      logger.info('Updating notification', { notificationId, updates, requestingUserId });
+
+      // Get notification
+      const notification = await this.notificationRepository.findById(notificationId);
+      if (!notification) {
+        return {
+          success: false,
+          error: 'Notification not found'
+        };
+      }
+
+      // Update notification
+      const updatedNotification = await this.notificationRepository.update(
+        notificationId, 
+        updates
+      );
+
+      if (!updatedNotification) {
+        return {
+          success: false,
+          error: 'Failed to update notification'
+        };
+      }
+
+      logger.info('Notification updated successfully', { notificationId, requestingUserId });
+
+      return {
+        success: true,
+        notification: updatedNotification
+      };
+    } catch (error) {
+      logger.error('Error in updateNotification service', { 
+        error: error.message, 
+        stack: error.stack, 
+        notificationId, 
+        requestingUserId 
+      });
+      return {
+        success: false,
+        error: 'Internal server error'
+      };
+    }
+  }
+
+  /**
+   * Get all notifications (admin only)
+   * @param {Object} filters - Filter options
+   * @param {string} requestingUserId - Admin user making the request
+   * @returns {Promise<{success: boolean, notifications?: Array, totalCount?: number, hasMore?: boolean, error?: string}>}
+   */
+  async getAllNotifications(filters = {}, requestingUserId) {
+    try {
+      const {
+        userId,
+        type,
+        status,
+        limit = 50,
+        offset = 0
+      } = filters;
+
+      logger.info('Admin getting all notifications', { filters, requestingUserId });
+
+      const result = await this.notificationRepository.findAll({
+        userId,
+        type,
+        status,
+        limit,
+        offset
+      });
+
+      if (!result.success) {
+        return result;
+      }
+
+      return {
+        success: true,
+        notifications: result.notifications,
+        totalCount: result.totalCount,
+        hasMore: result.hasMore
+      };
+    } catch (error) {
+      logger.error('Error in getAllNotifications service', { 
+        error: error.message, 
+        stack: error.stack, 
+        requestingUserId 
+      });
+      return {
+        success: false,
+        error: 'Internal server error'
+      };
+    }
+  }
+
+  /**
+   * Bulk update notifications (admin only)
+   * @param {Array<string>} notificationIds - Array of notification IDs
+   * @param {Object} updates - Update data
+   * @param {string} requestingUserId - Admin user making the request
+   * @returns {Promise<{success: boolean, updatedCount?: number, error?: string}>}
+   */
+  async bulkUpdateNotifications(notificationIds, updates, requestingUserId) {
+    try {
+      logger.info('Bulk updating notifications', { 
+        notificationIds, 
+        updates, 
+        requestingUserId 
+      });
+
+      const result = await this.notificationRepository.bulkUpdate(
+        notificationIds, 
+        updates
+      );
+
+      if (!result.success) {
+        return result;
+      }
+
+      logger.info('Notifications bulk updated successfully', { 
+        updatedCount: result.updatedCount, 
+        requestingUserId 
+      });
+
+      return {
+        success: true,
+        updatedCount: result.updatedCount
+      };
+    } catch (error) {
+      logger.error('Error in bulkUpdateNotifications service', { 
+        error: error.message, 
+        stack: error.stack, 
+        requestingUserId 
+      });
+      return {
+        success: false,
+        error: 'Internal server error'
+      };
+    }
+  }
+
+  /**
+   * Bulk delete notifications (admin only)
+   * @param {Array<string>} notificationIds - Array of notification IDs
+   * @param {string} requestingUserId - Admin user making the request
+   * @returns {Promise<{success: boolean, deletedCount?: number, error?: string}>}
+   */
+  async bulkDeleteNotifications(notificationIds, requestingUserId) {
+    try {
+      logger.info('Bulk deleting notifications', { 
+        notificationIds, 
+        requestingUserId 
+      });
+
+      const result = await this.notificationRepository.bulkDelete(notificationIds);
+
+      if (!result.success) {
+        return result;
+      }
+
+      logger.info('Notifications bulk deleted successfully', { 
+        deletedCount: result.deletedCount, 
+        requestingUserId 
+      });
+
+      return {
+        success: true,
+        deletedCount: result.deletedCount
+      };
+    } catch (error) {
+      logger.error('Error in bulkDeleteNotifications service', { 
+        error: error.message, 
+        stack: error.stack, 
+        requestingUserId 
+      });
+      return {
+        success: false,
+        error: 'Internal server error'
+      };
+    }
+  }
 }
 
 // Create and export singleton instance

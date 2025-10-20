@@ -779,5 +779,4 @@ class SpaceService {
 }
 
 // Create and export singleton instance
-const spaceServiceSingleton = new SpaceService();
-module.exports = spaceServiceSingleton;
+module.exports = SpaceService;

@@ -1,6 +1,10 @@
+const { UserRepository } = require('../repositories');
 const SpaceService = require('../services/SpaceService');
 const UserService = require('../services/UserService');
 const { logger } = require('../utils/logger');
+const userRepository = new UserRepository();
+const spaceService = new SpaceService();
+const userService = new UserService();
 
 /**
  * Create a new space
@@ -10,7 +14,7 @@ async function createSpace(req, res) {
     try {
         const { name, description, isPublic, maxUsers, mapType } = req.body;
         const adminUserId = req.user.user_id;
-
+        
         logger.info('Creating new space', { 
             name, 
             adminUserId, 
@@ -39,8 +43,9 @@ async function createSpace(req, res) {
         };
 
         // Create space using SpaceService
-        const result = await SpaceService.createSpace(spaceData);
-
+        const result = await spaceService.createSpace(spaceData);
+        await userRepository.addSpaceForUser(adminUserId, result.space);
+        
         if (!result.success) {
             logger.warn('Space creation failed', { 
                 errors: result.errors, 
@@ -58,17 +63,6 @@ async function createSpace(req, res) {
             name: result.space.name,
             adminUserId 
         });
-
-        // Broadcast space creation to connected users if needed
-        if (global.wsManager && isPublic) {
-            global.wsManager.broadcastToUser(adminUserId, {
-                type: "SPACE_CREATED",
-                payload: {
-                    space: result.space.toSafeObject(),
-                    timestamp: new Date().toISOString()
-                }
-            });
-        }
 
         return res.status(201).json({
             success: true,
@@ -123,7 +117,7 @@ async function getAllSpaces(req, res) {
             filters.adminUserId = adminUserId;
         }
 
-        const result = await SpaceService.getAllSpaces({
+        const result = await spaceService.getAllSpaces({
             filters,
             limit: parseInt(limit),
             offset: parseInt(offset)
@@ -186,7 +180,7 @@ async function getSpaceById(req, res) {
             });
         }
 
-        const result = await SpaceService.getSpaceById(spaceId);
+        const result = await spaceService.getSpaceById(spaceId);
 
         if (!result.success) {
             return res.status(404).json({
@@ -215,7 +209,7 @@ async function getSpaceById(req, res) {
         if (includeUsers === 'true' && (space.hasUser(requesterId) || space.isAdmin(requesterId) || req.user.role === 'admin')) {
             const userDetails = [];
             for (const userId of space.userIds) {
-                const userResult = await UserService.getUserSafeData(userId);
+                const userResult = await userService.getUserSafeData(userId);
                 if (userResult.success) {
                     userDetails.push({
                         ...userResult.user,
@@ -261,7 +255,7 @@ async function updateSpace(req, res) {
             });
         }
 
-        const result = await SpaceService.updateSpace(spaceId, updateData, requesterId);
+        const result = await spaceService.updateSpace(spaceId, updateData, requesterId);
 
         if (!result.success) {
             const statusCode = result.errors?.includes('Not authorized') ? 403 : 
@@ -312,7 +306,7 @@ async function deleteSpace(req, res) {
             });
         }
 
-        const result = await SpaceService.deleteSpace(spaceId, requesterId);
+        const result = await spaceService.deleteSpace(spaceId, requesterId);
 
         if (!result.success) {
             const statusCode = result.error?.includes('Not authorized') ? 403 : 
@@ -362,7 +356,7 @@ async function joinSpace(req, res) {
             });
         }
 
-        const result = await SpaceService.joinSpace(spaceId, userId);
+        const result = await spaceService.joinSpace(spaceId, userId);
 
         if (!result.success) {
             const statusCode = result.error?.includes('not found') ? 404 : 400;
@@ -413,7 +407,7 @@ async function leaveSpace(req, res) {
             });
         }
 
-        const result = await SpaceService.leaveSpace(spaceId, userId);
+        const result = await spaceService.leaveSpace(spaceId, userId);
 
         if (!result.success) {
             const statusCode = result.error?.includes('not found') ? 404 : 400;
@@ -456,7 +450,7 @@ async function getMySpaces(req, res) {
 
         logger.info('Getting user spaces', { userId, includeInactive });
 
-        const result = await SpaceService.getSpacesForUser(userId);
+        const result = await spaceService.getSpacesForUser(userId);
 
         if (!result.success) {
             return res.status(500).json({

@@ -4,9 +4,8 @@ const NotificationService = require('../services/NotificationService');
 const { logger } = require('../utils/logger');
 
 // Use singleton instances (no need to create new instances)
-const userService = UserService;
-const spaceService = SpaceService;
-const notificationService = NotificationService;
+const userService = new UserService();
+const spaceService = new SpaceService();
 
 /**
  * Get user spaces (internal API)
@@ -24,7 +23,7 @@ async function getUserSpaces(req, res) {
             });
         }
 
-        logger.info('Getting user spaces', { userId, includeInactive });
+        logger.info('[internalController][getUserSpaces] Getting user spaces', { userId, includeInactive });
 
         // Get user to verify existence
         const userResult = await userService.getUserById(userId);
@@ -62,7 +61,7 @@ async function getUserSpaces(req, res) {
         });
 
     } catch (error) {
-        logger.error('Error getting user spaces', { 
+        logger.error('[internalController][getUserSpaces] Error getting user spaces', { 
             error: error.message, 
             stack: error.stack, 
             userId: req.params.userId 
@@ -96,7 +95,7 @@ async function getUserNotifications(req, res) {
             });
         }
 
-        logger.info('Getting user notifications', { 
+        logger.info('[internalController][getUserNotifications] Getting user notifications', { 
             userId, 
             type, 
             status, 
@@ -156,7 +155,7 @@ async function getUserNotifications(req, res) {
         });
 
     } catch (error) {
-        logger.error('Error getting user notifications', { 
+        logger.error('[internalController][getUserNotifications] Error getting user notifications', { 
             error: error.message, 
             stack: error.stack, 
             userId: req.params.userId 
@@ -183,7 +182,7 @@ async function getUserStatus(req, res) {
             });
         }
 
-        logger.info('Getting user status', { userId });
+        logger.info('[internalController][getUserStatus] Getting user status', { userId });
 
         // Get user
         const userResult = await userService.getUserById(userId);
@@ -248,7 +247,7 @@ async function getUserStatus(req, res) {
         });
 
     } catch (error) {
-        logger.error('Error getting user status', { 
+        logger.error('[internalController][getUserStatus] Error getting user status', { 
             error: error.message, 
             stack: error.stack, 
             userId: req.params.userId 
@@ -276,7 +275,7 @@ async function getSpaceDetails(req, res) {
             });
         }
 
-        logger.info('Getting space details', { spaceId, includeUsers });
+        logger.info('[internalController][getSpaceDetails] Getting space details', { spaceId, includeUsers });
 
         const spaceResult = await spaceService.getSpaceById(spaceId);
         if (!spaceResult.success) {
@@ -311,7 +310,7 @@ async function getSpaceDetails(req, res) {
         return res.status(200).json(responseData);
 
     } catch (error) {
-        logger.error('Error getting space details', { 
+        logger.error('[internalController][getSpaceDetails] Error getting space details', { 
             error: error.message, 
             stack: error.stack, 
             spaceId: req.params.spaceId 
@@ -329,7 +328,7 @@ async function getSpaceDetails(req, res) {
  */
 async function getSystemStats(req, res) {
     try {
-        logger.info('Getting system statistics');
+        logger.info('[internalController][getSystemStats] Getting system statistics');
 
         // Get all users
         const usersResult = await userService.getAllUsers();
@@ -369,7 +368,7 @@ async function getSystemStats(req, res) {
         });
 
     } catch (error) {
-        logger.error('Error getting system statistics', { 
+        logger.error('[internalController][getSystemStats] Error getting system statistics', { 
             error: error.message, 
             stack: error.stack 
         });

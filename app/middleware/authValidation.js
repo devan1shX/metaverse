@@ -222,18 +222,20 @@ function sanitizeAuthRequest(req, res, next) {
         signup: ['user_name', 'email', 'password', 'confirmPassword']
     };
     
-    const routeType = req.path.includes('signup') ? 'signup' : 'login';
+    const routeType = req.body.path;
     const allowed = allowedFields[routeType];
     
-    // Create sanitized body with only allowed fields
-    const sanitizedBody = {};
-    for (const field of allowed) {
-        if (req.body[field] !== undefined) {
-            sanitizedBody[field] = req.body[field];
+    // Only sanitize if we have a valid route type and allowed fields
+    if (allowed && Array.isArray(allowed)) {
+        // Create sanitized body with only allowed fields
+        const sanitizedBody = {};
+        for (const field of allowed) {
+            if (req.body[field] !== undefined) {
+                sanitizedBody[field] = req.body[field];
+            }
         }
+        req.body = sanitizedBody;
     }
-    
-    req.body = sanitizedBody;
     
     // Add security headers
     res.set({

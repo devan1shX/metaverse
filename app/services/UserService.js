@@ -8,6 +8,20 @@ class UserService {
     this.userRepository = new UserRepository();
   }
 
+  validateUser(userdata){
+    // we just need 1. usernae , email , role , password , user created at , updated at , user_is active
+    if(!userdata.user_name || !userdata.email || 
+      !userdata.role || !userdata.password || !userdata.user_created_at || !userdata.user_updated_at || !userdata.user_is_active){
+      return {
+        success: false,
+        errors: ['Invalid user data']
+      };
+    }
+    return {
+      success: true,
+      errors: []
+    };
+  }
   /**
    * Create a new user
    * @param {Object} userData - User data object
@@ -15,15 +29,16 @@ class UserService {
    */
   async createUser(userData) {
     try {
-      logger.info('Creating new user', { username: userData.username, email: userData.email });
-
+      
+      logger.info('[UserService][createUser] Validating user data', { userData });
+      
       // Create user instance
       const user = new User(userData);
 
       // Validate user data
       const validation = user.validate();
       if (!validation.isValid) {
-        logger.warn('User validation failed', { errors: validation.errors });
+        logger.warn('[UserService][createUser] User validation failed', { errors: validation.errors });
         return {
           success: false,
           errors: validation.errors
@@ -33,7 +48,7 @@ class UserService {
       // Check if email already exists
       const emailExists = await this.userRepository.emailExists(user.email);
       if (emailExists) {
-        logger.warn('Email already exists', { email: user.email });
+        logger.warn('[UserService][createUser] Email already exists', { email: user.email });
         return {
           success: false,
           errors: ['Email already exists']
@@ -43,7 +58,7 @@ class UserService {
       // Check if username already exists
       const usernameExists = await this.userRepository.usernameExists(user.username);
       if (usernameExists) {
-        logger.warn('Username already exists', { username: user.username });
+        logger.warn('[UserService][createUser] Username already exists', { username: user.username });
         return {
           success: false,
           errors: ['Username already exists']
@@ -58,20 +73,20 @@ class UserService {
       // Create user in database
       const createdUser = await this.userRepository.create(user);
       if (!createdUser) {
-        logger.error('Failed to create user in database');
+        logger.error('[UserService][createUser] Failed to create user in database');
         return {
           success: false,
           errors: ['Failed to create user']
         };
       }
 
-      logger.info('User created successfully', { user_id: createdUser.id });
+      logger.info('[UserService][createUser] User created successfully', { user_id: createdUser.id });
       return {
         success: true,
         user: createdUser
       };
     } catch (error) {
-      logger.error('Error in createUser service', { 
+      logger.error('[UserService][createUser] Error in createUser service', { 
         error: error.message, 
         stack: error.stack 
       });
@@ -89,7 +104,7 @@ class UserService {
    */
   async getUserById(userId) {
     try {
-      logger.debug('Getting user by ID', { user_id: userId });
+      logger.debug('[UserService][getUserById] Getting user by ID', { user_id: userId });
 
       if (!userId) {
         return {
@@ -100,7 +115,7 @@ class UserService {
 
       const user = await this.userRepository.findById(userId);
       if (!user) {
-        logger.warn('User not found', { user_id: userId });
+        logger.warn('[UserService][getUserById] User not found', { user_id: userId });
         return {
           success: false,
           error: 'User not found'
@@ -112,7 +127,7 @@ class UserService {
         user: user
       };
     } catch (error) {
-      logger.error('Error in getUserById service', { 
+      logger.error('[UserService][getUserById] Error in getUserById service', { 
         error: error.message, 
         stack: error.stack, 
         user_id: userId 
@@ -131,7 +146,7 @@ class UserService {
    */
   async getUserByEmail(email) {
     try {
-      logger.debug('Getting user by email', { email });
+      logger.debug('[UserService][getUserByEmail] Getting user by email', { email });
 
       if (!email) {
         return {
@@ -142,7 +157,7 @@ class UserService {
 
       const user = await this.userRepository.findByEmail(email);
       if (!user) {
-        logger.warn('User not found by email', { email });
+        logger.warn('[UserService][getUserByEmail] User not found by email', { email });
         return {
           success: false,
           error: 'User not found'
@@ -154,7 +169,7 @@ class UserService {
         user: user
       };
     } catch (error) {
-      logger.error('Error in getUserByEmail service', { 
+      logger.error('[UserService][getUserByEmail] Error in getUserByEmail service', { 
         error: error.message, 
         stack: error.stack, 
         email 
@@ -174,7 +189,7 @@ class UserService {
   async getAllUsers(options = {}) {
     try {
       const { filters = {}, limit = null, offset = 0 } = options;
-      logger.debug('Getting all users', { filters, limit, offset });
+      logger.debug('[UserService][getAllUsers] Getting all users', { filters, limit, offset });
 
       const users = await this.userRepository.findAll(filters, limit, offset);
       
@@ -183,7 +198,7 @@ class UserService {
         users: users
       };
     } catch (error) {
-      logger.error('Error in getAllUsers service', { 
+      logger.error('[UserService][getAllUsers] Error in getAllUsers service', { 
         error: error.message, 
         stack: error.stack 
       });
@@ -202,7 +217,7 @@ class UserService {
    */
   async updateUser(userId, updateData) {
     try {
-      logger.info('Updating user', { user_id: userId });
+      logger.info('[UserService][updateUser] Updating user', { user_id: userId });
 
       if (!userId) {
         return {
@@ -214,7 +229,7 @@ class UserService {
       // Get existing user
       const existingUser = await this.userRepository.findById(userId);
       if (!existingUser) {
-        logger.warn('User not found for update', { user_id: userId });
+        logger.warn('[UserService][updateUser] User not found for update', { user_id: userId });
         return {
           success: false,
           errors: ['User not found']
@@ -249,7 +264,7 @@ class UserService {
       // Validate updated user
       const validation = existingUser.validate();
       if (!validation.isValid) {
-        logger.warn('User update validation failed', { errors: validation.errors });
+        logger.warn('[UserService][updateUser] User update validation failed', { errors: validation.errors });
         return {
           success: false,
           errors: validation.errors
@@ -259,20 +274,20 @@ class UserService {
       // Update in database
       const updatedUser = await this.userRepository.update(existingUser);
       if (!updatedUser) {
-        logger.error('Failed to update user in database');
+        logger.error('[UserService][updateUser] Failed to update user in database');
         return {
           success: false,
           errors: ['Failed to update user']
         };
       }
 
-      logger.info('User updated successfully', { user_id: userId });
+      logger.info('[UserService][updateUser] User updated successfully', { user_id: userId });
       return {
         success: true,
         user: updatedUser
       };
     } catch (error) {
-      logger.error('Error in updateUser service', { 
+      logger.error('[UserService][updateUser] Error in updateUser service', { 
         error: error.message, 
         stack: error.stack, 
         user_id: userId 
@@ -292,7 +307,7 @@ class UserService {
    */
   async updateUserAvatar(userId, avatarUrl) {
     try {
-      logger.info('Updating user avatar', { user_id: userId, avatarUrl });
+      logger.info('[UserService][updateUserAvatar] Updating user avatar', { user_id: userId, avatarUrl });
 
       if (!userId) {
         return {
@@ -311,7 +326,7 @@ class UserService {
       const result = await this.updateUser(userId, { avatarUrl });
       return result;
     } catch (error) {
-      logger.error('Error in updateUserAvatar service', { 
+      logger.error('[UserService][updateUserAvatar] Error in updateUserAvatar service', { 
         error: error.message, 
         stack: error.stack, 
         user_id: userId 
@@ -332,7 +347,7 @@ class UserService {
    */
   async changePassword(userId, currentPassword, newPassword) {
     try {
-      logger.info('Changing user password', { user_id: userId });
+      logger.info('[UserService][changePassword] Changing user password', { user_id: userId });
 
       if (!userId || !currentPassword || !newPassword) {
         return {
@@ -353,7 +368,7 @@ class UserService {
       // Verify current password
       const isCurrentPasswordValid = await user.verifyPassword(currentPassword);
       if (!isCurrentPasswordValid) {
-        logger.warn('Invalid current password', { user_id: userId });
+        logger.warn('[UserService][changePassword] Invalid current password', { user_id: userId });
         return {
           success: false,
           error: 'Current password is incorrect'
@@ -375,19 +390,19 @@ class UserService {
       // Update password in database
       const success = await this.userRepository.updatePassword(userId, tempUser.password);
       if (!success) {
-        logger.error('Failed to update password in database');
+        logger.error('[UserService][changePassword] Failed to update password in database');
         return {
           success: false,
           error: 'Failed to update password'
         };
       }
 
-      logger.info('Password changed successfully', { user_id: userId });
+      logger.info('[UserService][changePassword] Password changed successfully', { user_id: userId });
       return {
         success: true
       };
     } catch (error) {
-      logger.error('Error in changePassword service', { 
+      logger.error('[UserService][changePassword] Error in changePassword service', { 
         error: error.message, 
         stack: error.stack, 
         user_id: userId 
@@ -407,7 +422,7 @@ class UserService {
    */
   async authenticateUser(email, password) {
     try {
-      logger.info('Authenticating user', { email });
+      logger.info('[UserService][authenticateUser] Authenticating user', { email });
 
       if (!email || !password) {
         return {
@@ -419,7 +434,7 @@ class UserService {
       // Get user by email
       const user = await this.userRepository.findByEmail(email);
       if (!user) {
-        logger.warn('User not found for authentication', { email });
+        logger.warn('[UserService][authenticateUser] User not found for authentication', { email });
         return {
           success: false,
           error: 'Invalid email or password'
@@ -428,7 +443,7 @@ class UserService {
 
       // Check if user is active
       if (!user.isActiveUser()) {
-        logger.warn('Inactive user attempted login', { email });
+        logger.warn('[UserService][authenticateUser] Inactive user attempted login', { email });
         return {
           success: false,
           error: 'Account is deactivated'
@@ -438,20 +453,20 @@ class UserService {
       // Verify password
       const isPasswordValid = await user.verifyPassword(password);
       if (!isPasswordValid) {
-        logger.warn('Invalid password for user', { email });
+        logger.warn('[UserService][authenticateUser] Invalid password for user', { email });
         return {
           success: false,
           error: 'Invalid email or password'
         };
       }
 
-      logger.info('User authenticated successfully', { user_id: user.id, email });
+      logger.info('[UserService][authenticateUser] User authenticated successfully', { user_id: user.id, email });
       return {
         success: true,
         user: user
       };
     } catch (error) {
-      logger.error('Error in authenticateUser service', { 
+      logger.error('[UserService][authenticateUser] Error in authenticateUser service', { 
         error: error.message, 
         stack: error.stack, 
         email 
@@ -471,7 +486,7 @@ class UserService {
    */
   async deactivateUser(userId) {
     try {
-      logger.info('Deactivating user', { user_id: userId });
+      logger.info('[UserService][deactivateUser] Deactivating user', { user_id: userId });
 
       if (!userId) {
         return {
@@ -488,12 +503,12 @@ class UserService {
         };
       }
 
-      logger.info('User deactivated successfully', { user_id: userId });
+      logger.info('[UserService][deactivateUser]User deactivated successfully', { user_id: userId });
       return {
         success: true
       };
     } catch (error) {
-      logger.error('Error in deactivateUser service', { 
+      logger.error('[UserService][deactivateUser] Error in deactivateUser service', { 
         error: error.message, 
         stack: error.stack, 
         user_id: userId 
@@ -512,7 +527,7 @@ class UserService {
    */
   async deleteUser(userId) {
     try {
-      logger.info('Deleting user permanently', { user_id: userId });
+      logger.info('[UserService][deleteUser] Deleting user permanently', { user_id: userId });
 
       if (!userId) {
         return {
@@ -529,12 +544,12 @@ class UserService {
         };
       }
 
-      logger.info('User deleted permanently', { user_id: userId });
+      logger.info('[UserService][deleteUser] User deleted permanently', { user_id: userId });
       return {
         success: true
       };
     } catch (error) {
-      logger.error('Error in deleteUser service', { 
+      logger.error('[UserService][deleteUser] Error in deleteUser service', { 
         error: error.message, 
         stack: error.stack, 
         user_id: userId 
@@ -553,6 +568,7 @@ class UserService {
    */
   async getUserSafeData(userId) {
     try {
+      logger.info('[UserService][getUserSafeData] Getting user safe data', { user_id: userId });
       const result = await this.getUserById(userId);
       if (!result.success) {
         return result;
@@ -563,7 +579,7 @@ class UserService {
         user: result.user.toSafeObject()
       };
     } catch (error) {
-      logger.error('Error in getUserSafeData service', { 
+      logger.error('[UserService][getUserSafeData] Error in getUserSafeData service', { 
         error: error.message, 
         stack: error.stack, 
         user_id: userId 
@@ -574,54 +590,8 @@ class UserService {
       };
     }
   }
-  async getUserSpaces(userId) {
-    try{
-      const user = await this.userRepository.findById(userId);
-      if(!user){
-        return {
-          "status":"User not found",
-        }
-      }
-      // if we get a user , we will return the spaces of that user 
-      return user.getSpaces();
-    }
-    catch(error){
-      
-      logger.error('Error in getUserSpaces service', { 
-        error: error.message, 
-        stack: error.stack, 
-        user_id: userId ,
-        file:"UserService.js",
-        function:"getUserSpaces"
-      });
-    }
-
-  }
-
-  async getUserNotifications(userId) {
-    try{
-      const user = await this.userRepository.findById(userId);
-      if(!user){
-        return {
-          "status":"User not found",
-        }
-      }
-      // if we get a user , we will return the spaces of that user 
-      return user.getNotifications();
-    }
-    catch(error){
-      
-      logger.error('Error in getUserNotifications service', { 
-        error: error.message, 
-        stack: error.stack, 
-        user_id: userId ,
-        file:"UserService.js",
-        function:"getUserNotifications"
-      });
-    }
-
-  }
+  
 }
 
-userServiceSingleton = new UserService();
-module.exports = userServiceSingleton;
+
+module.exports = UserService;

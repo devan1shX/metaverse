@@ -9,7 +9,7 @@ class User {
     password = null,
     role = 'participant',
     designation = 'None',
-    avatarUrl = '/avatars/avatar1.png',
+    avatarUrl = '/avatars/avatar-2.png',
     about = null,
     isActive = true,
     createdAt = null,

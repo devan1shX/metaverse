@@ -3,6 +3,8 @@ const { logger } = require('../utils/logger');
 const { Config } = require('../config/config');
 const UserService = require('../services/UserService');
 
+const userService = new UserService();
+
 async function signup_controller(req, res) {
     try {
         const { user_name, email, password } = req.body;
@@ -21,7 +23,7 @@ async function signup_controller(req, res) {
         };
 
         // Use UserService to create user (handles validation, duplicate checking, etc.)
-        const result = await UserService.createUser(userData);
+        const result = await userService.createUser(userData);
 
         if (!result.success) {
             logger.warn('User creation failed', { 

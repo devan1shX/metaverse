@@ -1,10 +1,17 @@
 // initialise the db with the required tables 
 const { get_async_db } = require('./db_conn');
 const { logger } = require('../utils/logger');
+const UserService = require('../services/UserService');
+const userService = new UserService();
+const {Config} = require('./config');
+const { db_cleaner } = require('../utils/database/db_cleaner');
 
-async function init_db() {
+async function init_db(skipCleaner = false) {
+  if (!skipCleaner) {
+    await db_cleaner(); 
+  }
   try {
-    logger.info('Initializing database...');
+    logger.info('[init_db][init_db] Initializing database...');
     const db = await get_async_db();
 
     await db.query(`
@@ -20,7 +27,7 @@ async function init_db() {
         user_designation TEXT DEFAULT 'None',
         user_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         user_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        user_avatar_url VARCHAR(255) DEFAULT '/avatars/avatar1.png',
+        user_avatar_url VARCHAR(255) DEFAULT '/avatars/avatar-2.png',
         user_about TEXT,
         user_is_active BOOLEAN NOT NULL DEFAULT TRUE,
         user_spaces JSONB DEFAULT '[]'::jsonb,
@@ -102,17 +109,40 @@ async function init_db() {
       CREATE INDEX IF NOT EXISTS idx_blacklisted_tokens_expires_at ON blacklisted_tokens(expires_at);
     `);
 
-    logger.info("Database tables created successfully (users, spaces, user_spaces, notifications, blacklisted_tokens)");
+    logger.info("[init_db][init_db] Database tables created successfully (users, spaces, user_spaces, notifications, blacklisted_tokens)");
+    await add_admin();
   } catch (error) {
-    logger.error('Database initialization failed', { error: error.message, stack: error.stack });
+    logger.error('[init_db][init_db] Database initialization failed', { error: error.message, stack: error.stack });
     throw error;
   }
 }
-async function add_admin(){
-  const db = await get_async_db();
-  const admin = await db.query('SELECT * FROM users WHERE email = $1', [Config.ADMIN_EMAIL]);
-  if(admin.rows.length === 0){
-    await db.query('INSERT INTO users (email, password, role) VALUES ($1, $2, $3)', [Config.ADMIN_EMAIL, Config.ADMIN_PASSWORD, 'admin']);
+ async function add_admin(){
+  try {
+    // Check if admin already exists
+    const existingAdmin = await userService.getUserByEmail(Config.ADMIN_EMAIL);
+    if (existingAdmin.success) {
+      logger.info("[init_db][add_admin] Admin user already exists, skipping creation");
+      return;
+    }
+
+    const user_data = {
+      "email": Config.ADMIN_EMAIL,
+      "password": Config.ADMIN_PASSWORD,
+      "role": Config.USER_LEVELS.ADMIN,
+      "username": Config.ADMIN_EMAIL.split("@")[0],
+      "user_created_at": Date.now(),
+      "user_updated_at": Date.now(),
+      "user_is_active": true
+    }
+    const admin = await userService.createUser(user_data);
+    if(admin.success){
+      logger.info("[init_db][add_admin] Admin user created successfully");
+    }
+    else {
+      logger.error("[init_db][add_admin] Admin user creation failed", { error: admin.errors });
+    }
+  } catch (error) {
+    logger.error("[init_db][add_admin] Error in add_admin function", { error: error.message, stack: error.stack });
   }
 }
-module.exports = { init_db };
+module.exports = { init_db, add_admin };

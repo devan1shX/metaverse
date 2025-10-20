@@ -576,6 +576,254 @@ class NotificationRepository {
       client.release();
     }
   }
+
+  /**
+   * Find pending space invite for a user and space
+   * @param {string} userId - User ID
+   * @param {string} spaceId - Space ID
+   * @returns {Promise<Notification|null>} Notification instance or null if not found
+   */
+  async findPendingSpaceInvite(userId, spaceId) {
+    try {
+      const db = await get_async_db();
+      logger.debug('Finding pending space invite', { userId, spaceId });
+
+      const result = await db.query(
+        `SELECT * FROM ${this.tableName} 
+         WHERE user_id = $1 
+         AND type = 'invites'
+         AND data->>'spaceId' = $2
+         AND status = 'unread'
+         AND is_active = true
+         AND (expires_at IS NULL OR expires_at > NOW())
+         LIMIT 1`,
+        [userId, spaceId]
+      );
+
+      if (result.rows.length > 0) {
+        logger.debug('Pending space invite found', { userId, spaceId });
+        return Notification.fromDatabaseRow(result.rows[0]);
+      }
+
+      return null;
+    } catch (error) {
+      logger.error('Error finding pending space invite', { 
+        error: error.message, 
+        stack: error.stack, 
+        userId, 
+        spaceId 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Find user invites
+   * @param {string} userId - User ID
+   * @param {boolean} includeExpired - Include expired invites
+   * @returns {Promise<Notification[]>} Array of Notification instances
+   */
+  async findUserInvites(userId, includeExpired = false) {
+    try {
+      const db = await get_async_db();
+      let query = `
+        SELECT * FROM ${this.tableName}
+        WHERE user_id = $1
+        AND type = 'invites'
+        AND is_active = true
+        AND status = 'unread'
+      `;
+
+      if (!includeExpired) {
+        query += ` AND (expires_at IS NULL OR expires_at > NOW())`;
+      }
+
+      query += ` ORDER BY created_at DESC`;
+
+      logger.debug('Finding user invites', { userId, includeExpired });
+
+      const result = await db.query(query, [userId]);
+      
+      const notifications = result.rows.map(row => Notification.fromDatabaseRow(row));
+      
+      logger.info('User invites found', { userId, count: notifications.length });
+      return notifications;
+    } catch (error) {
+      logger.error('Error finding user invites', { 
+        error: error.message, 
+        stack: error.stack, 
+        userId 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Update notification status
+   * @param {string} notificationId - Notification ID
+   * @param {string} status - New status
+   * @returns {Promise<Notification|null>} Updated notification or null
+   */
+  async updateStatus(notificationId, status) {
+    try {
+      const db = await get_async_db();
+      
+      const result = await db.query(
+        `UPDATE ${this.tableName} 
+         SET status = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2
+         RETURNING *`,
+        [status, notificationId]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      return new Notification(result.rows[0]);
+    } catch (error) {
+      logger.error('Error updating notification status', { 
+        error: error.message, 
+        stack: error.stack, 
+        notificationId, 
+        status 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Bulk update notifications
+   * @param {Array<string>} notificationIds - Array of notification IDs
+   * @param {Object} updates - Update data
+   * @returns {Promise<{success: boolean, updatedCount?: number, error?: string}>}
+   */
+  async bulkUpdate(notificationIds, updates) {
+    const db = await get_async_db();
+    const client = await db.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      let updatedCount = 0;
+      
+      for (const notificationId of notificationIds) {
+        const updateFields = [];
+        const values = [];
+        let paramCount = 1;
+
+        if (updates.title !== undefined) {
+          updateFields.push(`title = $${paramCount++}`);
+          values.push(updates.title);
+        }
+        if (updates.message !== undefined) {
+          updateFields.push(`message = $${paramCount++}`);
+          values.push(updates.message);
+        }
+        if (updates.status !== undefined) {
+          updateFields.push(`status = $${paramCount++}`);
+          values.push(updates.status);
+        }
+        if (updates.isActive !== undefined) {
+          updateFields.push(`is_active = $${paramCount++}`);
+          values.push(updates.isActive);
+        }
+
+        if (updateFields.length > 0) {
+          updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+          values.push(notificationId);
+
+          const result = await client.query(
+            `UPDATE ${this.tableName} 
+             SET ${updateFields.join(', ')}
+             WHERE id = $${paramCount}
+             RETURNING id`,
+            values
+          );
+
+          if (result.rows.length > 0) {
+            updatedCount++;
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+
+      logger.info('Bulk update notifications completed', { 
+        requestedCount: notificationIds.length, 
+        updatedCount 
+      });
+
+      return {
+        success: true,
+        updatedCount
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Error in bulk update notifications', { 
+        error: error.message, 
+        stack: error.stack, 
+        notificationIds 
+      });
+      return {
+        success: false,
+        error: 'Internal server error'
+      };
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Bulk delete notifications
+   * @param {Array<string>} notificationIds - Array of notification IDs
+   * @returns {Promise<{success: boolean, deletedCount?: number, error?: string}>}
+   */
+  async bulkDelete(notificationIds) {
+    const db = await get_async_db();
+    const client = await db.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      // Use IN clause for bulk delete
+      const placeholders = notificationIds.map((_, index) => `$${index + 1}`).join(',');
+      
+      const result = await client.query(
+        `DELETE FROM ${this.tableName} 
+         WHERE id IN (${placeholders})
+         RETURNING id`,
+        notificationIds
+      );
+
+      await client.query('COMMIT');
+
+      const deletedCount = result.rows.length;
+
+      logger.info('Bulk delete notifications completed', { 
+        requestedCount: notificationIds.length, 
+        deletedCount 
+      });
+
+      return {
+        success: true,
+        deletedCount
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Error in bulk delete notifications', { 
+        error: error.message, 
+        stack: error.stack, 
+        notificationIds 
+      });
+      return {
+        success: false,
+        error: 'Internal server error'
+      };
+    } finally {
+      client.release();
+    }
+  }
 }
 
 module.exports = NotificationRepository;

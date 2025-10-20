@@ -27,7 +27,7 @@ class WebSocketManager {
             ws.on('message', async (message) => {
                 try {
                     const messageStr = message.toString();
-                    logger.info('Message received:', JSON.parse(messageStr));
+                    logger.info('[ws_handler][message][Message received:', JSON.parse(messageStr));
                     
                     // Process message through WSMessageParser
                     const result = await WSMessageParser.HandleClientMessage(messageStr);
@@ -42,7 +42,7 @@ class WebSocketManager {
                         }
                     }
                 } catch (error) {
-                    logger.error('Error processing WebSocket message', { 
+                    logger.error('[ws_handler][message][Error processing WebSocket message', { 
                         error: error.message, 
                         stack: error.stack 
                     });

@@ -9,11 +9,15 @@ const {
 } = require('../../../middleware/authValidation');
 
 const signup_routes = express.Router();
-
+function addpath(req, res, next){
+    req.body.path="signup";
+    next()
+}
 // Apply middleware in order: sanitize -> rate limit -> validate -> log -> controller
 signup_routes.post('/', 
+    addpath,
     sanitizeAuthRequest,
-    rateLimitAuth(3, 10 * 60 * 1000), // 3 signup attempts per 10 minutes (stricter than login)
+    rateLimitAuth(100, 10 * 60 * 1000), // 3 signup attempts per 10 minutes (stricter than login)
     validateSignup,
     logAuthAttempt,
     signup_controller

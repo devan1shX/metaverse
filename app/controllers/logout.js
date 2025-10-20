@@ -68,8 +68,9 @@ async function log_out_router(req, res) {
         if (!token) {
             logger.warn('Logout attempt without token');
             return res.status(400).json({
+                success: false,
                 message: "No token provided",
-                note: "Authorization header with Bearer token is required"
+                errors: ["Authorization header with Bearer token is required"]
             });
         }
 
@@ -83,7 +84,9 @@ async function log_out_router(req, res) {
                     user_id: user_info.user_id 
                 });
                 return res.status(401).json({
-                    message: "Token already invalidated"
+                    success: false,
+                    message: "Token already invalidated",
+                    errors: ["This token has already been revoked"]
                 });
             }
 
@@ -97,22 +100,33 @@ async function log_out_router(req, res) {
             });
 
             return res.status(200).json({
+                success: true,
                 message: "Logout successful",
-                user_id: user_info.user_id,
+                user: {
+                    id: user_info.user_id,
+                    username: user_info.username,
+                    email: user_info.email,
+                    role: user_info.role
+                },
                 logged_out_at: new Date().toISOString()
             });
 
         } catch (jwtError) {
             logger.warn('Invalid token during logout', { error: jwtError.message });
             return res.status(401).json({
-                message: "Invalid token",
-                error: "Token verification failed"
+                success: false,
+                message: "Token verification failed",
+                errors: ["Invalid or expired token"]
             });
         }
 
     } catch (error) {
         logger.error('Logout error', { error: error.message, stack: error.stack });
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ 
+            success: false,
+            message: "Internal server error",
+            errors: ["An unexpected error occurred during logout"]
+        });
     }
 }
 

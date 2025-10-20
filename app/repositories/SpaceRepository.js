@@ -458,13 +458,33 @@ class SpaceRepository {
       
       logger.debug('Hard deleting space', { space_id: spaceId });
 
-      // Delete user-space relationships first
+      // 1. Delete space-related notifications first
+      await client.query(
+        `DELETE FROM notifications 
+         WHERE data->>'spaceId' = $1 
+         OR (type = 'invites' AND data->>'spaceId' = $1)`,
+        [spaceId]
+      );
+      logger.debug('Deleted space-related notifications', { space_id: spaceId });
+
+      // 2. Update users' user_spaces JSONB field to remove the space
+      await client.query(
+        `UPDATE users 
+         SET user_spaces = user_spaces - $1,
+             user_updated_at = CURRENT_TIMESTAMP
+         WHERE user_spaces ? $1`,
+        [spaceId]
+      );
+      logger.debug('Updated users user_spaces JSONB field', { space_id: spaceId });
+
+      // 3. Delete user-space relationships
       await client.query(
         `DELETE FROM ${this.userSpaceTableName} WHERE space_id = $1`,
         [spaceId]
       );
+      logger.debug('Deleted user-space relationships', { space_id: spaceId });
 
-      // Delete the space
+      // 4. Delete the space itself
       const result = await client.query(
         `DELETE FROM ${this.tableName} WHERE id = $1`,
         [spaceId]
@@ -517,6 +537,58 @@ class SpaceRepository {
         error: error.message, 
         stack: error.stack, 
         name 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Check if user is a member of a space
+   * @param {string} spaceId - Space ID
+   * @param {string} userId - User ID
+   * @returns {Promise<boolean>} True if user is a member
+   */
+  async isUserMember(spaceId, userId) {
+    try {
+      const db = await get_async_db();
+      
+      const result = await db.query(
+        `SELECT 1 FROM ${this.userSpaceTableName} WHERE user_id = $1 AND space_id = $2`,
+        [userId, spaceId]
+      );
+
+      return result.rows.length > 0;
+    } catch (error) {
+      logger.error('Error checking if user is member', { 
+        error: error.message, 
+        stack: error.stack, 
+        spaceId, 
+        userId 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get user count in a space
+   * @param {string} spaceId - Space ID
+   * @returns {Promise<number>} Number of users in space
+   */
+  async getUserCount(spaceId) {
+    try {
+      const db = await get_async_db();
+      
+      const result = await db.query(
+        `SELECT COUNT(*) as count FROM ${this.userSpaceTableName} WHERE space_id = $1`,
+        [spaceId]
+      );
+
+      return parseInt(result.rows[0].count);
+    } catch (error) {
+      logger.error('Error getting user count', { 
+        error: error.message, 
+        stack: error.stack, 
+        spaceId 
       });
       throw error;
     }

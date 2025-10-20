@@ -440,6 +440,96 @@ class UserRepository {
       throw error;
     }
   }
+
+  /**
+   * Find users not in a specific space
+   * @param {string} spaceId - Space ID
+   * @param {string} excludeUserId - User ID to exclude (usually the requesting user)
+   * @returns {Promise<User[]>} Array of User instances
+   */
+  async findUsersNotInSpace(spaceId, excludeUserId = null) {
+    try {
+      const db = await get_async_db();
+      let query = `
+        SELECT u.* FROM ${this.tableName} u
+        WHERE u.user_is_active = true
+        AND NOT EXISTS (
+          SELECT 1 FROM user_spaces us 
+          WHERE us.user_id = u.id AND us.space_id = $1
+        )
+      `;
+      const params = [spaceId];
+
+      if (excludeUserId) {
+        query += ` AND u.id != $2`;
+        params.push(excludeUserId);
+      }
+
+      query += ` ORDER BY u.user_name`;
+
+      logger.debug('Finding users not in space', { spaceId, excludeUserId });
+
+      const result = await db.query(query, params);
+      
+      const users = result.rows.map(row => User.fromDatabaseRow(row));
+      
+      logger.info('Users not in space found', { spaceId, count: users.length });
+      return users;
+    } catch (error) {
+      logger.error('Error finding users not in space', { 
+        error: error.message, 
+        stack: error.stack, 
+        spaceId 
+      });
+      throw error;
+    }
+  }
+
+  /**add a space for a user */
+  async addSpaceForUser(userid , space){
+    try{
+      const db = await get_async_db();
+      const user = await this.findById(userid);
+      if(!user){
+        logger.error('User not found', { userid });
+        return false;
+      }
+     
+      const existsResult = await db.query(
+        `SELECT 1 FROM user_spaces WHERE user_id = $1 AND space_id = $2`,
+        [userid, space.id]
+      );
+      if (existsResult.rows.length > 0) {
+        logger.warn('User is already in space', { userid, spaceId: space.id });
+        return false;
+      }
+      const result = await db.query(
+        `INSERT INTO user_spaces (user_id, space_id, joined_at)
+        VALUES ($1, $2, NOW())`,
+        [userid, space.id]
+      );
+      logger.info('Added user to space', { userid, spaceId: space.id });
+      return result.rowCount > 0;
+    }catch(error){
+    }
+  }
+  async getUserSpaces(userid){
+    const db = await get_async_db();
+    const result = await db.query(
+      `SELECT * FROM user_spaces WHERE user_id = $1`,
+      [userid]
+    );
+    
+    return result.rows;
+  }
+  async getUserNotifications(userid){
+    const db = await get_async_db();
+    const result = await db.query(
+      `SELECT * FROM notifications WHERE user_id = $1`,
+      [userid]
+    );
+    return result.rows;
+  }
 }
 
 module.exports = UserRepository;

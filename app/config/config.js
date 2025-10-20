@@ -5,13 +5,13 @@ const path = require('path');
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const Config = {
-  BackendPort: 3000,
+  BackendPort: process.env.PORT || 3000,
   db: {
-    username: "postgres",
-    password: "aahan123",
-    port: 5433,
+    host: process.env.DB_HOST || "localhost",
+    username: process.env.DB_USER || "postgres",
+    password: process.env.DB_PASSWORD || "aahan123",
+    port: parseInt(process.env.DB_PORT) || 5433,
     database: process.env.DATABASE || 'postgres',
-
   },
   USER_LEVELS:{
     ADMIN: "admin",
@@ -20,7 +20,7 @@ const Config = {
   ADMIN_EMAIL: process.env.ADMIN_EMAIL,
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
   JWT_SECRET: process.env.JWT_SECRET,
-  WS_PORT: 5001,
+  WS_PORT: parseInt(process.env.WS_PORT) || 5001,
   WS_EVENTS:{
     JOIN_SPACE: "JOIN_SPACE",
     LEAVE_SPACE: "LEAVE_SPACE",
@@ -38,6 +38,7 @@ const Config = {
     USER_ACTION: "USER_ACTION",
     CHAT_MESSAGE: "CHAT_MESSAGE",
   },
+  skipCleaner: process.env.SKIP_CLEANER || false,
 }
 
 // Log configuration loading

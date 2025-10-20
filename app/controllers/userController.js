@@ -2,7 +2,7 @@ const UserService = require('../services/UserService');
 const { logger } = require('../utils/logger');
 
 // Use UserService singleton instance
-const userService = UserService;
+const userService = new UserService();
 
 /**
  * Update user avatar controller

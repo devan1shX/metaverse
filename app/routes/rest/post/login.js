@@ -12,8 +12,14 @@ const {
 
 const login_routes = express.Router();
 
+function addpath(req, res, next){
+    req.body.path="login";
+    next()
+}
+
 // Apply middleware in order: sanitize -> rate limit -> validate -> log -> controller
 login_routes.post('/', 
+    addpath,
     sanitizeAuthRequest,
     rateLimitAuth(5, 15 * 60 * 1000), // 5 attempts per 15 minutes
     validateLogin,
