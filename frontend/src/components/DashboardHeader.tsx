@@ -53,15 +53,15 @@ export function DashboardHeader({ avatarUrl }: { avatarUrl?: string }) {
                 <li>
                   <Link
                     className="text-gray-300 transition hover:text-white"
-                    href="#"
+                    href="/discover"
                   >
-                    Events
+                    Discover
                   </Link>
                 </li>
                 <li>
                   <Link
                     className="text-white font-semibold rounded-md bg-white/10 px-3 py-1.5"
-                    href="#"
+                    href="/dashboard"
                   >
                     My Spaces
                   </Link>
@@ -117,15 +117,15 @@ export function DashboardHeader({ avatarUrl }: { avatarUrl?: string }) {
               <li>
                 <Link
                   className="block rounded-lg px-4 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white"
-                  href="#"
+                  href="/discover"
                 >
-                  Events
+                  Discover
                 </Link>
               </li>
               <li>
                 <Link
                   className="block rounded-lg px-4 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white"
-                  href="#"
+                  href="/dashboard"
                 >
                   My Spaces
                 </Link>

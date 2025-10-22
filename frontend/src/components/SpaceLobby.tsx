@@ -1,127 +1,195 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useRouter, useParams } from "next/navigation";
-import { Video, Mic, Edit2 } from "lucide-react";
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Space } from "@/types/api";
+import {
+  Users,
+  Calendar,
+  Settings,
+  LogIn,
+  LogOut,
+  Trash2,
+  Edit,
+} from "lucide-react";
+import Image from "next/image";
 
-export default function SpaceLobby() {
-  const { user } = useAuth();
+// Define the props interface
+interface SpaceLobbyProps {
+  space: Space;
+  isUserAdmin: boolean;
+  isUserMember: boolean;
+  onJoin: () => Promise<void>;
+  onLeave: () => Promise<void>;
+  onDelete: () => Promise<void>;
+  onUpdate: (updateData: {
+    name?: string;
+    description?: string;
+    isPublic?: boolean;
+    maxUsers?: number;
+  }) => Promise<void>;
+}
+
+export default function SpaceLobby({
+  space,
+  isUserAdmin,
+  isUserMember,
+  onJoin,
+  onLeave,
+  onDelete,
+  onUpdate,
+}: SpaceLobbyProps) {
   const router = useRouter();
-  const params = useParams();
-  const spaceId = params.spaceId as string;
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedName, setEditedName] = useState(space.name);
+  const [editedDescription, setEditedDescription] = useState(
+    space.description || ""
+  );
 
-  const [userName, setUserName] = useState(user?.user_name || "Guest");
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [permissionsGranted, setPermissionsGranted] = useState(false);
-  const [camOn, setCamOn] = useState(false);
-  const [micOn, setMicOn] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-
-  const requestPermissions = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setPermissionsGranted(true);
-      setCamOn(true);
-      setMicOn(true);
-    } catch (err) {
-      console.error("Error accessing media devices.", err);
-      setPermissionsGranted(false);
-    }
+  const handleUpdate = async () => {
+    await onUpdate({
+      name: editedName,
+      description: editedDescription,
+    });
+    setIsEditing(false);
   };
 
-  const toggleCam = () => {
-    if (streamRef.current) {
-        streamRef.current.getVideoTracks().forEach(track => track.enabled = !camOn);
-        setCamOn(!camOn);
-    }
-  }
-
-  const toggleMic = () => {
-    if (streamRef.current) {
-        streamRef.current.getAudioTracks().forEach(track => track.enabled = !micOn);
-        setMicOn(!micOn);
-    }
-  }
-
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
-
-  const handleJoin = () => {
-    console.log(`Joining space ${spaceId} as ${userName}`);
-    router.push("/");
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
   };
-
-  if (!user) return <p>Loading user...</p>;
 
   return (
-    <div className="min-h-screen bg-[#2a2a3e] text-white flex flex-col items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-4xl"
-      >
-        <h1 className="text-4xl font-bold text-center mb-10">
-          Welcome to <span className="text-purple-400">{spaceId}</span>
-        </h1>
-
-        <div className="grid md:grid-cols-2 gap-8 items-center">
-          <div className="aspect-video bg-black rounded-2xl flex items-center justify-center relative overflow-hidden border-2 border-gray-700">
-            {!permissionsGranted ? (
-              <div className="text-center">
-                <p className="mb-4 text-gray-400">Please grant camera and microphone access.</p>
-                <button
-                  onClick={requestPermissions}
-                  className="rounded-md bg-green-500 px-5 py-3 font-medium shadow transition-colors hover:bg-green-600"
-                >
-                  Request Permissions
-                </button>
-              </div>
+    <div className="min-h-screen bg-[#2a2a3e] text-white flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl bg-[#35354e] rounded-2xl shadow-2xl border border-gray-700/50 overflow-hidden">
+        <div className="h-48 md:h-64 relative">
+          <Image
+            src={space.mapImageUrl || "/images/office.png"}
+            alt={`${space.name} map`}
+            fill
+            style={{ objectFit: 'cover' }}
+            className="opacity-40"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#35354e] to-transparent p-6 flex flex-col justify-end">
+            {isEditing ? (
+              <input
+                type="text"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                className="text-3xl md:text-4xl font-bold text-white bg-transparent border-b-2 border-purple-400 focus:outline-none"
+              />
             ) : (
-               <>
-                 <video ref={videoRef} autoPlay muted className={`w-full h-full object-cover ${!camOn ? 'hidden' : ''}`}></video>
-                 {!camOn && <p className="text-gray-400">Camera is off</p>}
-                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3">
-                    <button onClick={toggleMic} className={`p-3 rounded-full transition-colors ${micOn ? 'bg-white/10' : 'bg-red-500'}`}>
-                        <Mic size={20} />
-                    </button>
-                    <button onClick={toggleCam} className={`p-3 rounded-full transition-colors ${camOn ? 'bg-white/10' : 'bg-red-500'}`}>
-                        <Video size={20} />
-                    </button>
-                 </div>
-               </>
+              <h1 className="text-3xl md:text-4xl font-bold text-white">
+                {space.name}
+              </h1>
+            )}
+            {isEditing ? (
+              <textarea
+                value={editedDescription}
+                onChange={(e) => setEditedDescription(e.target.value)}
+                className="text-gray-300 mt-2 bg-transparent border-b-2 border-purple-400 focus:outline-none w-full"
+                rows={2}
+              />
+            ) : (
+              <p className="text-gray-300 mt-2">{space.description}</p>
             )}
           </div>
+        </div>
 
-          <div className="flex flex-col items-center justify-center">
-             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 mb-4 text-4xl flex items-center justify-center">
-                {userName.charAt(0).toUpperCase()}
-             </div>
-             <div onClick={() => setIsEditingName(true)} className="flex items-center gap-2 cursor-pointer group mb-8">
-                <span className="text-2xl font-semibold">{userName}</span>
-                <Edit2 size={16} className="text-gray-400 group-hover:text-white transition-colors" />
-             </div>
-            <button
-              onClick={handleJoin}
-              disabled={!permissionsGranted}
-              className="w-full max-w-xs rounded-lg bg-green-500 px-8 py-4 text-lg font-bold shadow transition-colors hover:bg-green-600 disabled:bg-gray-600 disabled:cursor-not-allowed"
-            >
-              Join
-            </button>
+        <div className="p-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-6">
+            <div className="bg-white/5 p-3 rounded-lg">
+              <Users className="mx-auto mb-1 text-purple-400" />
+              <p className="font-semibold">
+                {space.currentUsers}/{space.maxUsers}
+              </p>
+              <p className="text-xs text-gray-400">Users</p>
+            </div>
+            <div className="bg-white/5 p-3 rounded-lg">
+              <Calendar className="mx-auto mb-1 text-purple-400" />
+              <p className="font-semibold">{formatDate(space.createdAt)}</p>
+              <p className="text-xs text-gray-400">Created</p>
+            </div>
+            <div className="bg-white/5 p-3 rounded-lg">
+              <Settings className="mx-auto mb-1 text-purple-400" />
+              <p
+                className={`font-semibold ${
+                  space.isPublic ? "text-green-400" : "text-orange-400"
+                }`}
+              >
+                {space.isPublic ? "Public" : "Private"}
+              </p>
+              <p className="text-xs text-gray-400">Visibility</p>
+            </div>
+            <div className="bg-white/5 p-3 rounded-lg">
+              <div className="font-bold text-lg text-purple-400">ID</div>
+              <p className="text-xs text-gray-400 truncate">{space.id}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            {isUserMember ? (
+              <button
+                onClick={() => router.push(`/game/${space.id}`)}
+                className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <LogIn />
+                Enter Space
+              </button>
+            ) : (
+              <button
+                onClick={onJoin}
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                Join Space
+              </button>
+            )}
+
+            <div className="flex items-center gap-2">
+              {isUserMember && !isUserAdmin && (
+                <button
+                  onClick={onLeave}
+                  className="bg-red-600/80 hover:bg-red-700 text-white font-bold p-3 rounded-lg transition-colors"
+                  title="Leave Space"
+                >
+                  <LogOut />
+                </button>
+              )}
+              {isUserAdmin && (
+                <>
+                  {isEditing ? (
+                    <button
+                      onClick={handleUpdate}
+                      className="bg-green-600 hover:bg-green-700 text-white font-bold p-3 rounded-lg transition-colors"
+                      title="Save Changes"
+                    >
+                      Save
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="bg-gray-600 hover:bg-gray-700 text-white font-bold p-3 rounded-lg transition-colors"
+                      title="Edit Space"
+                    >
+                      <Edit />
+                    </button>
+                  )}
+                  <button
+                    onClick={onDelete}
+                    className="bg-red-600/80 hover:bg-red-700 text-white font-bold p-3 rounded-lg transition-colors"
+                    title="Delete Space"
+                  >
+                    <Trash2 />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

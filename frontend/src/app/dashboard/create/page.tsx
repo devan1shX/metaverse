@@ -7,6 +7,7 @@ import CreateSpaceMapSelection from "@/components/CreateSpaceMapSelection";
 import CreateSpaceCustomize from "@/components/CreateSpaceCustomize";
 import CreateSpaceName from "@/components/CreateSpaceName";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSpaces } from "@/contexts/SpacesContext";
 import { useRouter } from "next/navigation";
 
 type Step =
@@ -18,10 +19,11 @@ type Step =
 
 export default function CreateSpacePage() {
   const { user, loading: authLoading } = useAuth();
+  const { createSpace, loading: spacesLoading } = useSpaces();
   const router = useRouter();
   const [step, setStep] = useState<Step>("loading");
+  const [error, setError] = useState<string | null>(null);
 
-  // State to hold all the data collected during creation
   const [creationData, setCreationData] = useState({
     useCase: "",
     map: "",
@@ -40,7 +42,6 @@ export default function CreateSpacePage() {
     const timer = setTimeout(() => {
       setStep("use-case");
     }, 1500);
-
     return () => clearTimeout(timer);
   }, []);
 
@@ -51,7 +52,7 @@ export default function CreateSpacePage() {
 
   const handleMapSelect = (selectedMap: string) => {
     setCreationData((prev) => ({ ...prev, map: selectedMap }));
-    setStep("customize-map"); // Proceed to the new customize step
+    setStep("customize-map");
   };
 
   const handleCustomizeConfirm = (customization: {
@@ -59,20 +60,49 @@ export default function CreateSpacePage() {
     theme: string;
   }) => {
     setCreationData((prev) => ({ ...prev, ...customization }));
-    setStep("name-space"); // Proceed to naming step after customization
+    setStep("name-space");
   };
 
-  const handleNameConfirm = (spaceName: string) => {
+  const handleNameConfirm = async (spaceName: string) => {
+    setError(null);
     const finalData = { ...creationData, name: spaceName };
-    setCreationData(finalData);
 
-    console.log("Creating space with following data:", finalData);
+    // FIX: Helper function to map frontend map IDs to backend-compatible types
+    const getBackendMapType = (frontendMapId: string) => {
+      switch (frontendMapId) {
+        case "corporate-hq":
+          return "office";
+        case "conference-hall":
+          return "meeting";
+        default:
+          return "custom"; // Fallback value
+      }
+    };
 
-    // Store the selected map in local storage to be used in the game scene
-    const mapKey = finalData.map === "corporate-hq" ? "office-01" : "office-02";
-    localStorage.setItem("selectedMap", mapKey);
+    try {
+      const result = await createSpace({
+        name: finalData.name,
+        description: `A space for ${finalData.useCase}`,
+        isPublic: true,
+        maxUsers: finalData.size,
+        mapType: getBackendMapType(finalData.map), // Use the mapped value
+      });
 
-    router.push(`/space/${spaceName}`);
+      if (result.success) {
+        const mapKey =
+          finalData.map === "corporate-hq" ? "office-01" : "office-02";
+        localStorage.setItem("selectedMap", mapKey);
+        router.push(`/space/${result.space.id}`);
+      } else {
+        // Use the actual error from the backend if available
+        const errorMsg = result.errors ? result.errors.join(", ") : result.message;
+        setError(errorMsg || "Failed to create space. Please try again.");
+        console.error("Error creating space:", result);
+      }
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred.");
+      console.error("Caught error during space creation:", err);
+    }
   };
 
   const handleBack = (currentStep: Step) => {
@@ -85,11 +115,10 @@ export default function CreateSpacePage() {
     }
   };
 
-  if (authLoading || step === "loading") {
+  if (authLoading || step === "loading" || spacesLoading) {
     return <LoadingScreen />;
   }
 
-  // Helper function to render the current step's component
   const renderStep = () => {
     switch (step) {
       case "use-case":
@@ -111,10 +140,15 @@ export default function CreateSpacePage() {
         ) : null;
       case "name-space":
         return (
-          <CreateSpaceName
-            onBack={() => handleBack("name-space")}
-            onConfirm={handleNameConfirm}
-          />
+          <>
+            <CreateSpaceName
+              onBack={() => handleBack("name-space")}
+              onConfirm={handleNameConfirm}
+            />
+            {error && (
+              <p className="mt-4 text-center text-red-400 max-w-md">{error}</p>
+            )}
+          </>
         );
       default:
         return <LoadingScreen />;

@@ -105,6 +105,7 @@ export interface SignupResponse {
   success: boolean
   message: string
   user?: UserSafeObject
+  token?: string
 }
 
 // Space Management Types

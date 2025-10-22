@@ -1,10 +1,10 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Eye, EyeOff, Mail, Lock, User, CheckCircle2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { motion, AnimatePresence } from "framer-motion";
+import { Eye, EyeOff, Mail, Lock, User, CheckCircle2 } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
 
 const AuthBackground = () => (
   <div className="auth-background">
@@ -62,7 +62,8 @@ const AuthFormInput = ({
 export function AppleAuth() {
   const { login, signup } = useAuth();
   const router = useRouter();
-  const [isLogin, setIsLogin] = useState(true);
+  const pathname = usePathname();
+  const isLogin = pathname !== "/signup";
   const [formData, setFormData] = useState({
     userName: "",
     email: "",
@@ -74,10 +75,23 @@ export function AppleAuth() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState('');
+  const [success, setSuccess] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Perform simple frontend validation first for better UX
+    if (!isLogin) {
+      if (formData.password !== formData.confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+      if (formData.password.length < 6) {
+        setError("Password must be at least 6 characters.");
+        return;
+      }
+    }
+
     setIsLoading(true);
     setError('');
     setSuccess('');
@@ -90,43 +104,28 @@ export function AppleAuth() {
           formData.password,
           formData.userLevel
         );
-        if (!authSuccess) {
-            setError("Invalid credentials. Please try again.");
-        } else {
-            setSuccess('Login successful!');
-        }
       } else {
-        if (formData.password !== formData.confirmPassword) {
-          setError("Passwords do not match.");
-          return;
-        }
-        if (formData.password.length < 6) {
-          setError("Password must be at least 6 characters.");
-          return;
-        }
         authSuccess = await signup(
           formData.userName,
           formData.email,
           formData.password
         );
-        if (!authSuccess) {
-            setError("Could not create account.");
-        } else {
-            setSuccess('Account created successfully!');
-        }
       }
 
       if (authSuccess) {
-        // Redirect after a short delay to allow user to see success message
+        setSuccess(isLogin ? 'Login successful!' : 'Account created successfully!');
         setTimeout(() => {
-            router.push("/dashboard");
+          router.push("/dashboard");
         }, 1000);
-        return;
+      } else {
+        
+        setError(isLogin ? "Invalid credentials." : "Could not create account.");
       }
-    } catch (err) {
-      setError("An error occurred.");
+    } catch (err: any) {
+      // catch the specific error message from the AuthContext
+      setError(err.message);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -161,10 +160,10 @@ export function AppleAuth() {
               left: isLogin ? "0%" : "50%",
             }}
           />
-          <button onClick={() => setIsLogin(true)} className="auth-tab">
+          <button onClick={() => router.push("/login")} className="auth-tab">
             Sign In
           </button>
-          <button onClick={() => setIsLogin(false)} className="auth-tab">
+          <button onClick={() => router.push("/signup")} className="auth-tab">
             Sign Up
           </button>
         </div>
@@ -229,12 +228,17 @@ export function AppleAuth() {
                 </motion.p>
               )}
               {success && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-3 bg-green-500/10 rounded-lg text-green-500 text-center text-xs font-semibold flex items-center justify-center gap-2">
-                  <CheckCircle2 className="w-4 h-4"/> {success}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="p-3 bg-green-500/10 rounded-lg text-green-500 text-center text-xs font-semibold flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4" /> {success}
                 </motion.div>
               )}
             </AnimatePresence>
-            
+
             <div className="pt-2">
               <button
                 type="submit"

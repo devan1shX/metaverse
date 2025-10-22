@@ -1,34 +1,39 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Users, Calendar, MapPin, Settings } from "lucide-react";
+import { Search, Users, Calendar, MapPin, Settings, UserPlus } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUserSpaces, useUserNotifications } from "@/hooks/useApi";
+import { useSpaces } from "@/contexts/SpacesContext";
+import { useNotificationManager } from "@/hooks/useApi"; // Changed hook name
 import { Space, Notification } from "@/lib/api";
+import { InviteModal } from "@/components/InviteModal";
 
 export function DashboardContent() {
   const { user } = useAuth();
+  const { 
+    mySpaces, 
+    loading: spacesLoading, 
+    errorMySpaces: spacesError,
+    createdSpaces,
+    totalSpacesCount 
+  } = useSpaces();
   const [activeTab, setActiveTab] = useState("last-visited");
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Fetch user data
-  const { data: spacesData, loading: spacesLoading, error: spacesError } = useUserSpaces(user?.id || "");
-  const { data: notificationsData, loading: notificationsLoading } = useUserNotifications(user?.id || "", {
-    limit: 10,
-    status: 'unread'
-  });
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [selectedSpace, setSelectedSpace] = useState<{ id: string; name: string } | null>(null);
+  const { notifications, summary, loading: notificationsLoading } = useNotificationManager(user?.id); // Changed hook name and destructuring
 
   // Filter spaces based on tab and search
   const filteredSpaces = useMemo(() => {
-    if (!spacesData?.spaces) return [];
+    if (!mySpaces) return [];
     
-    let spaces = spacesData.spaces;
+    let spaces = mySpaces;
     
     // Filter by tab
-    if (activeTab === "created-spaces" && user) {
-      spaces = spaces.filter(space => space.adminUserId === user.id);
+    if (activeTab === "created-spaces") {
+      spaces = createdSpaces;
     }
     
     // Filter by search query
@@ -40,7 +45,7 @@ export function DashboardContent() {
     }
     
     return spaces;
-  }, [spacesData?.spaces, activeTab, searchQuery, user]);
+  }, [mySpaces, activeTab, searchQuery, createdSpaces]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -48,6 +53,16 @@ export function DashboardContent() {
       day: 'numeric',
       year: 'numeric'
     });
+  };
+
+  const handleOpenInviteModal = (space: Space) => {
+    setSelectedSpace({ id: space.id, name: space.name });
+    setInviteModalOpen(true);
+  };
+
+  const handleCloseInviteModal = () => {
+    setInviteModalOpen(false);
+    setSelectedSpace(null);
   };
 
   const renderSpaceCard = (space: Space) => (
@@ -91,30 +106,41 @@ export function DashboardContent() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <Link
           href={`/space/${space.id}`}
           className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
         >
           Enter Space
         </Link>
-        {space.adminUserId === user?.id && (
-          <button className="text-gray-400 hover:text-white p-2">
-            <Settings className="w-4 h-4" />
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {(space.adminUserId === user?.id || space.currentUsers < space.maxUsers) && (
+            <button
+              onClick={() => handleOpenInviteModal(space)}
+              className="flex items-center gap-1 text-green-400 hover:text-green-300 p-2 hover:bg-green-500/10 rounded-md transition-colors"
+              title="Invite users"
+            >
+              <UserPlus className="w-4 h-4" />
+            </button>
+          )}
+          {space.adminUserId === user?.id && (
+            <button className="text-gray-400 hover:text-white p-2 hover:bg-white/10 rounded-md transition-colors">
+              <Settings className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 
   const renderNotifications = () => {
-    if (!notificationsData?.notifications?.length) return null;
+    if (!notifications?.length) return null;
 
     return (
       <div className="mb-8">
         <h2 className="text-xl font-semibold text-white mb-4">Recent Notifications</h2>
         <div className="space-y-3">
-          {notificationsData.notifications.slice(0, 3).map((notification: Notification) => (
+          {notifications.slice(0, 3).map((notification: Notification) => (
             <div key={notification.id} className="bg-[#35354e] rounded-lg p-4 border border-gray-700/50">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -165,14 +191,14 @@ export function DashboardContent() {
               activeTab={activeTab}
               onClick={setActiveTab}
             >
-              Last Visited ({spacesData?.total_count || 0})
+              Last Visited ({totalSpacesCount || 0})
             </TabButton>
             <TabButton
               id="created-spaces"
               activeTab={activeTab}
               onClick={setActiveTab}
             >
-              Created Spaces ({spacesData?.spaces?.filter(s => s.adminUserId === user?.id).length || 0})
+              Created Spaces ({createdSpaces.length || 0})
             </TabButton>
           </div>
         </div>
@@ -223,6 +249,16 @@ export function DashboardContent() {
             to get started!
           </p>
         </div>
+      )}
+
+      {/* Invite Modal */}
+      {selectedSpace && (
+        <InviteModal
+          isOpen={inviteModalOpen}
+          onClose={handleCloseInviteModal}
+          spaceId={selectedSpace.id}
+          spaceName={selectedSpace.name}
+        />
       )}
     </div>
   );

@@ -54,10 +54,10 @@ export default function CreateSpaceCustomize({
   }
 
   const getPeopleRange = (s: number) => {
-    if (s <= 25) return "12 - 18";
-    if (s <= 50) return "18 - 30";
-    if (s <= 100) return "30 - 75";
-    return "75 - 150";
+    if (s <= 25) return "2 - 25";
+    if (s <= 50) return "26 - 50";
+    if (s <= 75) return "51 - 75";
+    return "76 - 100";
   };
 
   return (
@@ -98,7 +98,7 @@ export default function CreateSpaceCustomize({
             <input
               type="range"
               min="2"
-              max="150"
+              max="100" // FIX: Changed max value from 150 to 100
               step="1"
               value={size}
               onChange={(e) => setSize(parseInt(e.target.value))}

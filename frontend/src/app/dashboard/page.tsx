@@ -21,7 +21,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push("/");
+      router.push("/login");
     }
     if (user && user.user_avatar_url) {
       setSelectedAvatar(user.user_avatar_url);

@@ -6,6 +6,12 @@ const WORLD_HEIGHT = 1500;
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd: any;
+  private isSitting: boolean = false;
+  private sittingChair: any = null;
+  private lastDirection: string = "down";
+  private sitTimer: number = 0;
+  private sitDelay: number = 300; 
+  private nearChair: boolean = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string) {
     super(scene, x, y, texture);
@@ -17,7 +23,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setBounce(0.1);
     this.setDrag(300, 300);
     this.setMaxVelocity(250, 250);
-    this.setFrame(0); // Default to idle frame
+    this.setFrame(0);
 
     this.setOrigin(0.5, 1);
     
@@ -29,8 +35,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.cursors = this.scene.input.keyboard!.createCursorKeys();
     this.wasd = this.scene.input.keyboard!.addKeys("W,S,A,D");
 
-
-
     this.createAnimations();
   }
 
@@ -40,7 +44,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     avatars.forEach((avatarKey) => {
       if (this.scene.textures.exists(avatarKey)) {
         if (avatarKey === "player-avatar-1") {
-          // Avatar-1 animations
           this.anims.create({
             key: `idle-${avatarKey}`,
             frames: [{ key: avatarKey, frame: 0 }],
@@ -91,8 +94,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             frameRate: 8,
             repeat: -1,
           });
+          this.anims.create({
+            key: `sitting-${avatarKey}`,
+            frames: [{ key: avatarKey, frame: 0 }],
+            frameRate: 1,
+            repeat: 0,
+          });
         } else if (avatarKey === "player-avatar-2") {
-          // Avatar-2 animations
           this.anims.create({
             key: `idle-${avatarKey}`,
             frames: [{ key: avatarKey, frame: 0 }],
@@ -135,8 +143,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             frameRate: 8,
             repeat: -1,
           });
+          this.anims.create({
+            key: `sitting-${avatarKey}`,
+            frames: [{ key: avatarKey, frame: 0 }],
+            frameRate: 1,
+            repeat: 0,
+          });
         } else if (avatarKey === "player-avatar-3") {
-          // Avatar-3 animations
           this.anims.create({
             key: `idle-${avatarKey}`,
             frames: [{ key: avatarKey, frame: 0 }],
@@ -187,12 +200,97 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             frameRate: 8,
             repeat: -1,
           });
+          this.anims.create({
+            key: `sitting-${avatarKey}`,
+            frames: [{ key: avatarKey, frame: 0 }],
+            frameRate: 1,
+            repeat: 0,
+          });
         }
       }
     });
   }
 
+  public sitOnChair(chair: any) {
+    this.isSitting = true;
+    this.sittingChair = chair;
+    this.setVelocity(0);
+    
+    this.setPosition(chair.x, chair.y + 10);
+    
+    const sittingAnim = `sitting-${this.texture.key}`;
+    this.anims.play(sittingAnim, true);
+    
+    this.setScale(0.85);
+  }
+
+  public standUp() {
+    this.isSitting = false;
+    this.sittingChair = null;
+    this.sitTimer = 0;
+    
+    this.setScale(1);
+    
+    const idleAnim = `idle-${this.texture.key}`;
+    this.anims.play(idleAnim, true);
+  }
+
+  public getIsSitting(): boolean {
+    return this.isSitting;
+  }
+
+  public setNearChair(isNear: boolean, chair: any = null) {
+    this.nearChair = isNear;
+    
+    if (!isNear) {
+      this.sitTimer = 0;
+      this.sittingChair = null;
+    } else if (isNear && !this.isSitting) {
+      this.sittingChair = chair;
+    }
+  }
+
+  public updateSitTimer(delta: number) {
+    if (this.nearChair && !this.isSitting && this.sittingChair) {
+      // Check if player is idle (not moving)
+      const isIdle = this.body && 
+                     this.body.velocity.x === 0 && 
+                     this.body.velocity.y === 0;
+      
+      if (isIdle) {
+        this.sitTimer += delta;
+        
+        if (this.sitTimer >= this.sitDelay) {
+          this.sitOnChair(this.sittingChair);
+          this.sitTimer = 0;
+        }
+      } else {
+        // Reset timer if player starts moving
+        this.sitTimer = 0;
+      }
+    }
+  }
+
   public handleMovement() {
+    // If sitting and player tries to move, stand up
+    if (this.isSitting) {
+      const tryingToMove = 
+        this.cursors.left.isDown || 
+        this.cursors.right.isDown || 
+        this.cursors.up.isDown || 
+        this.cursors.down.isDown ||
+        this.wasd.A.isDown || 
+        this.wasd.D.isDown || 
+        this.wasd.W.isDown || 
+        this.wasd.S.isDown;
+      
+      if (tryingToMove) {
+        this.standUp();
+      } else {
+        return; // Don't process movement while sitting
+      }
+    }
+
     if (!this.body) {
       return;
     }
@@ -204,26 +302,44 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const rightAnim = `right-${this.texture.key}`;
     const upAnim = `up-${this.texture.key}`;
     const downAnim = `down-${this.texture.key}`;
-    const idleAnim = `idle-${this.texture.key}`;
+
+    let isMoving = false;
 
     if (this.cursors.left.isDown || this.wasd.A.isDown) {
       this.setVelocityX(-speed);
       this.anims.play(leftAnim, true);
+      this.lastDirection = "left";
+      isMoving = true;
     } else if (this.cursors.right.isDown || this.wasd.D.isDown) {
       this.setVelocityX(speed);
       this.anims.play(rightAnim, true);
+      this.lastDirection = "right";
+      isMoving = true;
     }
 
     if (this.cursors.up.isDown || this.wasd.W.isDown) {
       this.setVelocityY(-speed);
       this.anims.play(upAnim, true);
+      this.lastDirection = "up";
+      isMoving = true;
     } else if (this.cursors.down.isDown || this.wasd.S.isDown) {
       this.setVelocityY(speed);
       this.anims.play(downAnim, true);
+      this.lastDirection = "down";
+      isMoving = true;
     }
 
-    if (this.body.velocity.x === 0 && this.body.velocity.y === 0) {
-      this.anims.play(idleAnim, true);
+    if (!isMoving) {
+      this.anims.stop();
+      
+      const directionFrames: { [key: string]: number } = {
+        "down": 0,
+        "left": this.texture.key === "player-avatar-2" ? 8 : 1,
+        "up": this.texture.key === "player-avatar-2" ? 4 : 2,
+        "right": this.texture.key === "player-avatar-2" ? 12 : 3
+      };
+      
+      this.setFrame(directionFrames[this.lastDirection]);
     }
 
     this.body.velocity.normalize().scale(speed);

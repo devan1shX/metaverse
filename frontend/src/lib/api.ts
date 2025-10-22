@@ -29,15 +29,16 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem('metaverse_user')
-      localStorage.removeItem('metaverse_token')
-      window.location.href = '/'
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && originalRequest.url !== '/metaverse/login') {
+      // Handle unauthorized access for expired tokens
+      localStorage.removeItem('metaverse_user');
+      localStorage.removeItem('metaverse_token');
+      window.dispatchEvent(new Event('auth-error'));
     }
-    return Promise.reject(error)
+    return Promise.reject(error);
   }
-)
+);
 
 // Types
 export interface User {
@@ -257,6 +258,102 @@ export const protectedAPI = {
   getAdminUsers: () =>
     api.get('/metaverse/protected/admin/users'),
 }
+
+// Invite Management APIs
+export const inviteAPI = {
+  // Send an invite to a user for a space
+  sendInvite: (toUserId: string, spaceId: string) =>
+    api.post('/metaverse/invites/send', { toUserId, spaceId }),
+
+  // Accept a space invite
+  acceptInvite: (notificationId: string) =>
+    api.post(`/metaverse/invites/${notificationId}/accept`),
+
+  // Decline a space invite
+  declineInvite: (notificationId: string) =>
+    api.post(`/metaverse/invites/${notificationId}/decline`),
+
+  // Get users that can be invited to a space
+  getInvitableUsers: (spaceId: string) =>
+    api.get(`/metaverse/invites/users/${spaceId}`),
+
+  // Get current user's invites
+  getMyInvites: (includeExpired = false) =>
+    api.get('/metaverse/invites/my-invites', {
+      params: { includeExpired }
+    }),
+
+  // Health check for invites API
+  healthCheck: () =>
+    api.get('/metaverse/invites/health/check'),
+}
+
+
+// Notification Management APIs
+export const notificationAPI = {
+  // Get notifications for the current user
+  getUserNotifications: (options: {
+    type?: 'updates' | 'invites';
+    status?: 'unread' | 'read' | 'dismissed';
+    limit?: number;
+    offset?: number;
+    includeExpired?: boolean;
+  } = {}) =>
+    api.get('/metaverse/notifications', { params: options }),
+
+  // Get a specific notification by ID
+  getNotificationById: (notificationId: string) =>
+    api.get(`/metaverse/notifications/${notificationId}`),
+
+  // Mark a notification as read
+  markAsRead: (notificationId: string) =>
+    api.post(`/metaverse/notifications/${notificationId}/read`),
+
+  // Mark a notification as unread
+  markAsUnread: (notificationId: string) =>
+    api.post(`/metaverse/notifications/${notificationId}/unread`),
+
+  // Dismiss a notification
+  dismissNotification: (notificationId: string) =>
+    api.post(`/metaverse/notifications/${notificationId}/dismiss`),
+
+  // --- Admin Only ---
+  // Get all notifications (admin)
+  adminGetAllNotifications: (options: {
+    userId?: string;
+    type?: 'updates' | 'invites';
+    status?: 'unread' | 'read' | 'dismissed';
+    limit?: number;
+    offset?: number;
+  } = {}) =>
+    api.get('/metaverse/notifications/admin/all', { params: options }),
+
+  // Update a notification (admin)
+  adminUpdateNotification: (notificationId: string, updates: {
+    title?: string;
+    message?: string;
+    status?: 'unread' | 'read' | 'dismissed';
+    isActive?: boolean;
+  }) =>
+    api.put(`/metaverse/notifications/${notificationId}`, updates),
+
+  // Delete a notification (admin)
+  adminDeleteNotification: (notificationId: string) =>
+    api.delete(`/metaverse/notifications/${notificationId}`),
+
+  // Bulk update notifications (admin)
+  adminBulkUpdate: (notificationIds: string[], updates: object) =>
+    api.post('/metaverse/notifications/admin/bulk-update', { notificationIds, updates }),
+
+  // Bulk delete notifications (admin)
+  adminBulkDelete: (notificationIds: string[]) =>
+    api.post('/metaverse/notifications/admin/bulk-delete', { notificationIds }),
+
+  // Health check
+  healthCheck: () =>
+    api.get('/metaverse/notifications/health/check'),
+};
+
 
 // Legacy function for backward compatibility
 export const updateAvatar = (userId: string, avatarUrl: string) => {
