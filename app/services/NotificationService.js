@@ -140,31 +140,47 @@ class NotificationService {
    */
   async getNotificationsForUser(userId, options = {}) {
     try {
-      const { filters = {}, limit = null, offset = 0 } = options;
-      logger.debug('Getting notifications for user', { userId, filters, limit, offset });
+    // --- START REPLACEMENT ---
+    // Original: const { filters = {}, limit = null, offset = 0 } = options;
+    // Corrected: Extract specific filters from options
+    const { type, status, isActive, limit = 50, offset = 0 } = options;
+    // Construct the filters object expected by the repository
+    const repoFilters = {};
+    if (type) repoFilters.type = type;
+    if (status) repoFilters.status = status;
+    // Handle boolean isActive specifically
+    if (isActive !== undefined) {
+         // Convert string 'true'/'false' from query params if necessary
+         repoFilters.isActive = String(isActive).toLowerCase() === 'true';
+    }
+    // NOTE: includeExpired is not directly used here, assumes repository handles expiry logic
 
-      if (!userId) {
-        return {
-          success: false,
-          error: 'User ID is required'
-        };
-      }
+    logger.debug('Getting notifications for user', { userId, filters: repoFilters, limit: parseInt(limit), offset: parseInt(offset) }); // Use corrected limit/offset types
+    // --- END REPLACEMENT ---
 
-      // Check if user exists
-      const user = await this.userRepository.findById(userId);
-      if (!user) {
-        return {
-          success: false,
-          error: 'User not found'
-        };
-      }
+    if (!userId) { // User ID check remains
+      return {
+        success: false,
+        error: 'User ID is required'
+      };
+    }
 
-      const notifications = await this.notificationRepository.findByUserId(
-        userId, 
-        filters, 
-        limit, 
-        offset
-      );
+      // Check if user exists (remains the same)
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      return {
+        success: false,
+        error: 'User not found'
+      };
+    }
+
+    // Pass the constructed repoFilters object and parsed limit/offset
+    const notifications = await this.notificationRepository.findByUserId(
+      userId,
+      repoFilters, // Pass the correct filters object
+      parseInt(limit), // Ensure limit is a number
+      parseInt(offset) // Ensure offset is a number
+    );
       
       return {
         success: true,
@@ -189,7 +205,7 @@ class NotificationService {
    * @param {string} requestingUserId - ID of user making the request
    * @returns {Promise<{success: boolean, notification?: Notification, error?: string}>}
    */
-  async markNotificationAsRead(notificationId, requestingUserId) {
+  async markAsRead(notificationId, requestingUserId) {
     try {
       logger.info('Marking notification as read', { notification_id: notificationId });
 
@@ -236,7 +252,7 @@ class NotificationService {
         notification: updatedNotification
       };
     } catch (error) {
-      logger.error('Error in markNotificationAsRead service', { 
+      logger.error('Error in markAsRead service', {
         error: error.message, 
         stack: error.stack, 
         notification_id: notificationId 
@@ -367,57 +383,59 @@ class NotificationService {
    * @returns {Promise<{success: boolean, error?: string}>}
    */
   async deleteNotification(notificationId, requestingUserId) {
-    try {
-      logger.info('Deleting notification', { notification_id: notificationId });
+  try {
+    // Log who is attempting the delete for admin actions
+    logger.info('Attempting to delete notification', { notification_id: notificationId, requestingUserId });
 
-      if (!notificationId || !requestingUserId) {
-        return {
-          success: false,
-          error: 'Notification ID and requesting user ID are required'
-        };
-      }
-
-      // Get notification
-      const notification = await this.notificationRepository.findById(notificationId);
-      if (!notification) {
-        return {
-          success: false,
-          error: 'Notification not found'
-        };
-      }
-
-      // Check if requesting user owns this notification
-      if (notification.userId !== requestingUserId) {
-        return {
-          success: false,
-          error: 'Not authorized to delete this notification'
-        };
-      }
-
-      const success = await this.notificationRepository.delete(notificationId);
-      if (!success) {
-        return {
-          success: false,
-          error: 'Notification not found'
-        };
-      }
-
-      logger.info('Notification deleted successfully', { notification_id: notificationId });
-      return {
-        success: true
-      };
-    } catch (error) {
-      logger.error('Error in deleteNotification service', { 
-        error: error.message, 
-        stack: error.stack, 
-        notification_id: notificationId 
-      });
+    if (!notificationId || !requestingUserId) {
       return {
         success: false,
-        error: 'Internal server error'
+        error: 'Notification ID and requesting user ID are required'
       };
     }
+
+    // We still fetch it first to know if it existed
+    const notification = await this.notificationRepository.findById(notificationId);
+    if (!notification) {
+      // If admin tries to delete something already gone, maybe return success? Or specific message.
+      logger.warn('Admin attempted to delete non-existent notification', { notification_id: notificationId, requestingUserId });
+      return {
+        success: false, // Or true, depending on desired idempotency
+        error: 'Notification not found'
+      };
+    }
+
+    // --- REMOVED OWNERSHIP CHECK ---
+    // No need to check if notification.userId === requestingUserId for admin delete
+
+    // Proceed directly to deletion
+    const success = await this.notificationRepository.delete(notificationId);
+    if (!success) {
+       // This case might mean it was deleted between findById and delete
+       logger.warn('Notification not found during admin deletion attempt (race condition?)', { notification_id: notificationId, requestingUserId });
+      return {
+        success: false,
+        error: 'Notification not found or already deleted'
+      };
+    }
+
+    logger.info('Notification deleted successfully by admin', { notification_id: notificationId, adminUserId: requestingUserId });
+    return {
+      success: true
+    };
+  } catch (error) {
+    logger.error('Error in admin deleteNotification service', { // Added 'admin'
+      error: error.message,
+      stack: error.stack,
+      notification_id: notificationId,
+      requestingUserId // Include admin ID in error log
+    });
+    return {
+      success: false,
+      error: 'Internal server error'
+    };
   }
+}
 
   /**
    * Send space invitation notification
@@ -836,50 +854,60 @@ class NotificationService {
    * @returns {Promise<{success: boolean, notification?: Notification, error?: string}>}
    */
   async updateNotification(notificationId, updates, requestingUserId) {
-    try {
-      logger.info('Updating notification', { notificationId, updates, requestingUserId });
+  try {
+    logger.info('Updating notification (Admin)', { notificationId, updates, requestingUserId }); // Added (Admin) for clarity
 
-      // Get notification
-      const notification = await this.notificationRepository.findById(notificationId);
-      if (!notification) {
-        return {
-          success: false,
-          error: 'Notification not found'
-        };
-      }
-
-      // Update notification
-      const updatedNotification = await this.notificationRepository.update(
-        notificationId, 
-        updates
-      );
-
-      if (!updatedNotification) {
-        return {
-          success: false,
-          error: 'Failed to update notification'
-        };
-      }
-
-      logger.info('Notification updated successfully', { notificationId, requestingUserId });
-
-      return {
-        success: true,
-        notification: updatedNotification
-      };
-    } catch (error) {
-      logger.error('Error in updateNotification service', { 
-        error: error.message, 
-        stack: error.stack, 
-        notificationId, 
-        requestingUserId 
-      });
+    // Get notification instance from repository
+    const notificationInstance = await this.notificationRepository.findById(notificationId);
+    if (!notificationInstance) {
       return {
         success: false,
-        error: 'Internal server error'
+        error: 'Notification not found'
       };
     }
+
+    // Apply updates directly to the notification instance
+    notificationInstance.update(updates);
+
+    // Optional: Validate the instance after updating
+    const validation = notificationInstance.validate();
+    if (!validation.isValid) {
+        logger.warn('Admin Notification update validation failed', { notificationId, errors: validation.errors });
+        // Return validation errors if needed, or just log them
+        // Depending on requirements, you might allow admins to bypass some validation
+    }
+
+    // Pass the updated instance to the repository's update method
+    const updatedNotification = await this.notificationRepository.update(notificationInstance);
+
+    if (!updatedNotification) {
+      // This could happen if the row was deleted between findById and update
+      logger.error('Failed to update notification in database after applying changes', { notificationId });
+      return {
+        success: false,
+        error: 'Failed to save updated notification'
+      };
+    }
+
+    logger.info('Notification updated successfully by admin', { notificationId, requestingUserId }); // Added 'by admin'
+
+    return {
+      success: true,
+      notification: updatedNotification // Return the updated object from the repository
+    };
+  } catch (error) {
+    logger.error('Error in admin updateNotification service', { // Added 'admin'
+      error: error.message,
+      stack: error.stack,
+      notificationId,
+      requestingUserId
+    });
+    return {
+      success: false,
+      error: 'Internal server error'
+    };
   }
+}
 
   /**
    * Get all notifications (admin only)
@@ -887,45 +915,60 @@ class NotificationService {
    * @param {string} requestingUserId - Admin user making the request
    * @returns {Promise<{success: boolean, notifications?: Array, totalCount?: number, hasMore?: boolean, error?: string}>}
    */
-  async getAllNotifications(filters = {}, requestingUserId) {
+  async getAllNotifications(filters = {}, requestingUserId, paginationOptions = {}) {
     try {
-      const {
-        userId,
-        type,
-        status,
-        limit = 50,
-        offset = 0
-      } = filters;
+      const { limit = 50, offset = 0 } = paginationOptions;
 
-      logger.info('Admin getting all notifications', { filters, requestingUserId });
+      // Ensure limit and offset are integers
+      const parsedLimit = parseInt(limit, 10);
+      const parsedOffset = parseInt(offset, 10);
 
-      const result = await this.notificationRepository.findAll({
-        userId,
-        type,
-        status,
-        limit,
-        offset
-      });
+      logger.info('Admin getting all notifications (Service)', { filters, limit: parsedLimit, offset: parsedOffset, requestingUserId });
 
-      if (!result.success) {
-        return result;
+      // Call repository's findAll which now returns { notifications, totalCount }
+      const repoResult = await this.notificationRepository.findAll(
+        filters,
+        parsedLimit,
+        parsedOffset
+      );
+
+      // Check if the repository returned the expected structure
+      if (!repoResult || !Array.isArray(repoResult.notifications) || typeof repoResult.totalCount !== 'number') {
+           logger.error('Repository findAll (admin) did not return expected object structure', { repoResult });
+           return { success: false, error: 'Internal server error retrieving data structure' };
       }
+
+      const { notifications, totalCount } = repoResult;
+
+      // Calculate hasMore based on the results
+      const hasMore = (parsedOffset + notifications.length) < totalCount;
+
+      logger.info('Admin successfully retrieved all notifications', {
+          count: notifications.length,
+          totalMatching: totalCount,
+          limit: parsedLimit,
+          offset: parsedOffset,
+          hasMore
+      });
 
       return {
         success: true,
-        notifications: result.notifications,
-        totalCount: result.totalCount,
-        hasMore: result.hasMore
+        notifications: notifications, // Use notifications from repoResult
+        totalCount: totalCount,      // Use totalCount from repoResult
+        hasMore: hasMore             // Include calculated hasMore flag
       };
+
     } catch (error) {
-      logger.error('Error in getAllNotifications service', { 
-        error: error.message, 
-        stack: error.stack, 
-        requestingUserId 
+      logger.error('Error in getAllNotifications service', {
+        error: error.message,
+        stack: error.stack,
+        requestingUserId,
+        filters, // Log filters on error too
+        paginationOptions
       });
       return {
         success: false,
-        error: 'Internal server error'
+        error: 'Internal server error' // Keep generic for security
       };
     }
   }

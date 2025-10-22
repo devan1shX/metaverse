@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const { logger } = require('../utils/logger');
 const { SpaceRepository, UserRepository, NotificationRepository } = require('../repositories');
+const { Notification } = require('../models/Notification'); // <-- Add this import
 
 class InviteService {
     /**
@@ -8,9 +9,18 @@ class InviteService {
      */
     static async sendInvite(fromUserId, toUserId, spaceId) {
         try {
-            // Validate sender has access to the space
-            const space = await SpaceRepository.findById(spaceId);
-            if (!space) {
+            // ---- ADD THESE LINES ----
+    const spaceRepositoryInstance = new SpaceRepository();
+    const userRepositoryInstance = new UserRepository();
+    const notificationRepositoryInstance = new NotificationRepository();
+    // -------------------------
+
+    // Validate sender has access to the space
+    // Modify this line:
+    // const space = await SpaceRepository.findById(spaceId);
+    // To this:
+    const space = await spaceRepositoryInstance.findById(spaceId); // Use instance
+    if (!space) {
                 return {
                     success: false,
                     error: 'Space not found'
@@ -19,7 +29,7 @@ class InviteService {
 
             // Check if sender is admin or member of the space
             const senderIsAdmin = space.admin_user_id === fromUserId;
-            const senderIsMember = await SpaceRepository.isUserMember(spaceId, fromUserId);
+            const senderIsMember = await spaceRepositoryInstance.isUserMember(spaceId, fromUserId); // Corrected: isUserMember
             
             if (!senderIsAdmin && !senderIsMember) {
                 return {
@@ -29,7 +39,7 @@ class InviteService {
             }
 
             // Check if space is full
-            const currentUsers = await SpaceRepository.getUserCount(spaceId);
+            const currentUsers = await spaceRepositoryInstance.getUserCount(spaceId);
             if (currentUsers >= space.max_users) {
                 return {
                     success: false,
@@ -38,7 +48,7 @@ class InviteService {
             }
 
             // Validate recipient exists
-            const recipient = await UserRepository.findById(toUserId);
+            const recipient = await userRepositoryInstance.findById(toUserId);
             if (!recipient) {
                 return {
                     success: false,
@@ -47,7 +57,7 @@ class InviteService {
             }
 
             // Check if recipient is already a member
-            const isAlreadyMember = await SpaceRepository.isUserMember(spaceId, toUserId);
+            const isAlreadyMember = await spaceRepositoryInstance.isUserMember(spaceId, toUserId); // Use instance
             if (isAlreadyMember) {
                 return {
                     success: false,
@@ -56,7 +66,7 @@ class InviteService {
             }
 
             // Check for existing pending invite
-            const existingInvite = await NotificationRepository.findPendingSpaceInvite(toUserId, spaceId);
+            const existingInvite = await notificationRepositoryInstance.findPendingSpaceInvite(toUserId, spaceId);
             if (existingInvite) {
                 return {
                     success: false,
@@ -65,7 +75,7 @@ class InviteService {
             }
 
             // Get sender info
-            const sender = await UserRepository.findById(fromUserId);
+            const sender = await userRepositoryInstance.findById(fromUserId); // Use instance
 
             // Create notification for the invite
             const expiresAt = new Date();
@@ -79,17 +89,55 @@ class InviteService {
                 inviteType: 'space_invite'
             };
 
-            const notification = await NotificationRepository.create({
-                id: uuidv4(),
-                user_id: toUserId,
-                type: 'invites',
-                title: `Space Invite from ${sender.username}`,
-                message: `${sender.username} has invited you to join the space '${space.name}'`,
-                data: inviteData,
-                status: 'unread',
-                expires_at: expiresAt,
-                is_active: true
-            });
+            // Create an instance of the Notification model
+const notificationData = {
+    id: uuidv4(),
+    userId: toUserId, // Use userId as per the Notification model constructor
+    type: 'invites',
+    title: `Space Invite from ${sender.username}`,
+    message: `${sender.username} has invited you to join the space '${space.name}'`,
+    data: inviteData,
+    status: 'unread',
+    expiresAt: expiresAt, // Use expiresAt as per the Notification model constructor
+    isActive: true      // Use isActive as per the Notification model constructor
+};
+const notificationInstance = new Notification(notificationData); // <-- Create instance
+
+// Now pass the instance to the create method
+const createdNotification = await notificationRepositoryInstance.create(notificationInstance); // <-- Pass the instance
+
+// Check if creation was successful before proceeding
+if (!createdNotification) {
+    logger.error('Failed to save notification to database', { notificationData });
+    return {
+        success: false,
+        error: 'Failed to create notification entry'
+    };
+}
+
+// Use the returned notification object for the response
+logger.info('Invite sent', { fromUserId, toUserId, spaceId, notificationId: createdNotification.id });
+
+return {
+    success: true,
+    message: 'Invite sent successfully',
+    invite: {
+        id: createdNotification.id, // Use ID from the created object
+        toUser: {
+            id: toUserId,
+            username: recipient.username
+        },
+        fromUser: {
+            id: fromUserId,
+            username: sender.username
+        },
+        space: {
+            id: spaceId,
+            name: space.name
+        },
+        expiresAt: expiresAt.toISOString()
+    }
+};
 
             logger.info('Invite sent', { fromUserId, toUserId, spaceId, notificationId: notification.id });
 
@@ -128,8 +176,16 @@ class InviteService {
      */
     static async acceptInvite(userId, notificationId) {
         try {
-            // Get and validate the invite
-            const invite = await NotificationRepository.findById(notificationId);
+            // ---- ADD THESE LINES ----
+    const notificationRepositoryInstance = new NotificationRepository();
+    const spaceRepositoryInstance = new SpaceRepository();
+    // -------------------------
+
+    // Get and validate the invite
+    // Modify this line:
+    // const invite = await NotificationRepository.findById(notificationId);
+    // To this:
+    const invite = await notificationRepositoryInstance.findById(notificationId); // Use instance
             
             if (!invite || invite.user_id !== userId || invite.type !== 'invites') {
                 return {
@@ -147,7 +203,7 @@ class InviteService {
 
             // Check if expired
             if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-                await NotificationRepository.update(notificationId, { status: 'dismissed' });
+                await notificationRepositoryInstance.update(notificationId, { status: 'dismissed' });
                 return {
                     success: false,
                     error: 'Invite has expired'
@@ -163,7 +219,7 @@ class InviteService {
             }
 
             // Validate space still exists and is active
-            const space = await SpaceRepository.findById(spaceId);
+            const space = await spaceRepositoryInstance.findById(spaceId);
             if (!space || !space.is_active) {
                 return {
                     success: false,
@@ -172,7 +228,7 @@ class InviteService {
             }
 
             // Check if space is full
-            const currentUsers = await SpaceRepository.getUserCount(spaceId);
+            const currentUsers = await spaceRepositoryInstance.getUserCount(spaceId);
             if (currentUsers >= space.max_users) {
                 return {
                     success: false,
@@ -181,7 +237,7 @@ class InviteService {
             }
 
             // Check if user is already a member
-            const isAlreadyMember = await SpaceRepository.isUserMember(spaceId, userId);
+            const isAlreadyMember = await spaceRepositoryInstance.isUserMember(spaceId, userId);
             if (isAlreadyMember) {
                 await NotificationRepository.update(notificationId, { status: 'read' });
                 return {
@@ -195,7 +251,7 @@ class InviteService {
             }
 
             // Add user to space
-            await SpaceRepository.addUserToSpace(userId, spaceId);
+            await spaceRepositoryInstance.addUserToSpace(spaceId, userId);
 
             // Update notification status
             await NotificationRepository.update(notificationId, { status: 'read' });
@@ -225,8 +281,15 @@ class InviteService {
      */
     static async declineInvite(userId, notificationId) {
         try {
-            // Get and validate the invite
-            const invite = await NotificationRepository.findById(notificationId);
+            // ---- ADD THIS LINE ----
+    const notificationRepositoryInstance = new NotificationRepository();
+    // -----------------------
+
+    // Get and validate the invite
+    // Modify this line:
+    // const invite = await NotificationRepository.findById(notificationId);
+    // To this:
+    const invite = await notificationRepositoryInstance.findById(notificationId); // Use instance
             
             if (!invite || invite.user_id !== userId || invite.type !== 'invites') {
                 return {
@@ -243,7 +306,7 @@ class InviteService {
             }
 
             // Update notification status to dismissed
-            await NotificationRepository.update(notificationId, { status: 'dismissed' });
+            await notificationRepositoryInstance.update(notificationId, { status: 'dismissed' });
 
             const spaceName = invite.data.spaceName || 'Unknown';
 
@@ -269,7 +332,8 @@ class InviteService {
      */
     static async getInvitableUsers(requestingUserId, spaceId) {
         try {
-            const users = await UserRepository.findUsersNotInSpace(spaceId, requestingUserId);
+            const userRepositoryInstance = new UserRepository(); // Create an instance
+const users = await userRepositoryInstance.findUsersNotInSpace(spaceId, requestingUserId); // Call on the instance
             
             return {
                 success: true,
@@ -299,7 +363,14 @@ class InviteService {
      */
     static async getUserInvites(userId, includeExpired = false) {
         try {
-            const invites = await NotificationRepository.findUserInvites(userId, includeExpired);
+            // ---- ADD THIS LINE ----
+    const notificationRepositoryInstance = new NotificationRepository();
+    // -----------------------
+
+    // Modify this line:
+    // const invites = await NotificationRepository.findUserInvites(userId, includeExpired);
+    // To this:
+    const invites = await notificationRepositoryInstance.findUserInvites(userId, includeExpired); // Use instance
             
             return {
                 success: true,

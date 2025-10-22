@@ -178,68 +178,84 @@ class NotificationRepository {
    * @returns {Promise<Notification[]>} Array of Notification instances
    */
   async findAll(filters = {}, limit = null, offset = 0) {
-    try {
-      const db = await get_async_db();
-      let query = `SELECT * FROM ${this.tableName}`;
-      const params = [];
-      const conditions = [];
+  try {
+    const db = await get_async_db();
+    let query = `SELECT * FROM ${this.tableName}`;
+    // --- ADD COUNT QUERY ---
+    let countQuery = `SELECT COUNT(*) as total_count FROM ${this.tableName}`;
+    // -----------------------
+    const params = [];
+    const conditions = [];
 
-      // Build WHERE conditions
-      if (filters.userId) {
-        conditions.push(`user_id = $${params.length + 1}`);
-        params.push(filters.userId);
-      }
-
-      if (filters.type) {
-        conditions.push(`type = $${params.length + 1}`);
-        params.push(filters.type);
-      }
-
-      if (filters.status) {
-        conditions.push(`status = $${params.length + 1}`);
-        params.push(filters.status);
-      }
-
-      if (filters.isActive !== undefined) {
-        conditions.push(`is_active = $${params.length + 1}`);
-        params.push(filters.isActive);
-      }
-
-      if (conditions.length > 0) {
-        query += ` WHERE ${conditions.join(' AND ')}`;
-      }
-
-      // Add ordering
-      query += ` ORDER BY created_at DESC`;
-
-      // Add pagination
-      if (limit) {
-        query += ` LIMIT $${params.length + 1}`;
-        params.push(limit);
-      }
-
-      if (offset > 0) {
-        query += ` OFFSET $${params.length + 1}`;
-        params.push(offset);
-      }
-
-      logger.debug('Finding all notifications', { filters, limit, offset });
-
-      const result = await db.query(query, params);
-      
-      const notifications = result.rows.map(row => Notification.fromDatabaseRow(row));
-      
-      logger.info('All notifications fetched', { count: notifications.length });
-      return notifications;
-    } catch (error) {
-      logger.error('Error finding all notifications', { 
-        error: error.message, 
-        stack: error.stack, 
-        filters 
-      });
-      throw error;
+    // Build WHERE conditions (same as before)
+    if (filters.userId) {
+      conditions.push(`user_id = $${params.length + 1}`);
+      params.push(filters.userId);
     }
+    if (filters.type) {
+      conditions.push(`type = $${params.length + 1}`);
+      params.push(filters.type);
+    }
+    if (filters.status) {
+      conditions.push(`status = $${params.length + 1}`);
+      params.push(filters.status);
+    }
+    if (filters.isActive !== undefined) {
+      conditions.push(`is_active = $${params.length + 1}`);
+      params.push(filters.isActive);
+    }
+
+    // Apply conditions to both queries
+    if (conditions.length > 0) {
+      const whereClause = ` WHERE ${conditions.join(' AND ')}`;
+      query += whereClause;
+      countQuery += whereClause; // Apply filters to count query too
+    }
+
+    // --- Execute Count Query ---
+    logger.debug('Executing count query for findAll', { filters });
+    const countResult = await db.query(countQuery, params);
+    const totalCount = parseInt(countResult.rows[0].total_count, 10);
+    // ---------------------------
+
+    // Add ordering to the main query
+    query += ` ORDER BY created_at DESC`;
+
+    // Add pagination parameters for the main query
+    // Use a separate array for the main query's parameters if pagination is applied
+    const queryParams = [...params];
+    if (limit !== null && limit > 0) { // Check limit is positive
+      query += ` LIMIT $${queryParams.length + 1}`;
+      queryParams.push(limit);
+    }
+    if (offset > 0) { // Check offset is positive
+      query += ` OFFSET $${queryParams.length + 1}`;
+      queryParams.push(offset);
+    }
+
+    logger.debug('Finding all notifications (Repo)', { filters, limit, offset });
+
+    // Execute main query with pagination parameters
+    const result = await db.query(query, queryParams);
+
+    const notifications = result.rows.map(row => Notification.fromDatabaseRow(row));
+
+    logger.info('All notifications fetched (Repo)', { count: notifications.length, totalMatching: totalCount });
+
+    // --- Return Object with Notifications and Count ---
+    return { notifications, totalCount };
+    // ------------------------------------------------
+
+  } catch (error) {
+    logger.error('Error in findAll notifications repository', { // Added context to error log
+      error: error.message,
+      stack: error.stack,
+      filters
+    });
+    // Rethrow the error so the service layer can handle it
+    throw error;
   }
+}
 
   /**
    * Update notification in database
