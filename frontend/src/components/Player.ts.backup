@@ -63,72 +63,76 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   private createAnimations() {
-    const animKeyPrefix = `anim-${this.cleanTextureKey}`;
+    // *** MAJOR FIX ***
+    // We can't use the old avatarKey logic. We must create animations
+    // specific to THIS player's texture key.
+
+    const animKeyPrefix = `anim-${this.cleanTextureKey}`; // e.g., 'anim-avatar-key-123'
 
     // Only create anims if they don't already exist for this texture
     if (!this.anims.exists(`${animKeyPrefix}-idle`)) {
-      let leftFrames: number[], rightFrames: number[], upFrames: number[], downFrames: number[];
-
-      // Check if this is avatar-4 (horizontal strips)
-      if (this.cleanTextureKey.includes('avatar-4')) {
-        // Horizontal strips: 
-        // Row 1 (0-3): Down
-        // Row 2 (4-7): Up
-        // Row 3 (8-11): Left
-        // Row 4 (12-15): Right
-        downFrames = [0, 1, 2, 3];
-        upFrames = [4, 5, 6, 7];
-        leftFrames = [8, 9, 10, 11];
-        rightFrames = [12, 13, 14, 15];
-      } else {
-        // Vertical strips (Default for avatar-1, 2, 3, 5)
-        // Col 1 (0, 4, 8, 12): Down
-        // Col 2 (1, 5, 9, 13): Left
-        // Col 3 (2, 6, 10, 14): Up
-        // Col 4 (3, 7, 11, 15): Right
-        downFrames = [0, 4, 8, 12];
-        leftFrames = [1, 5, 9, 13];
-        upFrames = [2, 6, 10, 14];
-        rightFrames = [3, 7, 11, 15];
-      }
-
+      // This assumes the spritesheet layout from 'avatar-1-spritesheet.png'
       this.anims.create({
         key: `${animKeyPrefix}-idle`,
-        frames: [{ key: this.cleanTextureKey, frame: downFrames[0] }],
+        frames: [{ key: this.cleanTextureKey, frame: 0 }],
         frameRate: 1,
         repeat: 0,
       });
       this.anims.create({
         key: `${animKeyPrefix}-left`,
-        frames: leftFrames.map(f => ({ key: this.cleanTextureKey, frame: f })),
-        frameRate: 8,
-        repeat: -1,
-      });
-      this.anims.create({
-        key: `${animKeyPrefix}-right`,
-        frames: rightFrames.map(f => ({ key: this.cleanTextureKey, frame: f })),
+        frames: [
+          { key: this.cleanTextureKey, frame: 1 },
+          { key: this.cleanTextureKey, frame: 5 },
+          { key: this.cleanTextureKey, frame: 9 },
+          { key: this.cleanTextureKey, frame: 13 },
+        ],
         frameRate: 8,
         repeat: -1,
       });
       this.anims.create({
         key: `${animKeyPrefix}-up`,
-        frames: upFrames.map(f => ({ key: this.cleanTextureKey, frame: f })),
+        frames: [
+          { key: this.cleanTextureKey, frame: 2 },
+          { key: this.cleanTextureKey, frame: 6 },
+          { key: this.cleanTextureKey, frame: 10 },
+          { key: this.cleanTextureKey, frame: 14 },
+        ],
+        frameRate: 8,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: `${animKeyPrefix}-right`,
+        frames: [
+          { key: this.cleanTextureKey, frame: 3 },
+          { key: this.cleanTextureKey, frame: 7 },
+          { key: this.cleanTextureKey, frame: 11 },
+          { key: this.cleanTextureKey, frame: 15 },
+        ],
         frameRate: 8,
         repeat: -1,
       });
       this.anims.create({
         key: `${animKeyPrefix}-down`,
-        frames: downFrames.map(f => ({ key: this.cleanTextureKey, frame: f })),
+        frames: [
+          { key: this.cleanTextureKey, frame: 0 },
+          { key: this.cleanTextureKey, frame: 4 },
+          { key: this.cleanTextureKey, frame: 8 },
+          { key: this.cleanTextureKey, frame: 12 },
+        ],
         frameRate: 8,
         repeat: -1,
       });
       this.anims.create({
         key: `${animKeyPrefix}-sitting`,
-        frames: [{ key: this.cleanTextureKey, frame: downFrames[0] }],
+        frames: [{ key: this.cleanTextureKey, frame: 0 }],
         frameRate: 1,
         repeat: 0,
       });
     }
+
+    // NOTE: The 'player-avatar-2' and 'player-avatar-3' logic is removed
+    // because each player instance will now only create animations
+    // for its OWN texture.
   }
 
   public sitOnChair(chair: any) {
@@ -217,7 +221,202 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const speed = 200;
     this.setVelocity(0);
 
-    //FIX: Use the unique animation keys
+    // FIX: Use the unique animation keys
+    const animKeyPrefix = `anim-${this.cleanTextureKey}`;
+    const leftAnim = `${animKeyPrefix}-left`;
+    const rightAnim = `${animKeyPrefix}-right`;
+    const upAnim = `${animKeyPrefix}-up`;
+    const downAnim = `${animKeyPrefix}-down`;
+
+    let isMoving = false;
+
+    if (cursors.left.isDown || wasd.A.isDown) {
+      this.setVelocityX(-speed);
+      this.anims.play(leftAnim, true);
+      this.lastDirection = "left";
+      isMoving = true;
+    } else if (cursors.right.isDown || wasd.D.isDown) {
+      this.setVelocityX(speed);
+      this.anims.play(rightAnim, true);
+      this.lastDirection = "right";
+      isMoving = true;
+    }
+
+    if (cursors.up.isDown || wasd.W.isDown) {
+      this.setVelocityY(-speed);
+      this.anims.play(upAnim, true);
+      this.lastDirection = "up";
+      isMoving = true;
+    } else if (cursors.down.isDown || wasd.S.isDown) {
+      this.setVelocityY(speed);
+      this.anims.play(downAnim, true);
+      this.lastDirection = "down";
+      isMoving = true;
+    }
+
+    if (!isMoving) {
+      this.anims.stop();
+
+      // Detect avatar type from texture key
+      let avatarType = 'avatar-1'; // default
+      if (this.cleanTextureKey.includes('avatar-2')) {
+        avatarType = 'avatar-2';
+      } else if (this.cleanTextureKey.includes('avatar-3')) {
+        avatarType = 'avatar-3';
+      } else if (this.cleanTextureKey.includes('avatar-4')) {
+        // Only create anims if they don't already exist for this texture
+        if (!this.anims.exists(`${animKeyPrefix}-idle`)) {
+          // This assumes the spritesheet layout from 'avatar-1-spritesheet.png'
+          this.anims.create({
+            key: `${animKeyPrefix}-idle`,
+            frames: [{ key: this.cleanTextureKey, frame: 0 }],
+            frameRate: 1,
+            repeat: 0,
+          });
+          this.anims.create({
+            key: `${animKeyPrefix}-left`,
+            frames: [
+              { key: this.cleanTextureKey, frame: 1 },
+              { key: this.cleanTextureKey, frame: 5 },
+              { key: this.cleanTextureKey, frame: 9 },
+              { key: this.cleanTextureKey, frame: 13 },
+            ],
+            frameRate: 8,
+            repeat: -1,
+          });
+          this.anims.create({
+            key: `${animKeyPrefix}-up`,
+            frames: [
+              { key: this.cleanTextureKey, frame: 2 },
+              { key: this.cleanTextureKey, frame: 6 },
+              { key: this.cleanTextureKey, frame: 10 },
+              { key: this.cleanTextureKey, frame: 14 },
+            ],
+            frameRate: 8,
+            repeat: -1,
+          });
+          this.anims.create({
+            key: `${animKeyPrefix}-right`,
+            frames: [
+              { key: this.cleanTextureKey, frame: 3 },
+              { key: this.cleanTextureKey, frame: 7 },
+              { key: this.cleanTextureKey, frame: 11 },
+              { key: this.cleanTextureKey, frame: 15 },
+            ],
+            frameRate: 8,
+            repeat: -1,
+          });
+          this.anims.create({
+            key: `${animKeyPrefix}-down`,
+            frames: [
+              { key: this.cleanTextureKey, frame: 0 },
+              { key: this.cleanTextureKey, frame: 4 },
+              { key: this.cleanTextureKey, frame: 8 },
+              { key: this.cleanTextureKey, frame: 12 },
+            ],
+            frameRate: 8,
+            repeat: -1,
+          });
+          this.anims.create({
+            key: `${animKeyPrefix}-sitting`,
+            frames: [{ key: this.cleanTextureKey, frame: 0 }],
+            frameRate: 1,
+            repeat: 0,
+          });
+        }
+
+        // NOTE: The 'player-avatar-2' and 'player-avatar-3' logic is removed
+        // because each player instance will now only create animations
+        // for its OWN texture.
+      }
+
+  public sitOnChair(chair: any) {
+    this.isSitting = true;
+    this.sittingChair = chair;
+    this.setVelocity(0);
+    this.setPosition(chair.x, chair.y + 10);
+
+    // FIX: Use the unique animation key
+    const sittingAnim = `anim-${this.cleanTextureKey}-sitting`;
+    this.anims.play(sittingAnim, true);
+
+    this.setScale(0.85);
+  }
+
+  public standUp() {
+    this.isSitting = false;
+    this.sittingChair = null;
+    this.sitTimer = 0;
+    this.setScale(1);
+
+    // FIX: Use the unique animation key
+    const idleAnim = `anim-${this.cleanTextureKey}-idle`;
+    this.anims.play(idleAnim, true);
+  }
+
+  public getIsSitting(): boolean {
+    return this.isSitting;
+  }
+
+  public setNearChair(isNear: boolean, chair: any = null) {
+    this.nearChair = isNear;
+    if (!isNear) {
+      this.sitTimer = 0;
+      this.sittingChair = null;
+    } else if (isNear && !this.isSitting) {
+      this.sittingChair = chair;
+    }
+  }
+
+  public updateSitTimer(delta: number) {
+    if (this.nearChair && !this.isSitting && this.sittingChair) {
+      const isIdle =
+        this.body &&
+        this.body.velocity.x === 0 &&
+        this.body.velocity.y === 0;
+
+      if (isIdle) {
+        this.sitTimer += delta;
+        if (this.sitTimer >= this.sitDelay) {
+          this.sitOnChair(this.sittingChair);
+          this.sitTimer = 0;
+        }
+      } else {
+        this.sitTimer = 0;
+      }
+    }
+  }
+
+  public updateMovement(
+    cursors: Phaser.Types.Input.Keyboard.CursorKeys,
+    wasd: any,
+  ) {
+    if (this.isSitting) {
+      const tryingToMove =
+        cursors.left.isDown ||
+        cursors.right.isDown ||
+        cursors.up.isDown ||
+        cursors.down.isDown ||
+        wasd.A.isDown ||
+        wasd.D.isDown ||
+        wasd.W.isDown ||
+        wasd.S.isDown;
+
+      if (tryingToMove) {
+        this.standUp();
+      } else {
+        return;
+      }
+    }
+
+    if (!this.body) {
+      return;
+    }
+
+    const speed = 200;
+    this.setVelocity(0);
+
+    // FIX: Use the unique animation keys
     const animKeyPrefix = `anim-${this.cleanTextureKey}`;
     const leftAnim = `${animKeyPrefix}-left`;
     const rightAnim = `${animKeyPrefix}-right`;
@@ -265,12 +464,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         avatarType = 'avatar-5';
       }
 
-      // Frame mappings for different avatar types
+      //Frame mappings for different avatar types
       const directionFrames: { [key: string]: { [direction: string]: number } } = {
         'avatar-1': { down: 0, left: 1, up: 2, right: 3 },
         'avatar-2': { down: 0, left: 8, up: 4, right: 12 },
         'avatar-3': { down: 0, left: 1, up: 2, right: 3 },
-        'avatar-4': { down: 0, left: 8, up: 4, right: 12 }, // Updated for horizontal strips
+        'avatar-4': { down: 0, left: 1, up: 2, right: 3 },
         'avatar-5': { down: 0, left: 1, up: 2, right: 3 },
       };
 
@@ -313,12 +512,29 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         'avatar-1': { down: 0, left: 1, up: 2, right: 3 },
         'avatar-2': { down: 0, left: 8, up: 4, right: 12 },
         'avatar-3': { down: 0, left: 1, up: 2, right: 3 },
-        'avatar-4': { down: 0, left: 8, up: 4, right: 12 }, // Updated for horizontal strips
+        'avatar-4': { down: 0, left: 1, up: 2, right: 3 },
         'avatar-5': { down: 0, left: 1, up: 2, right: 3 },
       };
 
       const frames = directionFrames[avatarType] || directionFrames['avatar-1'];
       this.setFrame(frames[direction] || frames['down']);
     }
+
+    // Update last direction
+    this.lastDirection = direction;
+  }
+
+  public update(): void {
+    if (this.playerNameLabel) {
+      this.playerNameLabel.setPosition(this.x, this.y - (this.height * 0.9));
+    }
+    this.updateSitTimer(this.scene.game.loop.delta);
+  }
+
+  public destroy(fromScene?: boolean) {
+    if (this.playerNameLabel) {
+      this.playerNameLabel.destroy();
+    }
+    super.destroy(fromScene);
   }
 }

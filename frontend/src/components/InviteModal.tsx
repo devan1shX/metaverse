@@ -84,24 +84,22 @@ export function InviteModal({ isOpen, onClose, spaceId, spaceName }: InviteModal
         setError(response.data.error || "Failed to send invite");
       }
     } catch (err: any) {
-   console.error("Error sending invite:", err);
-   // ---- MODIFICATION START ----
-   // Extract specific error from backend response if available
-   let specificError = "Failed to send invite"; // Default message
-   const backendError = err.response?.data?.error; // Get error message from response data
-   if (backendError) {
-       // Check for the specific duplicate invite message
-       if (backendError.includes("pending invite already exists")) {
-           specificError = "An invite is already pending for this user.";
-       } else {
-           specificError = backendError; // Use other backend errors directly
-       }
-   }
-   setError(specificError);
-   // ---- MODIFICATION END ----
- } finally {
-   setSendingTo(null);
- }
+      console.error("Error sending invite:", err);
+      
+      let specificError = "Failed to send invite";
+     const backendError = err.response?.data?.error; 
+     if (backendError) {
+         if (backendError.includes("pending invite already exists")) {
+             specificError = "An invite is already pending for this user.";
+         } else {
+             specificError = backendError; 
+         }
+     }
+     setError(specificError);
+      
+    } finally {
+      setSendingTo(null);
+    }
   };
 
   if (!isOpen) return null;

@@ -41,6 +41,7 @@ interface SpacesContextType {
     isPublic?: boolean;
     maxUsers?: number;
     mapType?: string;
+    mapId?: string;
   }) => Promise<any>;
   updateSpace: (
     spaceId: string,
@@ -50,6 +51,7 @@ interface SpacesContextType {
       isPublic?: boolean;
       maxUsers?: number;
       mapType?: string;
+      mapId?: string;
     }
   ) => Promise<any>;
   deleteSpace: (spaceId: string) => Promise<any>;

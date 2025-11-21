@@ -63,10 +63,26 @@ export default function SpacePage() {
   // Action handlers
   const handleJoin = async () => {
     try {
-      await joinSpace(spaceId);
-    } catch (error) {
-      console.error("Failed to join space:", error);
-      // Optionally show a user-facing error message
+      console.log("SpacePage: handleJoin called with spaceId:", spaceId);
+      console.log("SpacePage: Calling joinSpace from context");
+      const result = await joinSpace(spaceId);
+      console.log("SpacePage: joinSpace result:", result);
+      // Refresh space data and user's spaces list
+      await Promise.all([
+        refetchSpace(),
+        // The SpacesContext should already refresh mySpaces after joinSpace
+      ]);
+      console.log("SpacePage: Space data refreshed after join");
+    } catch (error: any) {
+      console.error("SpacePage: Failed to join space:", error);
+      console.error("SpacePage: Error details:", {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+        stack: error?.stack,
+      });
+      // Re-throw to let SpaceLobby handle the error display
+      throw error;
     }
   };
 

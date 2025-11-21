@@ -1,4 +1,13 @@
 import axios from 'axios'
+import {
+  User,
+  Space,
+  Notification,
+  UserStatus
+} from '@/types/api'
+
+// Re-export types for convenience
+export type { User, Space, Notification, UserStatus }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
@@ -18,6 +27,23 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+
+    // Debug: Log the full URL being requested
+    const fullUrl = `${config.baseURL}${config.url}`
+    console.log('API Request:', {
+      method: config.method?.toUpperCase(),
+      url: fullUrl,
+      baseURL: config.baseURL,
+      path: config.url,
+      port: new URL(fullUrl).port || (fullUrl.includes('https') ? '443' : '80'),
+    })
+
+    // Verify we're not accidentally using port 5001 for REST API
+    if (fullUrl.includes(':5001') && !fullUrl.startsWith('ws://') && !fullUrl.startsWith('wss://')) {
+      console.error('ERROR: REST API request is going to port 5001! This should go to port 3000!')
+      console.error('Full URL:', fullUrl)
+    }
+
     return config
   },
   (error) => {
@@ -40,91 +66,91 @@ api.interceptors.response.use(
   }
 );
 
-// Types
-export interface User {
-  id: string
-  username: string
-  email: string
-  role: string
-  designation?: string
-  avatarUrl?: string
-  about?: string
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-  spaceCount: number
-  unreadNotifications: number
-}
+// // Types
+// export interface User {
+//   id: string
+//   username: string
+//   email: string
+//   role: string
+//   designation?: string
+//   avatarUrl?: string
+//   about?: string
+//   isActive: boolean
+//   createdAt: string
+//   updatedAt: string
+//   spaceCount: number
+//   unreadNotifications: number
+// }
 
-export interface Space {
-  id: string
-  name: string
-  description?: string
-  mapImageUrl?: string
-  adminUserId: string
-  isPublic: boolean
-  maxUsers: number
-  currentUsers: number
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-  objects: any[]
-}
+// export interface Space {
+//   id: string
+//   name: string
+//   description?: string
+//   mapImageUrl?: string
+//   adminUserId: string
+//   isPublic: boolean
+//   maxUsers: number
+//   currentUsers: number
+//   isActive: boolean
+//   createdAt: string
+//   updatedAt: string
+//   objects: any[]
+// }
 
-export interface Notification {
-  id: string
-  userId: string
-  type: 'updates' | 'invites'
-  title: string
-  message: string
-  data?: any
-  status: 'unread' | 'read' | 'dismissed'
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-  expiresAt?: string
-  isExpired: boolean
-}
+// export interface Notification {
+//   id: string
+//   userId: string
+//   type: 'updates' | 'invites'
+//   title: string
+//   message: string
+//   data?: any
+//   status: 'unread' | 'read' | 'dismissed'
+//   isActive: boolean
+//   createdAt: string
+//   updatedAt: string
+//   expiresAt?: string
+//   isExpired: boolean
+// }
 
-export interface UserStatus {
-  user_id: string
-  username: string
-  email: string
-  role: string
-  is_active: boolean
-  is_admin: boolean
-  account_status: string
-  spaces: {
-    total_count: number
-    active_count: number
-    admin_spaces_count: number
-  }
-  notifications: {
-    unread_count: number
-    total_count: number
-    active_count: number
-  }
-  account: {
-    created_at: string
-    updated_at: string
-    avatar_url: string
-    designation?: string
-    about?: string
-  }
-  session: {
-    last_activity: string
-    is_authenticated: boolean
-  }
-}
+// export interface UserStatus {
+//   user_id: string
+//   username: string
+//   email: string
+//   role: string
+//   is_active: boolean
+//   is_admin: boolean
+//   account_status: string
+//   spaces: {
+//     total_count: number
+//     active_count: number
+//     admin_spaces_count: number
+//   }
+//   notifications: {
+//     unread_count: number
+//     total_count: number
+//     active_count: number
+//   }
+//   account: {
+//     created_at: string
+//     updated_at: string
+//     avatar_url: string
+//     designation?: string
+//     about?: string
+//   }
+//   session: {
+//     last_activity: string
+//     is_authenticated: boolean
+//   }
+// }
 
 // Authentication APIs
 export const authAPI = {
   login: (email: string, password: string, userLevel: string) =>
     api.post('/metaverse/login', { email, password, user_level: userLevel }),
-  
+
   signup: (userName: string, email: string, password: string) =>
     api.post('/metaverse/signup', { user_name: userName, email, password }),
-  
+
   logout: () =>
     api.post('/metaverse/logout'),
 }
@@ -139,7 +165,7 @@ export const dashboardAPI = {
 export const userAPI = {
   updateAvatar: (userId: string, avatarUrl: string) =>
     api.patch(`/metaverse/users/${userId}/avatar`, { avatarUrl }),
-  
+
   getProfile: () =>
     api.get('/metaverse/protected/profile'),
 }
@@ -147,12 +173,12 @@ export const userAPI = {
 // Internal APIs
 export const internalAPI = {
   getUserSpaces: (userId: string, includeInactive = false) =>
-    api.get(`/int/api/users/${userId}/spaces`, { 
-      params: { includeInactive } 
+    api.get(`/int/api/users/${userId}/spaces`, {
+      params: { includeInactive }
     }),
-  
+
   getUserNotifications: (
-    userId: string, 
+    userId: string,
     options: {
       type?: 'updates' | 'invites'
       status?: 'unread' | 'read' | 'dismissed'
@@ -162,18 +188,18 @@ export const internalAPI = {
     } = {}
   ) =>
     api.get(`/int/api/users/${userId}/notifications`, { params: options }),
-  
+
   getUserStatus: (userId: string) =>
     api.get(`/int/api/users/${userId}/status`),
-  
+
   getSpaceDetails: (spaceId: string, includeUsers = false) =>
-    api.get(`/int/api/spaces/${spaceId}`, { 
-      params: { includeUsers } 
+    api.get(`/int/api/spaces/${spaceId}`, {
+      params: { includeUsers }
     }),
-  
+
   getSystemStats: () =>
     api.get('/int/api/stats'),
-  
+
   healthCheck: () =>
     api.get('/int/api/health'),
 }
@@ -186,7 +212,8 @@ export const spaceAPI = {
     description?: string
     isPublic?: boolean
     maxUsers?: number
-    mapType?: string
+    mapType?: string;
+    mapId?: string;
   }) =>
     api.post('/metaverse/spaces', spaceData),
 
@@ -202,14 +229,14 @@ export const spaceAPI = {
 
   // Get current user's spaces
   getMySpaces: (includeInactive = false) =>
-    api.get('/metaverse/spaces/my-spaces', { 
-      params: { includeInactive } 
+    api.get('/metaverse/spaces/my-spaces', {
+      params: { includeInactive }
     }),
 
   // Get space by ID
   getSpaceById: (spaceId: string, includeUsers = false) =>
-    api.get(`/metaverse/spaces/${spaceId}`, { 
-      params: { includeUsers } 
+    api.get(`/metaverse/spaces/${spaceId}`, {
+      params: { includeUsers }
     }),
 
   // Update space (admin only)
@@ -218,7 +245,8 @@ export const spaceAPI = {
     description?: string
     isPublic?: boolean
     maxUsers?: number
-    mapType?: string
+    mapType?: string;
+    mapId?: string;
   }) =>
     api.put(`/metaverse/spaces/${spaceId}`, updateData),
 
@@ -227,8 +255,21 @@ export const spaceAPI = {
     api.delete(`/metaverse/spaces/${spaceId}`),
 
   // Join a space
-  joinSpace: (spaceId: string) =>
-    api.post(`/metaverse/spaces/${spaceId}/join`),
+  joinSpace: (spaceId: string) => {
+    console.log("API: joinSpace called with spaceId:", spaceId);
+    console.log("API: Making POST request to:", `/metaverse/spaces/${spaceId}/join`);
+    const request = api.post(`/metaverse/spaces/${spaceId}/join`);
+    request.then(
+      (response) => {
+        console.log("API: joinSpace response:", response);
+      },
+      (error) => {
+        console.error("API: joinSpace error:", error);
+        console.error("API: Error config:", error?.config);
+      }
+    );
+    return request;
+  },
 
   // Leave a space
   leaveSpace: (spaceId: string) =>
@@ -251,10 +292,10 @@ export const spaceAPI = {
 export const protectedAPI = {
   getProfile: () =>
     api.get('/metaverse/protected/profile'),
-  
+
   getGameStatus: () =>
     api.get('/metaverse/protected/game/status'),
-  
+
   getAdminUsers: () =>
     api.get('/metaverse/protected/admin/users'),
 }
@@ -288,10 +329,8 @@ export const inviteAPI = {
     api.get('/metaverse/invites/health/check'),
 }
 
-
 // Notification Management APIs
 export const notificationAPI = {
-  // Get notifications for the current user
   getUserNotifications: (options: {
     type?: 'updates' | 'invites';
     status?: 'unread' | 'read' | 'dismissed';
@@ -353,6 +392,7 @@ export const notificationAPI = {
   healthCheck: () =>
     api.get('/metaverse/notifications/health/check'),
 };
+
 
 
 // Legacy function for backward compatibility

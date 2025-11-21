@@ -114,7 +114,8 @@ export interface CreateSpaceRequest {
   description?: string
   isPublic?: boolean
   maxUsers?: number
-  mapType?: string
+  mapType?: string;
+  mapId?: string;
 }
 
 export interface CreateSpaceResponse {
@@ -128,7 +129,8 @@ export interface UpdateSpaceRequest {
   description?: string
   isPublic?: boolean
   maxUsers?: number
-  mapType?: string
+  mapType?: string;
+  mapId?: string;
 }
 
 export interface SpaceListResponse {

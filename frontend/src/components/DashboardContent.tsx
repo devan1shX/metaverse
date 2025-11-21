@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSpaces } from "@/contexts/SpacesContext";
-import { useNotificationManager } from "@/hooks/useApi"; // Changed hook name
+import { useNotificationManager } from "@/hooks/useApi"; 
 import { Space, Notification } from "@/lib/api";
 import { InviteModal } from "@/components/InviteModal";
 
@@ -23,7 +23,7 @@ export function DashboardContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState<{ id: string; name: string } | null>(null);
-  const { notifications, summary, loading: notificationsLoading } = useNotificationManager(user?.id); // Changed hook name and destructuring
+  const { notifications, summary, loading: notificationsLoading } = useNotificationManager(user?.id); 
 
   // Filter spaces based on tab and search
   const filteredSpaces = useMemo(() => {

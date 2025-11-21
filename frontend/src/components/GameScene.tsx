@@ -11,6 +11,10 @@ export class GameScene extends Phaser.Scene {
   private selectedAvatarKey: string = "player-avatar-1";
   private mapId!: string;
   private currentOverlappingChair: any = null;
+  private remotePlayers: Map<string, { sprite: Phaser.Physics.Arcade.Sprite; nameText: Phaser.GameObjects.Text }> = new Map();
+  private sendPositionUpdate!: ((x: number, y: number) => void) | null;
+  private userId!: string | null;
+  private lastPositionSent: { x: number; y: number } | null = null;
 
   constructor() {
     super({ key: "GameScene" });
@@ -90,6 +94,8 @@ export class GameScene extends Phaser.Scene {
     const avatarUrl =
       this.game.registry.get("avatarUrl") || "/avatars/avatar-2.png";
     const mapId = this.game.registry.get("mapId") || "office-01";
+    this.userId = this.game.registry.get("userId") || null;
+    this.sendPositionUpdate = this.game.registry.get("sendPositionUpdate") || null;
 
     if (avatarUrl.includes("avatar-4")) {
       this.selectedAvatarKey = "player-avatar-2";
@@ -180,6 +186,20 @@ export class GameScene extends Phaser.Scene {
         this.playerName.setPosition(this.player.x, this.player.y - 30);
       }
 
+      // Send position update via WebSocket
+      if (this.sendPositionUpdate) {
+        const currentX = Math.round(this.player.x);
+        const currentY = Math.round(this.player.y);
+        
+        // Only send if position changed
+        if (!this.lastPositionSent || 
+            this.lastPositionSent.x !== currentX || 
+            this.lastPositionSent.y !== currentY) {
+          this.sendPositionUpdate(currentX, currentY);
+          this.lastPositionSent = { x: currentX, y: currentY };
+        }
+      }
+
       // Check if player is still near the chair
       if (!this.player.getIsSitting() && this.currentOverlappingChair) {
         const distance = Phaser.Math.Distance.Between(
@@ -194,6 +214,83 @@ export class GameScene extends Phaser.Scene {
           this.currentOverlappingChair = null;
         }
       }
+    }
+
+    // Update remote players with interpolation
+    this.remotePlayers.forEach((remotePlayer, userId) => {
+      // Smooth interpolation could be added here if needed
+    });
+  }
+
+  // Handle remote position updates
+  handleRemotePositionUpdate(update: { user_id: string; nx: number; ny: number }) {
+    // Don't update our own position
+    if (update.user_id === this.userId) {
+      return;
+    }
+
+    let remotePlayer = this.remotePlayers.get(update.user_id);
+
+    if (!remotePlayer) {
+      // Create new remote player sprite
+      const sprite = this.physics.add.sprite(update.nx, update.ny, this.selectedAvatarKey);
+      sprite.setCollideWorldBounds(true);
+      sprite.setFrame(0);
+      sprite.setOrigin(0.5, 1);
+
+      // Create name text
+      const nameText = this.add
+        .text(0, -30, `User ${update.user_id.substring(0, 8)}`, {
+          fontSize: "14px",
+          color: "#ffaa00",
+          fontFamily: "Arial",
+          stroke: "#000000",
+          strokeThickness: 2,
+        })
+        .setOrigin(0.5, 0.5)
+        .setResolution(10);
+
+      remotePlayer = { sprite, nameText };
+      this.remotePlayers.set(update.user_id, remotePlayer);
+    }
+
+    // Update position with smooth interpolation
+    this.tweens.add({
+      targets: remotePlayer.sprite,
+      x: update.nx,
+      y: update.ny,
+      duration: 100,
+      ease: "Power2",
+    });
+
+    // Update name text position
+    remotePlayer.nameText.setPosition(update.nx, update.ny - 30);
+  }
+
+  // Handle user joined event
+  handleUserJoined(event: { user_id: string; x: number; y: number }) {
+    // Don't create sprite for ourselves
+    if (event.user_id === this.userId) {
+      return;
+    }
+
+    // If player doesn't exist, create it
+    if (!this.remotePlayers.has(event.user_id)) {
+      this.handleRemotePositionUpdate({
+        user_id: event.user_id,
+        nx: event.x,
+        ny: event.y,
+      });
+    }
+  }
+
+  // Handle user left event
+  handleUserLeft(event: { user_id: string }) {
+    const remotePlayer = this.remotePlayers.get(event.user_id);
+    if (remotePlayer) {
+      remotePlayer.sprite.destroy();
+      remotePlayer.nameText.destroy();
+      this.remotePlayers.delete(event.user_id);
     }
   }
 }

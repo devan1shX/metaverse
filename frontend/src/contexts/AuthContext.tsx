@@ -7,12 +7,12 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { useRouter } from "next/navigation"; // Import the router
+import { useRouter } from "next/navigation";
 import { authAPI, userAPI } from "@/lib/api";
 import { LoginResponse, SignupResponse } from "@/types/api";
 
-// This interface can be simplified as it's used internally
-interface User {
+// *** FIXED: Export the User interface ***
+export interface User {
   id: string;
   user_name: string;
   email: string;
@@ -44,7 +44,7 @@ const DEFAULT_AVATAR = "/avatars/avatar-2.png";
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter(); // Initialize the router
+  const router = useRouter();
 
   useEffect(() => {
     const storedUser = localStorage.getItem("metaverse_user");
@@ -56,21 +56,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  // FIX: This listener handles expired tokens from the API interceptor
   useEffect(() => {
     const handleAuthError = () => {
       console.log("Auth error event received. Logging out.");
-      // Clear local state and storage
       setUser(null);
       localStorage.removeItem("metaverse_user");
       localStorage.removeItem("metaverse_token");
-      // Use the Next.js router for a clean redirect
       router.push('/login');
     };
 
     window.addEventListener('auth-error', handleAuthError);
 
-    // Cleanup the event listener when the component unmounts
     return () => {
       window.removeEventListener('auth-error', handleAuthError);
     };
@@ -187,7 +183,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           error.response.status === 400)
       ) {
         // The interceptor will catch the 401 and fire the 'auth-error' event
-        // so no need to call logout() here directly.
       }
       return false;
     }
@@ -202,7 +197,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       localStorage.removeItem("metaverse_user");
       localStorage.removeItem("metaverse_token");
-      // FIX: Use the router for a client-side navigation
       router.push("/login");
     }
   };

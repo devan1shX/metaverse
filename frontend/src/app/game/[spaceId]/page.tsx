@@ -1,24 +1,136 @@
 "use client";
 
-import { MetaverseGame } from "@/components/MetaverseGame";
-import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { useEffect } from "react"; // Removed useState
+import { LoadingScreen } from "@/components/LoadingScreen";
+import SpaceLobby from "@/components/SpaceLobby";
+import { useSpace } from "@/hooks/useApi";
+import { useSpaces } from "@/contexts/SpacesContext";
+import { MetaverseGame } from "@/components/MetaverseGame";
+// Import User type if needed, but it's available from useAuth
+// import { User } from "@/contexts/AuthContext"; 
 
-export default function GamePage() {
-  const { user, loading } = useAuth();
+export default function SpacePage() {
+  // === 1. HOOKS ===
+  const { user, loading: authLoading, logout } = useAuth();
   const router = useRouter();
+  const params = useParams();
+  const spaceId = params.spaceId as string;
 
+  const {
+    data: spaceData,
+    loading: spaceLoading,
+    error: spaceError,
+    refetch: refetchSpace,
+  } = useSpace(spaceId);
+
+  const { joinSpace, leaveSpace, deleteSpace, updateSpace, mySpaces } =
+    useSpaces();
+
+  // Redirect if not logged in
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push("/login");
     }
-  }, [user, loading, router]);
+  }, [user, authLoading, router]);
 
-  if (loading || !user) {
+  // === 2. RENDER LOGIC ===
+
+  // Show loading screen while auth or space data is loading
+  if (authLoading || !user || (spaceLoading && !spaceData)) {
     return <LoadingScreen />;
   }
 
-  return <MetaverseGame />;
+  // Handle errors
+  if (spaceError) {
+    return (
+      <div className="flex items-center justify-center h-screen text-red-400">
+        Error loading space: {spaceError}
+      </div>
+    );
+  }
+
+  // Handle space not found
+  if (!spaceData?.space) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        Space not found
+      </div>
+    );
+  }
+
+  // --- At this point, user and spaceData are loaded ---
+
+  const isUserMember = mySpaces.some((s) => s.id === spaceId);
+  const isUserAdmin = spaceData.space.adminUserId === user.id;
+
+  // If user is a member or admin, render the game
+  if (isUserMember || isUserAdmin) {
+    return (
+      <MetaverseGame
+        spaceId={spaceId}
+        user={user}
+        logout={logout}
+        mapId={spaceData.space.mapId} // <-- **FIX: Pass mapId**
+        avatarUrl={user.avatarUrl}     // <-- **FIX: Pass avatarUrl**
+      />
+    );
+  }
+
+  // --- If not a member/admin, show the lobby ---
+
+  const handleJoin = async () => {
+    try {
+      await joinSpace(spaceId);
+      await refetchSpace();
+      // No need to setGameShouldBeLoaded, component will re-render
+    } catch (error: any) {
+      console.error("Failed to join space:", error);
+      throw error;
+    }
+  };
+
+  const handleLeave = async () => {
+    try {
+      await leaveSpace(spaceId);
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("Failed to leave space:", error);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (isUserAdmin) {
+      try {
+        await deleteSpace(spaceId);
+        router.push("/dashboard");
+      } catch (error) {
+        console.error("Failed to delete space:", error);
+      }
+    }
+  };
+
+  const handleUpdate = async (updateData: any) => {
+    if (isUserAdmin) {
+      try {
+        await updateSpace(spaceId, updateData);
+        await refetchSpace();
+      } catch (error) {
+        console.error("Failed to update space:", error);
+      }
+    }
+  };
+
+  return (
+    <SpaceLobby
+      space={spaceData.space}
+      isUserAdmin={isUserAdmin}
+      isUserMember={isUserMember}
+      onJoin={handleJoin}
+      onLeave={handleLeave}
+      onDelete={handleDelete}
+      onUpdate={handleUpdate}
+    />
+  );
 }

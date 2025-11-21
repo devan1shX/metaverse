@@ -1,15 +1,15 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { 
-  internalAPI, 
-  dashboardAPI, 
-  protectedAPI, 
+import {
+  internalAPI,
+  dashboardAPI,
+  protectedAPI,
   spaceAPI,
-  Space, 
+  Space,
   notificationAPI,
-  Notification, 
-  UserStatus 
+  Notification,
+  UserStatus
 } from '@/lib/api'
 
 // Generic hook for API calls
@@ -53,7 +53,36 @@ export function useUserSpaces(userId: string, includeInactive = false) {
 }
 
 // Hook for user notifications
-
+// export function useUserNotifications(
+//   userId: string, 
+//   options: {
+//     type?: 'updates' | 'invites'
+//     status?: 'unread' | 'read' | 'dismissed'
+//     limit?: number
+//     offset?: number
+//     includeExpired?: boolean
+//   } = {}
+// ) {
+//   return useApiCall<{
+//     success: boolean
+//     user_id: string
+//     notifications: Notification[]
+//     pagination: {
+//       total_count: number
+//       returned_count: number
+//       limit: number
+//       offset: number
+//       has_more: boolean
+//     }
+//     summary: {
+//       unread_count: number
+//       total_active: number
+//     }
+//   }>(
+//     () => internalAPI.getUserNotifications(userId, options),
+//     [userId, JSON.stringify(options)]
+//   )
+// }
 
 // Hook for user status
 export function useUserStatus(userId: string) {
@@ -164,12 +193,9 @@ export function useHealthCheck() {
 }
 
 // Custom hook for managing notifications with actions
-// Custom hook for managing notifications with actions
 export function useNotificationManager(userId: string | undefined) {
-  // Only enable the hook if userId is available
   const enabled = !!userId;
 
-  // Use the actual API endpoint for fetching notifications
   const { data, loading, error, refetch } = useApiCall<{
     success: boolean;
     notifications: Notification[];
@@ -180,17 +206,14 @@ export function useNotificationManager(userId: string | undefined) {
       hasMore: boolean;
     };
   }>(
-    () => notificationAPI.getUserNotifications({ status: 'unread', limit: 50 }), // Fetch more initially, or adjust as needed
-    [userId], // Dependency array includes userId
-    enabled   // Pass the enabled flag
+    () => notificationAPI.getUserNotifications({ status: 'unread', limit: 50 }),
+    [userId],
+    enabled
   );
 
   const [isUpdating, setIsUpdating] = useState(false);
 
   const updateNotificationState = (updatedNotification: Notification) => {
-    // This part is tricky without a full state management solution like Zustand/Redux
-    // For now, we'll just refetch after updates.
-    // In a more robust setup, you'd update the local state directly.
     refetch();
   };
 
@@ -200,7 +223,6 @@ export function useNotificationManager(userId: string | undefined) {
     try {
       const response = await notificationAPI.markAsRead(notificationId);
       if (response.data.success) {
-        // Optimistic update or refetch
         refetch();
       } else {
         console.error("Failed to mark notification as read:", response.data.message);
@@ -212,7 +234,7 @@ export function useNotificationManager(userId: string | undefined) {
     }
   }, [enabled, isUpdating, refetch]);
 
-   const markAsUnread = useCallback(async (notificationId: string) => {
+  const markAsUnread = useCallback(async (notificationId: string) => {
     if (!enabled || isUpdating) return;
     setIsUpdating(true);
     try {
@@ -247,51 +269,46 @@ export function useNotificationManager(userId: string | undefined) {
   }, [enabled, isUpdating, refetch]);
 
 
-  // Mark All As Read - NOTE: Backend endpoint needed for this
   const markAllAsRead = useCallback(async () => {
-     if (!enabled || isUpdating || !data?.notifications) return;
-     const unreadIds = data.notifications
-       .filter(n => n.status === 'unread')
-       .map(n => n.id);
+    if (!enabled || isUpdating || !data?.notifications) return;
+    const unreadIds = data.notifications
+      .filter(n => n.status === 'unread')
+      .map(n => n.id);
 
-     if (unreadIds.length === 0) return;
+    if (unreadIds.length === 0) return;
 
-     setIsUpdating(true);
-     try {
-       // Ideally, you'd have a backend endpoint like:
-       // await notificationAPI.markAllAsRead();
-       // For now, mark them one by one (less efficient)
-       await Promise.all(unreadIds.map(id => notificationAPI.markAsRead(id)));
-       refetch(); // Refetch after all updates are done
-     } catch (err) {
-       console.error("Error marking all notifications as read:", err);
-     } finally {
-       setIsUpdating(false);
-     }
+    setIsUpdating(true);
+    try {
+      await Promise.all(unreadIds.map(id => notificationAPI.markAsRead(id)));
+      refetch();
+    } catch (err) {
+      console.error("Error marking all notifications as read:", err);
+    } finally {
+      setIsUpdating(false);
+    }
   }, [enabled, isUpdating, refetch, data?.notifications]);
 
-   // Calculate summary locally until backend provides it directly in GET /notifications
-   const summary = useMemo(() => {
-     const notifications = data?.notifications || [];
-     const unreadCount = notifications.filter(n => n.status === 'unread' && !n.isExpired).length;
-     return {
-       unread_count: unreadCount,
-       total_active: notifications.filter(n => n.isActive && !n.isExpired).length
-     };
-   }, [data?.notifications]);
+  const summary = useMemo(() => {
+    const notifications = data?.notifications || [];
+    const unreadCount = notifications.filter(n => n.status === 'unread' && !n.isExpired).length;
+    return {
+      unread_count: unreadCount,
+      total_active: notifications.filter(n => n.isActive && !n.isExpired).length
+    };
+  }, [data?.notifications]);
 
 
   return {
     notifications: data?.notifications || [],
-    summary: summary, // Use locally calculated summary
+    summary: summary,
     pagination: data?.pagination,
-    loading: loading || isUpdating, // Combine loading states
+    loading: loading || isUpdating,
     error,
     refetch,
     markAsRead,
     markAsUnread,
     dismissNotification,
-    markAllAsRead // Add the new functions
+    markAllAsRead
   };
 }
 
@@ -302,7 +319,7 @@ export function useAllSpaces(options: {
   offset?: number
   search?: string
   adminUserId?: string
-  
+
 } = {}, enabled: boolean) {
   return useApiCall<{
     success: boolean
@@ -353,13 +370,14 @@ export function useSpace(spaceId: string, includeUsers = false) {
 export function useSpaceManager() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
+
   const createSpace = useCallback(async (spaceData: {
     name: string
     description?: string
     isPublic?: boolean
     maxUsers?: number
-    mapType?: string
+    mapType?: string;
+    mapId?: string;
   }) => {
     try {
       setLoading(true)
@@ -380,7 +398,8 @@ export function useSpaceManager() {
     description?: string
     isPublic?: boolean
     maxUsers?: number
-    mapType?: string
+    mapType?: string;
+    mapId?: string;
   }) => {
     try {
       setLoading(true)
@@ -413,11 +432,21 @@ export function useSpaceManager() {
 
   const joinSpace = useCallback(async (spaceId: string) => {
     try {
+      console.log("useSpaceManager: joinSpace called with spaceId:", spaceId);
       setLoading(true)
       setError(null)
+      console.log("useSpaceManager: Calling spaceAPI.joinSpace");
       const response = await spaceAPI.joinSpace(spaceId)
+      console.log("useSpaceManager: spaceAPI.joinSpace response:", response);
       return response.data
     } catch (err: any) {
+      console.error("useSpaceManager: Error in joinSpace:", err);
+      console.error("useSpaceManager: Error details:", {
+        message: err?.message,
+        response: err?.response?.data,
+        status: err?.response?.status,
+        config: err?.config,
+      });
       const errorMsg = err.response?.data?.message || err.message || 'Failed to join space'
       setError(errorMsg)
       throw new Error(errorMsg)

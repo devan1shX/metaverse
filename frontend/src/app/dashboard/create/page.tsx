@@ -67,39 +67,48 @@ export default function CreateSpacePage() {
     setError(null);
     const finalData = { ...creationData, name: spaceName };
 
-    // FIX: Helper function to map frontend map IDs to backend-compatible types
-    const getBackendMapType = (frontendMapId: string) => {
+    // Map the frontend map selection to actual map IDs
+    const getMapId = (frontendMapId: string) => {
       switch (frontendMapId) {
         case "corporate-hq":
-          return "office";
+          return "office-01";
         case "conference-hall":
-          return "meeting";
+          return "office-02";
         default:
-          return "custom"; // Fallback value
+          return "office-01"; // Default fallback
       }
     };
 
+    const selectedMapId = getMapId(finalData.map);
+
+    const requestData = {
+      name: finalData.name,
+      description: `A space for ${finalData.useCase}`,
+      isPublic: true,
+      maxUsers: finalData.size,
+      mapId: selectedMapId, // Send the actual map ID (office-01 or office-02)
+    };
+
+    console.log("🚀 Creating space with data:", requestData);
+
     try {
-      const result = await createSpace({
-        name: finalData.name,
-        description: `A space for ${finalData.useCase}`,
-        isPublic: true,
-        maxUsers: finalData.size,
-        mapType: getBackendMapType(finalData.map), // Use the mapped value
-      });
+      const result = await createSpace(requestData);
+
+      console.log("📦 Create space result:", result);
 
       if (result.success) {
-        const mapKey =
-          finalData.map === "corporate-hq" ? "office-01" : "office-02";
-        localStorage.setItem("selectedMap", mapKey);
+        // Store in localStorage for immediate use
+        localStorage.setItem("selectedMap", selectedMapId);
         router.push(`/space/${result.space.id}`);
       } else {
         // Use the actual error from the backend if available
         const errorMsg = result.errors ? result.errors.join(", ") : result.message;
+        console.error("❌ Backend error:", errorMsg, result);
         setError(errorMsg || "Failed to create space. Please try again.");
         console.error("Error creating space:", result);
       }
     } catch (err: any) {
+      console.error("💥 Exception during space creation:", err);
       setError(err.message || "An unexpected error occurred.");
       console.error("Caught error during space creation:", err);
     }
