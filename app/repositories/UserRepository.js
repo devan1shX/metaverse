@@ -1,6 +1,7 @@
 const { get_async_db } = require('../config/db_conn');
 const { logger } = require('../utils/logger');
 const User = require('../models/User');
+const { Notification } = require('../models/Notification');
 
 /**
  * UserRepository Class
@@ -516,7 +517,25 @@ class UserRepository {
   async getUserSpaces(userid){
     const db = await get_async_db();
     const result = await db.query(
-      `SELECT * FROM user_spaces WHERE user_id = $1`,
+      `SELECT 
+        us.*,
+        s.id as space_id,
+        s.name as space_name,
+        s.description as space_description,
+        s.map_image_url as space_map_image_url,
+        s.admin_user_id as space_admin_user_id,
+        s.is_public as space_is_public,
+        s.max_users as space_max_users,
+        s.is_active as space_is_active,
+        s.count as space_count,
+        s.created_at as space_created_at,
+        s.updated_at as space_updated_at,
+        s.objects as space_objects,
+        CASE WHEN s.admin_user_id = $1 THEN true ELSE false END as is_admin
+      FROM user_spaces us
+      JOIN spaces s ON us.space_id = s.id
+      WHERE us.user_id = $1
+      ORDER BY us.joined_at DESC`,
       [userid]
     );
     

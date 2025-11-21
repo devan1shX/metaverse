@@ -17,8 +17,13 @@ const {
     leaveSpace,
     getMySpaces
 } = require('../../controllers/spaceController');
+const SpaceService = require('../../services/SpaceService');
+
+
 
 const router = express.Router();
+
+const spaceService = new SpaceService(); // Instantiate the service
 
 // Middleware to log space API access
 router.use((req, res, next) => {
@@ -58,9 +63,8 @@ router.get('/my-spaces', authenticateToken, getMySpaces);
 
 /**
  * @route   GET /spaces/:spaceId
- * @desc    Get space by ID
+ * @desc    Get space by ID with complete database row and all users
  * @access  Private (authenticated users)
- * @query   { includeUsers? }
  */
 router.get('/:spaceId', authenticateToken, validateSpaceId, getSpaceById);
 
@@ -119,7 +123,7 @@ router.post('/:spaceId/admin/deactivate', authenticateToken, requireAdmin, async
         logger.info('Admin deactivating space', { spaceId, requesterId });
 
         const SpaceService = require('../../services/SpaceService');
-        const result = await SpaceService.deactivateSpace(spaceId, requesterId);
+        const result = await spaceService.deactivateSpace(spaceId, requesterId); // Call on the instance
 
         if (!result.success) {
             return res.status(400).json({
@@ -146,7 +150,6 @@ router.post('/:spaceId/admin/deactivate', authenticateToken, requireAdmin, async
         });
     }
 });
-
 // Health check for spaces API
 router.get('/health/check', (req, res) => {
     res.status(200).json({

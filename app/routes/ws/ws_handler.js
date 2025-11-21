@@ -1,8 +1,7 @@
-const { WebSocketServer } = require('ws');
+const { WebSocketServer, WebSocket } = require('ws'); // Import WebSocket
 const { logger } = require('../../utils/logger');
 const WSMessageParser = require('../../utils/wsMsgParser.js');
 const { Config } = require('../../config/config');
-
 
 class WebSocketManager {
     constructor() {
@@ -160,7 +159,9 @@ class WebSocketManager {
         let broadcastCount = 0;
 
         spaceConnections.forEach((ws) => {
-            if (ws !== excludeWs && ws.readyState === ws.OPEN) {
+            // *** FIX HERE ***
+            // Changed `ws.OPEN` (instance) to `WebSocket.OPEN` (static class property)
+            if (ws !== excludeWs && ws.readyState === WebSocket.OPEN) { 
                 try {
                     ws.send(messageStr);
                     broadcastCount++;
@@ -183,7 +184,9 @@ class WebSocketManager {
     broadcastToUser(userId, message) {
         const ws = this.userConnections.get(userId);
         
-        if (ws && ws.readyState === ws.OPEN) {
+        // *** FIX HERE ***
+        // Changed `ws.OPEN` (instance) to `WebSocket.OPEN` (static class property)
+        if (ws && ws.readyState === WebSocket.OPEN) {
             try {
                 ws.send(JSON.stringify(message));
                 logger.debug('Message sent to user', { userId, messageType: message.type });

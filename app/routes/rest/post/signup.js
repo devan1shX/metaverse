@@ -17,11 +17,15 @@ function addpath(req, res, next){
 signup_routes.post('/', 
     addpath,
     sanitizeAuthRequest,
-    rateLimitAuth(100, 10 * 60 * 1000), // 3 signup attempts per 10 minutes (stricter than login)
+    // =============================================  // 
+    rateLimitAuth(3, 10 * 60 * 1000), // 3 signup attempts per 10 minutes (stricter than login)
+    // =============================================  // 
     validateSignup,
     logAuthAttempt,
     signup_controller
 );
+
+
 
 // Health check for signup API
 signup_routes.get('/health', (req, res) => {

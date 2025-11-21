@@ -8,7 +8,10 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon server.js"
+    "start": "SKIP_CLEANER=true nodemon server.js",
+    "reset": "SKIP_CLEANER=false nodemon server.js",
+    "start:prod": "SKIP_CLEANER=true node server.js",
+    "reset:prod": "SKIP_CLEANER=false node server.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

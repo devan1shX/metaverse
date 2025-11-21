@@ -195,37 +195,36 @@ class Notification {
    * @returns {Object} Notification object formatted for database operations
    */
   toDatabaseObject() {
-  // Ensure data is stringified only if it's an actual object
-  let dataString = null;
-  if (this.data && typeof this.data === 'object') {
-     try {
-         dataString = JSON.stringify(this.data);
-     } catch (e) {
-         console.error('Error stringifying notification data:', e);
-         // Decide how to handle: null, empty object string '{}', or throw error
-         dataString = null;
-     }
-  } else if (typeof this.data === 'string') {
-     // If it's already a string, assume it's valid JSON or null/empty
-     dataString = this.data;
-  }
 
-  return {
-    id: this.id,
-    user_id: this.userId,
-    type: this.type,
-    title: this.title,
-    message: this.message,
-    // --- MODIFIED LINE ---
-    data: dataString, // Use the stringified version
-    // ---------------------
-    status: this.status,
-    is_active: this.isActive,
-    created_at: this.createdAt,
-    updated_at: this.updatedAt,
-    expires_at: this.expiresAt
-  };
-}
+    
+    let dataString = null;
+    if (this.data && typeof this.data === 'object') {
+       try {
+           dataString = JSON.stringify(this.data);
+       } catch (e) {
+           console.error('Error stringifying notification data:', e);
+           dataString = null;
+       }
+    } else if (typeof this.data === 'string') {
+       
+       dataString = this.data;
+    }
+
+    
+    return {
+      id: this.id,
+      user_id: this.userId,
+      type: this.type,
+      title: this.title,
+      message: this.message,
+      data: dataString,
+      status: this.status,
+      is_active: this.isActive,
+      created_at: this.createdAt,
+      updated_at: this.updatedAt,
+      expires_at: this.expiresAt
+    };
+  }
 
   /**
    * Create Notification instance from database row
@@ -236,31 +235,31 @@ class Notification {
     if (!dbRow) return null;
     
     let data = null;
-if (dbRow.data) { // Check if data exists and is not null
-    if (typeof dbRow.data === 'string') {
-        try {
-            // Attempt to parse only if it's a non-empty string
-            if (dbRow.data.trim() !== '') {
-              data = JSON.parse(dbRow.data);
+    if (dbRow.data) { 
+        if (typeof dbRow.data === 'string') {
+            try {
+               
+                if (dbRow.data.trim() !== '') {
+                  data = JSON.parse(dbRow.data);
+                }
+            } catch (error) {
+                logger.error('Error parsing notification data from DB string:', {
+                    error: error.message,
+                    notificationId: dbRow.id,
+                    rawData: dbRow.data
+                });
+                data = null; // Set to null if parsing fails
             }
-        } catch (error) {
-            logger.error('Error parsing notification data from DB string:', {
-                error: error.message,
+        } else if (typeof dbRow.data === 'object') {
+            
+             data = dbRow.data;
+        } else {
+            logger.warn('Unexpected type for notification data from DB', {
                 notificationId: dbRow.id,
-                rawData: dbRow.data
+                dataType: typeof dbRow.data
             });
-            data = null; // Set to null if parsing fails
         }
-    } else if (typeof dbRow.data === 'object') {
-         // If the DB driver already parsed it (e.g., PostgreSQL JSONB type)
-         data = dbRow.data;
-    } else {
-        logger.warn('Unexpected type for notification data from DB', {
-            notificationId: dbRow.id,
-            dataType: typeof dbRow.data
-        });
     }
-}
 
     return new Notification({
       id: dbRow.id,

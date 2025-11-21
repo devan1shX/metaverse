@@ -104,16 +104,16 @@ class NotificationService {
       }
 
       // Check if requesting user owns this notification
-      if (notification.userId !== requestingUserId) {
-        logger.warn('User not authorized to view notification', { 
-          notification_id: notificationId, 
-          requestingUserId 
-        });
-        return {
-          success: false,
-          error: 'Not authorized to view this notification'
-        };
-      }
+      // if (notification.userId !== requestingUserId) {
+      //   logger.warn('User not authorized to view notification', { 
+      //     notification_id: notificationId, 
+      //     requestingUserId 
+      //   });
+      //   return {
+      //     success: false,
+      //     error: 'Not authorized to view this notification'
+      //   };
+      // }
 
       return {
         success: true,
@@ -140,52 +140,47 @@ class NotificationService {
    */
   async getNotificationsForUser(userId, options = {}) {
     try {
-    // --- START REPLACEMENT ---
-    // Original: const { filters = {}, limit = null, offset = 0 } = options;
-    // Corrected: Extract specific filters from options
-    const { type, status, isActive, limit = 50, offset = 0 } = options;
-    // Construct the filters object expected by the repository
-    const repoFilters = {};
-    if (type) repoFilters.type = type;
-    if (status) repoFilters.status = status;
-    // Handle boolean isActive specifically
-    if (isActive !== undefined) {
-         // Convert string 'true'/'false' from query params if necessary
-         repoFilters.isActive = String(isActive).toLowerCase() === 'true';
-    }
-    // NOTE: includeExpired is not directly used here, assumes repository handles expiry logic
+      // const { filters = {}, limit = null, offset = 0 } = options;
+      // logger.debug('Getting notifications for user', { userId, filters, limit, offset });
 
-    logger.debug('Getting notifications for user', { userId, filters: repoFilters, limit: parseInt(limit), offset: parseInt(offset) }); // Use corrected limit/offset types
-    // --- END REPLACEMENT ---
+      const { type, status, isActive, limit = 50, offset = 0 } = options;
+      const repoFilters = {};
+      if (type) repoFilters.type = type;
+      if (status) repoFilters.status = status;
+      if (isActive !== undefined) {
+           repoFilters.isActive = String(isActive).toLowerCase() === 'true';
+      }
+  
+      logger.debug('Getting notifications for user', { userId, filters: repoFilters, limit: parseInt(limit), offset: parseInt(offset) }); 
 
-    if (!userId) { // User ID check remains
-      return {
-        success: false,
-        error: 'User ID is required'
-      };
-    }
+      if (!userId) {
+        return {
+          success: false,
+          error: 'User ID is required'
+        };
+      }
 
-      // Check if user exists (remains the same)
-    const user = await this.userRepository.findById(userId);
-    if (!user) {
-      return {
-        success: false,
-        error: 'User not found'
-      };
-    }
+      // Check if user exists
+      const user = await this.userRepository.findById(userId);
+      if (!user) {
+        return {
+          success: false,
+          error: 'User not found'
+        };
+      }
 
-    // Pass the constructed repoFilters object and parsed limit/offset
-    const notifications = await this.notificationRepository.findByUserId(
-      userId,
-      repoFilters, // Pass the correct filters object
-      parseInt(limit), // Ensure limit is a number
-      parseInt(offset) // Ensure offset is a number
-    );
-      
-      return {
-        success: true,
-        notifications: notifications
-      };
+      const { notifications, totalCount } = await this.notificationRepository.findByUserId(
+  userId, 
+  repoFilters, 
+  parseInt(limit), 
+  parseInt(offset) 
+);
+
+return {
+  success: true,
+  notifications: notifications,
+  totalCount: totalCount // Pass this total count up
+};
     } catch (error) {
       logger.error('Error in getNotificationsForUser service', { 
         error: error.message, 
@@ -346,14 +341,7 @@ class NotificationService {
         };
       }
 
-      // Check if user exists
-      const user = await this.userRepository.findById(userId);
-      if (!user) {
-        return {
-          success: false,
-          error: 'User not found'
-        };
-      }
+      
 
       const count = await this.notificationRepository.markAllAsReadForUser(userId, type);
 
@@ -383,59 +371,60 @@ class NotificationService {
    * @returns {Promise<{success: boolean, error?: string}>}
    */
   async deleteNotification(notificationId, requestingUserId) {
-  try {
-    // Log who is attempting the delete for admin actions
-    logger.info('Attempting to delete notification', { notification_id: notificationId, requestingUserId });
+    try {
+      logger.info('Attempting to delete notification', { notification_id: notificationId, requestingUserId });
 
-    if (!notificationId || !requestingUserId) {
+      if (!notificationId || !requestingUserId) {
+        return {
+          success: false,
+          error: 'Notification ID and requesting user ID are required'
+        };
+      }
+
+      // Get notification
+      const notification = await this.notificationRepository.findById(notificationId);
+      if (!notification) {
+        logger.warn('Admin attempted to delete non-existent notification', { notification_id: notificationId, requestingUserId });
+        return {
+          success: false,
+          error: 'Notification not found'
+        };
+      }
+
+      // Check if requesting user owns this notification
+      // if (notification.userId !== requestingUserId) {
+      //   return {
+      //     success: false,
+      //     error: 'Not authorized to delete this notification'
+      //   };
+      // }
+
+      const success = await this.notificationRepository.delete(notificationId);
+      if (!success) {
+        logger.warn('Notification not found during admin deletion attempt (race condition?)', { notification_id: notificationId, requestingUserId });
+        return {
+          success: false,
+          error: 'Notification not found or already deleted'
+        };
+      }
+
+      logger.info('Notification deleted successfully by admin', { notification_id: notificationId, adminUserId: requestingUserId });
+      return {
+        success: true
+      };
+    } catch (error) {
+      logger.error('Error in admin deleteNotification service', { 
+        error: error.message, 
+        stack: error.stack, 
+        notification_id: notificationId,
+        requestingUserId 
+      });
       return {
         success: false,
-        error: 'Notification ID and requesting user ID are required'
+        error: 'Internal server error'
       };
     }
-
-    // We still fetch it first to know if it existed
-    const notification = await this.notificationRepository.findById(notificationId);
-    if (!notification) {
-      // If admin tries to delete something already gone, maybe return success? Or specific message.
-      logger.warn('Admin attempted to delete non-existent notification', { notification_id: notificationId, requestingUserId });
-      return {
-        success: false, // Or true, depending on desired idempotency
-        error: 'Notification not found'
-      };
-    }
-
-    // --- REMOVED OWNERSHIP CHECK ---
-    // No need to check if notification.userId === requestingUserId for admin delete
-
-    // Proceed directly to deletion
-    const success = await this.notificationRepository.delete(notificationId);
-    if (!success) {
-       // This case might mean it was deleted between findById and delete
-       logger.warn('Notification not found during admin deletion attempt (race condition?)', { notification_id: notificationId, requestingUserId });
-      return {
-        success: false,
-        error: 'Notification not found or already deleted'
-      };
-    }
-
-    logger.info('Notification deleted successfully by admin', { notification_id: notificationId, adminUserId: requestingUserId });
-    return {
-      success: true
-    };
-  } catch (error) {
-    logger.error('Error in admin deleteNotification service', { // Added 'admin'
-      error: error.message,
-      stack: error.stack,
-      notification_id: notificationId,
-      requestingUserId // Include admin ID in error log
-    });
-    return {
-      success: false,
-      error: 'Internal server error'
-    };
   }
-}
 
   /**
    * Send space invitation notification
@@ -846,6 +835,10 @@ class NotificationService {
     }
   }
 
+
+
+  
+
   /**
    * Update notification (admin only)
    * @param {string} notificationId - Notification ID
@@ -854,60 +847,67 @@ class NotificationService {
    * @returns {Promise<{success: boolean, notification?: Notification, error?: string}>}
    */
   async updateNotification(notificationId, updates, requestingUserId) {
-  try {
-    logger.info('Updating notification (Admin)', { notificationId, updates, requestingUserId }); // Added (Admin) for clarity
-
-    // Get notification instance from repository
-    const notificationInstance = await this.notificationRepository.findById(notificationId);
-    if (!notificationInstance) {
-      return {
-        success: false,
-        error: 'Notification not found'
-      };
-    }
-
-    // Apply updates directly to the notification instance
-    notificationInstance.update(updates);
-
-    // Optional: Validate the instance after updating
-    const validation = notificationInstance.validate();
-    if (!validation.isValid) {
-        logger.warn('Admin Notification update validation failed', { notificationId, errors: validation.errors });
-        // Return validation errors if needed, or just log them
-        // Depending on requirements, you might allow admins to bypass some validation
-    }
-
-    // Pass the updated instance to the repository's update method
-    const updatedNotification = await this.notificationRepository.update(notificationInstance);
-
-    if (!updatedNotification) {
-      // This could happen if the row was deleted between findById and update
-      logger.error('Failed to update notification in database after applying changes', { notificationId });
-      return {
-        success: false,
-        error: 'Failed to save updated notification'
-      };
-    }
-
-    logger.info('Notification updated successfully by admin', { notificationId, requestingUserId }); // Added 'by admin'
-
-    return {
-      success: true,
-      notification: updatedNotification // Return the updated object from the repository
-    };
-  } catch (error) {
-    logger.error('Error in admin updateNotification service', { // Added 'admin'
-      error: error.message,
-      stack: error.stack,
-      notificationId,
-      requestingUserId
-    });
-    return {
-      success: false,
-      error: 'Internal server error'
-    };
-  }
+    const requestingUser = await this.userRepository.findById(requestingUserId);
+if (!requestingUser || !requestingUser.isAdmin()) {
+  logger.warn('Non-admin user attempted admin action', { requestingUserId });
+  return {
+    success: false,
+    error: 'Not authorized'
+  };
 }
+    try {
+      logger.info('Updating notification (Admin)', { notificationId, updates, requestingUserId }); 
+
+      // Get notification
+      const notificationInstance = await this.notificationRepository.findById(notificationId);
+      if (!notificationInstance) {
+        return {
+          success: false,
+          error: 'Notification not found'
+        };
+      }
+
+      notificationInstance.update(updates);
+
+      const validation = notificationInstance.validate();
+      if (!validation.isValid) {
+          logger.warn('Admin Notification update validation failed', { notificationId, errors: validation.errors });
+      }
+      const updatedNotification = await this.notificationRepository.update(notificationInstance);
+
+      // Update notification
+      // const updatedNotification = await this.notificationRepository.update(
+      //   notificationId, 
+      //   updates
+      // );
+
+      if (!updatedNotification) {
+        logger.error('Failed to update notification in database after applying changes', { notificationId });
+        return {
+          success: false,
+          error: 'Failed to save updated notification'
+        };
+      }
+
+      logger.info('Notification updated successfully by admin', { notificationId, requestingUserId }); 
+
+      return {
+        success: true,
+        notification: updatedNotification
+      };
+    } catch (error) {
+      logger.error('Error in admin updateNotification service', { 
+        error: error.message, 
+        stack: error.stack, 
+        notificationId, 
+        requestingUserId 
+      });
+      return {
+        success: false,
+        error: 'Internal server error'
+      };
+    }
+  }
 
   /**
    * Get all notifications (admin only)
@@ -916,23 +916,29 @@ class NotificationService {
    * @returns {Promise<{success: boolean, notifications?: Array, totalCount?: number, hasMore?: boolean, error?: string}>}
    */
   async getAllNotifications(filters = {}, requestingUserId, paginationOptions = {}) {
+    const requestingUser = await this.userRepository.findById(requestingUserId);
+if (!requestingUser || !requestingUser.isAdmin()) {
+  logger.warn('Non-admin user attempted admin action', { requestingUserId });
+  return {
+    success: false,
+    error: 'Not authorized'
+  };
+}
     try {
       const { limit = 50, offset = 0 } = paginationOptions;
 
-      // Ensure limit and offset are integers
       const parsedLimit = parseInt(limit, 10);
       const parsedOffset = parseInt(offset, 10);
 
       logger.info('Admin getting all notifications (Service)', { filters, limit: parsedLimit, offset: parsedOffset, requestingUserId });
 
-      // Call repository's findAll which now returns { notifications, totalCount }
+     
       const repoResult = await this.notificationRepository.findAll(
         filters,
         parsedLimit,
         parsedOffset
       );
 
-      // Check if the repository returned the expected structure
       if (!repoResult || !Array.isArray(repoResult.notifications) || typeof repoResult.totalCount !== 'number') {
            logger.error('Repository findAll (admin) did not return expected object structure', { repoResult });
            return { success: false, error: 'Internal server error retrieving data structure' };
@@ -940,7 +946,6 @@ class NotificationService {
 
       const { notifications, totalCount } = repoResult;
 
-      // Calculate hasMore based on the results
       const hasMore = (parsedOffset + notifications.length) < totalCount;
 
       logger.info('Admin successfully retrieved all notifications', {
@@ -953,22 +958,21 @@ class NotificationService {
 
       return {
         success: true,
-        notifications: notifications, // Use notifications from repoResult
-        totalCount: totalCount,      // Use totalCount from repoResult
-        hasMore: hasMore             // Include calculated hasMore flag
+        notifications: notifications, 
+        totalCount: totalCount,   
+        hasMore: hasMore  
       };
-
     } catch (error) {
-      logger.error('Error in getAllNotifications service', {
-        error: error.message,
-        stack: error.stack,
+      logger.error('Error in getAllNotifications service', { 
+        error: error.message, 
+        stack: error.stack, 
         requestingUserId,
-        filters, // Log filters on error too
+        filters, 
         paginationOptions
       });
       return {
         success: false,
-        error: 'Internal server error' // Keep generic for security
+        error: 'Internal server error'
       };
     }
   }
@@ -981,6 +985,14 @@ class NotificationService {
    * @returns {Promise<{success: boolean, updatedCount?: number, error?: string}>}
    */
   async bulkUpdateNotifications(notificationIds, updates, requestingUserId) {
+    const requestingUser = await this.userRepository.findById(requestingUserId);
+if (!requestingUser || !requestingUser.isAdmin()) {
+  logger.warn('Non-admin user attempted admin action', { requestingUserId });
+  return {
+    success: false,
+    error: 'Not authorized'
+  };
+}
     try {
       logger.info('Bulk updating notifications', { 
         notificationIds, 
@@ -1026,6 +1038,14 @@ class NotificationService {
    * @returns {Promise<{success: boolean, deletedCount?: number, error?: string}>}
    */
   async bulkDeleteNotifications(notificationIds, requestingUserId) {
+    const requestingUser = await this.userRepository.findById(requestingUserId);
+if (!requestingUser || !requestingUser.isAdmin()) {
+  logger.warn('Non-admin user attempted admin action', { requestingUserId });
+  return {
+    success: false,
+    error: 'Not authorized'
+  };
+}
     try {
       logger.info('Bulk deleting notifications', { 
         notificationIds, 

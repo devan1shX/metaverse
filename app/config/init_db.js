@@ -8,7 +8,11 @@ const { db_cleaner } = require('../utils/database/db_cleaner');
 
 async function init_db(skipCleaner = false) {
   if (!skipCleaner) {
+    logger.info('[init_db][init_db] Resetting database - dropping all existing tables...');
     await db_cleaner(); 
+    logger.info('[init_db][init_db] Database reset completed - recreating tables...');
+  } else {
+    logger.info('[init_db][init_db] Skipping database reset - using existing tables...');
   }
   try {
     logger.info('[init_db][init_db] Initializing database...');
@@ -40,10 +44,12 @@ async function init_db(skipCleaner = false) {
         name VARCHAR(100) NOT NULL,
         description TEXT,
         map_image_url VARCHAR(255),
+        map_id VARCHAR(50) DEFAULT 'office-01',
         admin_user_id UUID NOT NULL,
         is_public BOOLEAN NOT NULL DEFAULT TRUE,
         max_users INTEGER NOT NULL DEFAULT 50,
         is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        count INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         objects JSONB DEFAULT '[]'::jsonb,

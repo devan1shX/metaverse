@@ -15,7 +15,6 @@ class DatabaseManager:
         self.pool: Optional[asyncpg.Pool] = None
         
     async def initialize_pool(self):
-        """Initialize the database connection pool"""
         try:
             self.pool = await asyncpg.create_pool(
                 host=os.getenv('DB_HOST', 'localhost'),
@@ -32,13 +31,11 @@ class DatabaseManager:
             raise
     
     async def get_connection(self):
-        """Get a connection from the pool"""
         if not self.pool:
             await self.initialize_pool()
         return self.pool.acquire()
     
     async def close_pool(self):
-        """Close the database connection pool"""
         if self.pool:
             await self.pool.close()
             logger.info("Database connection pool closed")
@@ -46,6 +43,6 @@ class DatabaseManager:
 # Global database manager instance
 db_manager = DatabaseManager()
 
-async def get_db_connection():
+async def get_async_db():
     """Legacy function for backward compatibility"""
     return await db_manager.get_connection()

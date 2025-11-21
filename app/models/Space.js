@@ -11,6 +11,7 @@ class Space {
     name,
     description = null,
     mapImageUrl = null,
+    mapId = 'office-01',
     adminUserId,
     isPublic = true,
     maxUsers = 50,
@@ -25,6 +26,7 @@ class Space {
     this.name = name;
     this.description = description;
     this.mapImageUrl = mapImageUrl;
+    this.mapId = mapId || 'office-01';
     this.adminUserId = adminUserId;
     this.isPublic = isPublic;
     this.maxUsers = maxUsers;
@@ -66,6 +68,13 @@ class Space {
     // Map image URL validation
     if (this.mapImageUrl && this.mapImageUrl.length > 255) {
       errors.push('Map image URL must be less than 255 characters');
+    }
+
+    // Map ID validation
+    if (!this.mapId || this.mapId.trim().length === 0) {
+      errors.push('Map ID is required');
+    } else if (this.mapId.length > 50) {
+      errors.push('Map ID must be less than 50 characters');
     }
 
     // Max users validation
@@ -212,24 +221,7 @@ class Space {
     return this.isActive === true;
   }
 
-  /**
-   * Update space properties
-   * @param {Object} updates - Object containing fields to update
-   */
-  update(updates) {
-    const allowedUpdates = [
-      'name', 'description', 'mapImageUrl', 'isPublic', 
-      'maxUsers', 'isActive'
-    ];
 
-    Object.keys(updates).forEach(key => {
-      if (allowedUpdates.includes(key) && updates[key] !== undefined) {
-        this[key] = updates[key];
-      }
-    });
-
-    this.updatedAt = new Date();
-  }
 
   /**
    * Convert space to safe object (for API responses)
@@ -241,6 +233,7 @@ class Space {
       name: this.name,
       description: this.description,
       mapImageUrl: this.mapImageUrl,
+      mapId: this.mapId,
       adminUserId: this.adminUserId,
       isPublic: this.isPublic,
       maxUsers: this.maxUsers,
@@ -262,6 +255,7 @@ class Space {
       name: this.name,
       description: this.description,
       map_image_url: this.mapImageUrl,
+      map_id: this.mapId,
       admin_user_id: this.adminUserId,
       is_public: this.isPublic,
       max_users: this.maxUsers,
@@ -323,6 +317,7 @@ class Space {
       name: dbRow.name,
       description: dbRow.description,
       mapImageUrl: dbRow.map_image_url,
+      mapId: dbRow.map_id || 'office-01',
       adminUserId: dbRow.admin_user_id,
       isPublic: dbRow.is_public,
       maxUsers: dbRow.max_users,
@@ -344,6 +339,7 @@ class Space {
       name: this.name,
       description: this.description,
       mapImageUrl: this.mapImageUrl,
+      mapId: this.mapId,
       isPublic: this.isPublic,
       currentUsers: this.userIds.length,
       maxUsers: this.maxUsers,

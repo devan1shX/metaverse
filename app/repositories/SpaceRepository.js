@@ -35,15 +35,16 @@ class SpaceRepository {
       // Create the space
       const spaceResult = await client.query(
         `INSERT INTO ${this.tableName} (
-          id, name, description, map_image_url, admin_user_id,
+          id, name, description, map_image_url, map_id, admin_user_id,
           is_public, max_users, is_active, created_at, updated_at, objects
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *`,
         [
           dbObject.id,
           dbObject.name,
           dbObject.description,
           dbObject.map_image_url,
+          dbObject.map_id,
           dbObject.admin_user_id,
           dbObject.is_public,
           dbObject.max_users,
@@ -155,6 +156,14 @@ class SpaceRepository {
       throw error;
     }
   }
+  async getUserCount(spaceid){
+    const db = await get_async_db();
+    const result = await db.query(
+      `SELECT COUNT(*) as count FROM ${this.userSpaceTableName} WHERE space_id = $1`,
+      [spaceid]
+    );
+    return result.rows[0].count;
+  }
 
   /**
    * Get all spaces with optional filters
@@ -243,11 +252,12 @@ class SpaceRepository {
           name = $2,
           description = $3,
           map_image_url = $4,
-          is_public = $5,
-          max_users = $6,
-          is_active = $7,
-          updated_at = $8,
-          objects = $9
+          map_id = $5,
+          is_public = $6,
+          max_users = $7,
+          is_active = $8,
+          updated_at = $9,
+          objects = $10
         WHERE id = $1
         RETURNING *`,
         [
@@ -255,6 +265,7 @@ class SpaceRepository {
           dbObject.name,
           dbObject.description,
           dbObject.map_image_url,
+          dbObject.map_id,
           dbObject.is_public,
           dbObject.max_users,
           dbObject.is_active,
@@ -468,14 +479,14 @@ class SpaceRepository {
       logger.debug('Deleted space-related notifications', { space_id: spaceId });
 
       // 2. Update users' user_spaces JSONB field to remove the space
-      await client.query(
-        `UPDATE users 
-         SET user_spaces = user_spaces - $1,
-             user_updated_at = CURRENT_TIMESTAMP
-         WHERE user_spaces ? $1`,
-        [spaceId]
-      );
-      logger.debug('Updated users user_spaces JSONB field', { space_id: spaceId });
+      // await client.query(
+      //   `UPDATE users 
+      //    SET user_spaces = user_spaces - $1,
+      //        user_updated_at = CURRENT_TIMESTAMP
+      //    WHERE user_spaces ? $1`,
+      //   [spaceId]
+      // );
+      // logger.debug('Updated users user_spaces JSONB field', { space_id: spaceId });
 
       // 3. Delete user-space relationships
       await client.query(
@@ -589,6 +600,98 @@ class SpaceRepository {
         error: error.message, 
         stack: error.stack, 
         spaceId 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get complete space row with all user information
+   * @param {string} spaceId - Space ID
+   * @returns {Promise<Object>} Complete space information with all users
+   */
+  async getCompleteSpaceInfo(spaceId) {
+    try {
+      const db = await get_async_db();
+      
+      // Get space with all users and their complete information
+      const result = await db.query(
+        `SELECT 
+          s.*,
+          json_agg(
+            json_build_object(
+              'id', u.id,
+              'user_name', u.user_name,
+              'email', u.email,
+              'password', u.password,
+              'role', u.role,
+              'user_designation', u.user_designation,
+              'user_created_at', u.user_created_at,
+              'user_updated_at', u.user_updated_at,
+              'user_avatar_url', u.user_avatar_url,
+              'user_about', u.user_about,
+              'user_is_active', u.user_is_active,
+              'joined_at', us.joined_at,
+              'is_admin', CASE WHEN u.id = s.admin_user_id THEN true ELSE false END
+            )
+          ) as users
+        FROM ${this.tableName} s
+        LEFT JOIN ${this.userSpaceTableName} us ON s.id = us.space_id
+        LEFT JOIN users u ON us.user_id = u.id
+        WHERE s.id = $1
+        GROUP BY s.id`,
+        [spaceId]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const spaceData = result.rows[0];
+      
+      // Handle case where no users are in the space
+      if (spaceData.users[0].id === null) {
+        spaceData.users = [];
+      }
+
+      return spaceData;
+    } catch (error) {
+      logger.error('Error getting complete space info', { 
+        error: error.message, 
+        stack: error.stack, 
+        spaceId 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get all spaces for a user with complete information
+   * @param {string} userId - User ID
+   * @returns {Promise<Array>} Array of complete space information
+   */
+  async getUserSpacesComplete(userId) {
+    try {
+      const db = await get_async_db();
+      
+      const result = await db.query(
+        `SELECT 
+          s.*,
+          us.joined_at,
+          CASE WHEN s.admin_user_id = $1 THEN true ELSE false END as is_admin
+        FROM ${this.userSpaceTableName} us
+        JOIN ${this.tableName} s ON us.space_id = s.id
+        WHERE us.user_id = $1
+        ORDER BY us.joined_at DESC`,
+        [userId]
+      );
+
+      return result.rows;
+    } catch (error) {
+      logger.error('Error getting user spaces complete', { 
+        error: error.message, 
+        stack: error.stack, 
+        userId 
       });
       throw error;
     }

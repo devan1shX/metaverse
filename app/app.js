@@ -15,17 +15,20 @@ const app = express();
 const {Config} = require('./config/config');
 logger.info('Initializing Express application...');
 const redisClient = require('./config/redis_config');
+// DISABLED: Node.js WebSocket server - using Python FastAPI WebSocket server on port 5001 instead
 // Initialize WebSocket Manager (starts WebSocket server automatically)
-const wsManager = require('./routes/ws/ws_handler');
-logger.info('WebSocket server initialized', { 
-    port: require('./config/config').Config.WS_PORT,
-    connectedUsers: wsManager.getConnectedUsers().length 
-});
-logger.info('Redis client initialized', { 
-    host: redisClient.host,
-    port: redisClient.port,
-    password: redisClient.password
-});
+// const wsManager = require('./routes/ws/ws_handler');
+// logger.info('WebSocket server initialized', { 
+//     port: require('./config/config').Config.WS_PORT,
+//     connectedUsers: wsManager.getConnectedUsers().length 
+// });
+
+// Create a dummy wsManager object to prevent errors if it's referenced elsewhere
+const wsManager = {
+    getConnectedUsers: () => [],
+    getWebSocketServer: () => null,
+};
+logger.info('Redis client initialized');
 redisClient.on('connect', () => {
     logger.info('Redis client connected');
 });
@@ -44,8 +47,17 @@ app.use(express.urlencoded({ extended: true }));
 
 // Initialize database
 const {init_db} = require('./config/init_db');
+if (Config.skipCleaner) {
+    logger.info('Starting database initialization WITHOUT reset (skipCleaner=true)...');
+} else {
+    logger.info('Starting database initialization WITH reset (skipCleaner=false)...');
+}
 init_db(Config.skipCleaner).then(() => {
-    logger.info('Database initialization completed');
+    if (Config.skipCleaner) {
+        logger.info('Database initialization completed - Database was NOT reset');
+    } else {
+        logger.info('Database initialization completed - Database has been reset and recreated');
+    }
 }).catch((error) => {
     logger.error('Database initialization failed', { error: error.message });
 });

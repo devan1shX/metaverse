@@ -1,111 +1,80 @@
 """
-WebSocket Server Main Entry Point
+Main WebSocket Server Application
 """
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import asyncio
-import logging
-import signal
-import sys
-from .manager import WSManager
-from .db_pylayer import db_manager
-from .config import WSConfig
+import os
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('ws_server.log')
-    ]
+from ws_manager import WebsocketManager
+from routes import register_websocket_routes
+from logger import logger
+from db_layer import db_manager
+from config import WSConfig
+
+app = FastAPI(
+    title="Metaverse WebSocket API",
+    description="Real-time WebSocket API for metaverse spaces",
+    version="1.0.0"
 )
 
-logger = logging.getLogger(__name__)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-class WebSocketServer:
-    """Main WebSocket Server Application"""
-    
-    def __init__(self):
-        self.ws_manager = WSManager()
-        self.config = WSConfig()
-        self.server = None
-        self.running = False
-    
-    async def start(self):
-        """Start the WebSocket server"""
-        try:
-            logger.info("Initializing WebSocket Server...")
-            
-            # Initialize database connection pool
-            await db_manager.initialize_pool()
-            logger.info("Database connection pool initialized")
-            
-            # Start WebSocket server
-            self.server = await self.ws_manager.start_server(
-                host=self.config.WS_HOST,
-                port=self.config.WS_PORT
-            )
-            
-            self.running = True
-            logger.info(f"WebSocket server running on {self.config.WS_HOST}:{self.config.WS_PORT}")
-            
-            # Keep server running
-            await asyncio.Future()  # Run forever
-            
-        except Exception as e:
-            logger.error(f"Failed to start WebSocket server: {e}")
-            raise
-    
-    async def stop(self):
-        """Stop the WebSocket server"""
-        if not self.running:
-            return
-        
-        logger.info("Shutting down WebSocket server...")
-        self.running = False
-        
-        try:
-            # Stop WebSocket server
-            await self.ws_manager.stop_server()
-            
-            # Close database connections
-            await db_manager.close_pool()
-            
-            logger.info("WebSocket server shut down successfully")
-        except Exception as e:
-            logger.error(f"Error during shutdown: {e}")
-    
-    def setup_signal_handlers(self, loop):
-        """Setup signal handlers for graceful shutdown"""
-        def signal_handler(signame):
-            logger.info(f"Received signal {signame}")
-            asyncio.create_task(self.stop())
-            loop.stop()
-        
-        for signame in ('SIGINT', 'SIGTERM'):
-            loop.add_signal_handler(
-                getattr(signal, signame),
-                lambda: signal_handler(signame)
-            )
+ws_manager = WebsocketManager(app)
 
-def main():
-    """Main entry point"""
-    server = WebSocketServer()
-    loop = asyncio.get_event_loop()
-    
-    # Setup signal handlers
-    server.setup_signal_handlers(loop)
-    
+@app.on_event("startup")
+async def startup_event():
     try:
-        loop.run_until_complete(server.start())
-    except KeyboardInterrupt:
-        logger.info("Received keyboard interrupt")
+        logger.info("Starting Metaverse WebSocket Server")
+        await db_manager.initialize_pool()
+        logger.info("Database connection pool initialized")
+        await ws_manager.init_data()
+        logger.info("WebSocket manager initialized")
+        register_websocket_routes(app, ws_manager)
+        logger.info("WebSocket routes registered")
+        logger.info(f"WebSocket server ready on {WSConfig.WS_HOST}:{WSConfig.WS_PORT}")
+        
     except Exception as e:
-        logger.error(f"Server error: {e}")
-    finally:
-        loop.run_until_complete(server.stop())
-        loop.close()
-        logger.info("Server stopped")
+        logger.error(f"Failed to start WebSocket server: {e}")
+        raise
 
-if __name__ == '__main__':
-    main()
+@app.on_event("shutdown")
+async def shutdown_event():
+    try:
+        logger.info("Shutting down WebSocket server")
+        await db_manager.close_pool()
+        logger.info("Database connection pool closed")
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}")
 
+@app.get("/")
+async def root():
+    """Root endpoint with API information"""
+    return {
+        "message": "Metaverse WebSocket API",
+        "version": "1.0.0",
+        "documentation": "/docs",
+        "health": "/ws/health",
+        "api_docs": WEBSOCKET_API_DOCS
+    }
+
+@app.get("/ws/api-docs")
+async def websocket_api_docs():
+    """Get WebSocket API documentation"""
+    return WEBSOCKET_API_DOCS
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host=WSConfig.WS_HOST,
+        port=WSConfig.WS_PORT,
+        reload=True,
+        log_level="info"
+    )

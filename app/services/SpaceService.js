@@ -305,15 +305,7 @@ class SpaceService {
         };
       }
 
-      // Check if space is active
-      if (!space.isActiveSpace()) {
-        return {
-          success: false,
-          error: 'Space is not active'
-        };
-      }
-
-      // Check if user exists
+      // Get user
       const user = await this.userRepository.findById(userId);
       if (!user) {
         return {
@@ -322,16 +314,29 @@ class SpaceService {
         };
       }
 
-      // Check if user is already in space
-      if (space.hasUser(userId)) {
+      // Check if space is public
+      // This assumes only public spaces can be joined from the "discover" page.
+      if (!space.isPublic) {
         return {
           success: false,
-          error: 'User is already in this space'
+          error: 'Cannot join a private space'
+        };
+      }
+
+      // Check if user is already in space
+      const isMember = await this.spaceRepository.isUserMember(spaceId, userId);
+      if (isMember) {
+        // Not an error, just return the space
+        logger.warn('User already in space', { spaceId, userId });
+        return {
+          success: true,
+          space: space
         };
       }
 
       // Check if space is full
-      if (space.isFull()) {
+      const userCount = await this.spaceRepository.getUserCount(spaceId);
+      if (userCount >= space.maxUsers) {
         return {
           success: false,
           error: 'Space is full'
@@ -339,16 +344,16 @@ class SpaceService {
       }
 
       // Add user to space in database
-      const success = await this.spaceRepository.addUserToSpace(spaceId, userId);
-      if (!success) {
-        logger.error('Failed to add user to space in database');
+      const added = await this.spaceRepository.addUserToSpace(spaceId, userId);
+      if (!added) {
+        logger.error('Failed to add user to space in database', { spaceId, userId });
         return {
           success: false,
           error: 'Failed to join space'
         };
       }
 
-      // Get updated space
+      // Get the updated space object with the new user included
       const updatedSpace = await this.spaceRepository.findById(spaceId);
 
       logger.info('User joined space successfully', { spaceId, userId });
@@ -356,6 +361,7 @@ class SpaceService {
         success: true,
         space: updatedSpace
       };
+
     } catch (error) {
       logger.error('Error in joinSpace service', { 
         error: error.message, 

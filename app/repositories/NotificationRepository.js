@@ -99,18 +99,24 @@ class NotificationRepository {
     }
   }
 
+// app/repositories/NotificationRepository.js
+
   /**
    * Find notifications by user ID
    * @param {string} userId - User ID
    * @param {Object} filters - Optional filters (type, status, isActive)
    * @param {number} limit - Optional limit
    * @param {number} offset - Optional offset for pagination
-   * @returns {Promise<Notification[]>} Array of Notification instances
+   * @returns {Promise<{notifications: Notification[], totalCount: number}>} // <-- MODIFIED RETURN TYPE
    */
   async findByUserId(userId, filters = {}, limit = null, offset = 0) {
     try {
       const db = await get_async_db();
       let query = `SELECT * FROM ${this.tableName} WHERE user_id = $1`;
+      
+      // *** ADD THIS COUNT QUERY ***
+      let countQuery = `SELECT COUNT(*) as total_count FROM ${this.tableName} WHERE user_id = $1`;
+
       const params = [userId];
       const conditions = [];
 
@@ -132,8 +138,17 @@ class NotificationRepository {
 
       // Add conditions to query
       if (conditions.length > 0) {
-        query += ` AND ${conditions.join(' AND ')}`;
+        const whereClause = ` AND ${conditions.join(' AND ')}`;
+        query += whereClause;
+        countQuery += whereClause; // *** ADD TO COUNT QUERY ***
       }
+
+      // *** ADD THIS BLOCK TO GET THE COUNT ***
+      logger.debug('Executing count query for findByUserId', { userId, filters });
+      const countResult = await db.query(countQuery, params);
+      const totalCount = parseInt(countResult.rows[0].total_count, 10);
+      // *** END OF ADDED BLOCK ***
+
 
       // Add ordering (newest first)
       query += ` ORDER BY created_at DESC`;
@@ -157,9 +172,16 @@ class NotificationRepository {
       
       logger.info('Notifications fetched for user', { 
         userId, 
-        count: notifications.length 
+        count: notifications.length,
+        totalMatching: totalCount // <-- Optional: add to log
       });
-      return notifications;
+      
+      // *** MODIFY THE RETURN VALUE ***
+      // From:
+      // return notifications;
+      // To:
+      return { notifications, totalCount };
+
     } catch (error) {
       logger.error('Error finding notifications by user ID', { 
         error: error.message, 
@@ -178,84 +200,89 @@ class NotificationRepository {
    * @returns {Promise<Notification[]>} Array of Notification instances
    */
   async findAll(filters = {}, limit = null, offset = 0) {
-  try {
-    const db = await get_async_db();
-    let query = `SELECT * FROM ${this.tableName}`;
-    // --- ADD COUNT QUERY ---
-    let countQuery = `SELECT COUNT(*) as total_count FROM ${this.tableName}`;
-    // -----------------------
-    const params = [];
-    const conditions = [];
+    try {
+      const db = await get_async_db();
+      let query = `SELECT * FROM ${this.tableName}`;
 
-    // Build WHERE conditions (same as before)
-    if (filters.userId) {
-      conditions.push(`user_id = $${params.length + 1}`);
-      params.push(filters.userId);
+      let countQuery = `SELECT COUNT(*) as total_count FROM ${this.tableName}`;
+      
+      const params = [];
+      const conditions = [];
+
+      // Build WHERE conditions
+      if (filters.userId) {
+        conditions.push(`user_id = $${params.length + 1}`);
+        params.push(filters.userId);
+      }
+
+      if (filters.type) {
+        conditions.push(`type = $${params.length + 1}`);
+        params.push(filters.type);
+      }
+
+      if (filters.status) {
+        conditions.push(`status = $${params.length + 1}`);
+        params.push(filters.status);
+      }
+
+      if (filters.isActive !== undefined) {
+        conditions.push(`is_active = $${params.length + 1}`);
+        params.push(filters.isActive);
+      }
+
+      if (conditions.length > 0) {
+        const whereClause = ` WHERE ${conditions.join(' AND ')}`;
+        query += whereClause;
+        countQuery += whereClause; 
+      }
+
+      logger.debug('Executing count query for findAll', { filters });
+      const countResult = await db.query(countQuery, params);
+      const totalCount = parseInt(countResult.rows[0].total_count, 10);
+
+      // Add ordering
+      query += ` ORDER BY created_at DESC`;
+
+      // Add pagination
+      if (limit) {
+        query += ` LIMIT $${params.length + 1}`;
+        params.push(limit);
+      }
+
+      const queryParams = [...params];
+      if (limit !== null && limit > 0) { 
+        query += ` LIMIT $${queryParams.length + 1}`;
+        queryParams.push(limit);
+      }
+
+      if (offset > 0) {
+        query += ` OFFSET $${queryParams.length + 1}`;
+        queryParams.push(offset);
+      }
+
+      logger.debug('Finding all notifications (Repo)', { filters, limit, offset });
+
+      const result = await db.query(query, queryParams);
+
+      // const result = await db.query(query, params);
+      
+      const notifications = result.rows.map(row => Notification.fromDatabaseRow(row));
+
+      
+      
+      logger.info('All notifications fetched (Repo)', { count: notifications.length, totalMatching: totalCount });
+
+      return { notifications, totalCount };
+      
+    } catch (error) {
+      logger.error('Error in findAll notifications repository', {
+        error: error.message, 
+        stack: error.stack, 
+        filters 
+      });
+      throw error;
     }
-    if (filters.type) {
-      conditions.push(`type = $${params.length + 1}`);
-      params.push(filters.type);
-    }
-    if (filters.status) {
-      conditions.push(`status = $${params.length + 1}`);
-      params.push(filters.status);
-    }
-    if (filters.isActive !== undefined) {
-      conditions.push(`is_active = $${params.length + 1}`);
-      params.push(filters.isActive);
-    }
-
-    // Apply conditions to both queries
-    if (conditions.length > 0) {
-      const whereClause = ` WHERE ${conditions.join(' AND ')}`;
-      query += whereClause;
-      countQuery += whereClause; // Apply filters to count query too
-    }
-
-    // --- Execute Count Query ---
-    logger.debug('Executing count query for findAll', { filters });
-    const countResult = await db.query(countQuery, params);
-    const totalCount = parseInt(countResult.rows[0].total_count, 10);
-    // ---------------------------
-
-    // Add ordering to the main query
-    query += ` ORDER BY created_at DESC`;
-
-    // Add pagination parameters for the main query
-    // Use a separate array for the main query's parameters if pagination is applied
-    const queryParams = [...params];
-    if (limit !== null && limit > 0) { // Check limit is positive
-      query += ` LIMIT $${queryParams.length + 1}`;
-      queryParams.push(limit);
-    }
-    if (offset > 0) { // Check offset is positive
-      query += ` OFFSET $${queryParams.length + 1}`;
-      queryParams.push(offset);
-    }
-
-    logger.debug('Finding all notifications (Repo)', { filters, limit, offset });
-
-    // Execute main query with pagination parameters
-    const result = await db.query(query, queryParams);
-
-    const notifications = result.rows.map(row => Notification.fromDatabaseRow(row));
-
-    logger.info('All notifications fetched (Repo)', { count: notifications.length, totalMatching: totalCount });
-
-    // --- Return Object with Notifications and Count ---
-    return { notifications, totalCount };
-    // ------------------------------------------------
-
-  } catch (error) {
-    logger.error('Error in findAll notifications repository', { // Added context to error log
-      error: error.message,
-      stack: error.stack,
-      filters
-    });
-    // Rethrow the error so the service layer can handle it
-    throw error;
   }
-}
 
   /**
    * Update notification in database

@@ -23,7 +23,6 @@ class WSConfig:
         'AUDIO': 'AUDIO',
         'VIDEO': 'VIDEO',
         'LEAVE': 'LEAVE',
-        
         # Invite Events
         'SEND_INVITE': 'SEND_INVITE',
         'ACCEPT_INVITE': 'ACCEPT_INVITE',
@@ -46,7 +45,7 @@ class WSConfig:
     
     # Invite Settings
     INVITE_EXPIRY_HOURS = 24
-    
+    JWT_SECRET = os.getenv('JWT_SECRET')
     # User Roles
     USER_ROLES = {
         'ADMIN': 'admin',

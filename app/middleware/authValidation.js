@@ -1,6 +1,10 @@
 const { logger } = require('../utils/logger');
 const { Config } = require('../config/config');
 
+// =============================================  // 
+const redisClient = require('../config/redis_config');
+// =============================================  // 
+
 /**
  * Validation middleware for user login
  */
@@ -167,48 +171,105 @@ function validateSignup(req, res, next) {
     next();
 }
 
-/**
- * Rate limiting middleware for authentication attempts
- */
-const authAttempts = new Map(); // In production, use Redis or database
 
+// =============================================  // 
+
+// /**
+//  * Rate limiting middleware for authentication attempts
+//  */
+// const authAttempts = new Map(); // In production, use Redis or database
+
+// function rateLimitAuth(maxAttempts = 5, windowMs = 15 * 60 * 1000) { // 5 attempts per 15 minutes
+//     return (req, res, next) => {
+//         const clientId = req.ip + (req.body.email || '');
+//         const now = Date.now();
+        
+//         // Clean up old entries
+//         for (const [key, data] of authAttempts.entries()) {
+//             if (now - data.firstAttempt > windowMs) {
+//                 authAttempts.delete(key);
+//             }
+//         }
+        
+//         const attempts = authAttempts.get(clientId);
+        
+//         if (attempts) {
+//             if (attempts.count >= maxAttempts) {
+//                 const timeLeft = Math.ceil((attempts.firstAttempt + windowMs - now) / 1000 / 60);
+//                 logger.warn('Rate limit exceeded for auth attempt', { 
+//                     clientId: clientId.substring(0, 10) + '***',
+//                     attempts: attempts.count,
+//                     timeLeft 
+//                 });
+//                 return res.status(429).json({
+//                     success: false,
+//                     message: `Too many authentication attempts. Please try again in ${timeLeft} minutes.`,
+//                     retryAfter: timeLeft
+//                 });
+//             }
+//             attempts.count++;
+//         } else {
+//             authAttempts.set(clientId, {
+//                 count: 1,
+//                 firstAttempt: now
+//             });
+//         }
+        
+//         next();
+//     };
+// }
+// =============================================  // 
+
+/**
+ * Rate limiting middleware for authentication attempts (using Redis)
+ */
 function rateLimitAuth(maxAttempts = 5, windowMs = 15 * 60 * 1000) { // 5 attempts per 15 minutes
-    return (req, res, next) => {
-        const clientId = req.ip + (req.body.email || '');
-        const now = Date.now();
-        
-        // Clean up old entries
-        for (const [key, data] of authAttempts.entries()) {
-            if (now - data.firstAttempt > windowMs) {
-                authAttempts.delete(key);
+    const windowInSeconds = Math.ceil(windowMs / 1000);
+
+    return async (req, res, next) => {
+        // Use a more specific key prefix for auth attempts
+        const clientId = `rate-limit:auth:${req.ip}:${req.body.email || ''}`;
+
+        try {
+            // Check if client is connected before proceeding
+            if (!redisClient.isReady) {
+                logger.error('Redis client not ready, skipping rate limit');
+                return next();
             }
-        }
-        
-        const attempts = authAttempts.get(clientId);
-        
-        if (attempts) {
-            if (attempts.count >= maxAttempts) {
-                const timeLeft = Math.ceil((attempts.firstAttempt + windowMs - now) / 1000 / 60);
+
+            // Atomically increment the key
+            const attempts = await redisClient.incr(clientId);
+
+            if (attempts === 1) {
+                // If this is the first attempt, set the expiration
+                await redisClient.expire(clientId, windowInSeconds);
+            }
+
+            if (attempts > maxAttempts) {
+                // Get the remaining TTL (time-to-live) for the key
+                const ttl = await redisClient.ttl(clientId);
+                const timeLeft = Math.ceil(ttl / 60); // Time left in minutes
+
                 logger.warn('Rate limit exceeded for auth attempt', { 
-                    clientId: clientId.substring(0, 10) + '***',
-                    attempts: attempts.count,
-                    timeLeft 
+                    clientId: `rate-limit:auth:${req.ip}:${req.body.email?.substring(0,3) + '***'}`,
+                    attempts: attempts,
+                    timeLeft
                 });
+
                 return res.status(429).json({
                     success: false,
                     message: `Too many authentication attempts. Please try again in ${timeLeft} minutes.`,
                     retryAfter: timeLeft
                 });
             }
-            attempts.count++;
-        } else {
-            authAttempts.set(clientId, {
-                count: 1,
-                firstAttempt: now
-            });
+
+            next();
+
+        } catch (error) {
+            logger.error('Redis rate limiter error', { error: error.message, stack: error.stack });
+            // Fail open (allow request) if Redis fails, to avoid locking users out
+            next();
         }
-        
-        next();
     };
 }
 

@@ -225,7 +225,8 @@ async function markAsRead(req, res, next) {
 
         logger.info('Marking notification as read', { notificationId, userId });
 
-        const result = await NotificationService.markAsRead(notificationId, userId); // Use the correct name // Corrected method name
+        // const result = await NotificationService.markAsRead(notificationId, userId);
+        const result = await NotificationService.markAsRead(notificationId, userId);
 
         if (!result.success) {
             const statusCode = result.error === 'Notification not found' ? 404 : 400;

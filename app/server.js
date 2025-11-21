@@ -13,8 +13,10 @@ app.listen(port, () => {
   });
 });
 
+// DISABLED: Node.js WebSocket server - using Python FastAPI WebSocket server on port 5001 instead
 // Log WebSocket server status
-logger.info(`WebSocket server is running on port ${Config.WS_PORT}`, {
-  wsPort: Config.WS_PORT,
-  connectedUsers: wsManager.getConnectedUsers().length
-});
+// logger.info(`WebSocket server is running on port ${Config.WS_PORT}`, {
+//   wsPort: Config.WS_PORT,
+//   connectedUsers: wsManager.getConnectedUsers().length
+// });
+logger.info('Note: WebSocket connections should use Python FastAPI server on port 5001, not Node.js server');

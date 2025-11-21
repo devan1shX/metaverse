@@ -3,3 +3,10 @@ websockets
 python-socketio
 asyncpg
 uuid
+pydantic
+jsonwebtoken
+fastapi
+pyjwt
+requests
+websockets
+uvicorn

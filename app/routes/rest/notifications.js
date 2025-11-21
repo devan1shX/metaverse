@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticateToken, requireAdmin } = require('../../middleware/auth');
 const { logger } = require('../../utils/logger');
+const notificationService = require('../../services/NotificationService'); // Use lowercase
 const {
     getAllNotifications,
     getNotificationById,
@@ -105,7 +106,7 @@ router.post('/admin/bulk-update', authenticateToken, requireAdmin, async (req, r
         });
 
         const NotificationService = require('../../services/NotificationService');
-        const result = await NotificationService.bulkUpdateNotifications(
+        const result = await notificationService.bulkUpdateNotifications( // Call method on the instance
             notificationIds, 
             updates, 
             requesterId

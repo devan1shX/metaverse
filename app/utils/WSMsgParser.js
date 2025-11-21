@@ -5,9 +5,15 @@ const Validator = require("../validity/validityChecker.js");
 const UserService = require("../services/UserService.js");
 const SpaceService = require("../services/SpaceService.js");
 const { logger } = require("./logger.js");
+
+// *** FIX HERE ***
+// Instantiate the services, as their methods are not static
+const userService = new UserService();
+const spaceService = new SpaceService();
+
 class WebsocketMessageParser {
   constructor() {}
-  
+ 
   async HandleJoinSpace(message){
     try {
       const validity = Validator.ValidityJoinMessage(message);
@@ -20,7 +26,10 @@ class WebsocketMessageParser {
       const userId = message.payload.userId;
       const initialPosition = message.payload.initialPosition;
       logger.debug('Join space request details', { spaceId, userId, initialPosition });
-      const userResult = await UserService.getUserById(userId);
+
+      // *** FIX HERE ***
+      // Call methods on the instantiated services
+      const userResult = await userService.getUserById(userId);
       if (!userResult.success) {
         logger.warn('User not found for join space', { userId, error: userResult.error });
         return {
@@ -28,7 +37,10 @@ class WebsocketMessageParser {
           error: userResult.error || "User not found"
         };
       }
-      const spaceResult = await SpaceService.joinSpace(spaceId, userId);
+      
+      // *** FIX HERE ***
+      // Call methods on the instantiated services
+      const spaceResult = await spaceService.joinSpace(spaceId, userId);
       
       if (!spaceResult.success) {
         logger.warn('Failed to join space', { spaceId, userId, error: spaceResult.error });
@@ -171,6 +183,6 @@ class WebsocketMessageParser {
   }
 }
 
-WSMessageParser = new WebsocketMessageParser();
+const WSMessageParserSingleton = new WebsocketMessageParser();
 
-module.exports = WSMessageParser;
+module.exports = WSMessageParserSingleton;

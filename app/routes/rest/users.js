@@ -1,10 +1,11 @@
 const express = require('express');
 const { logger } = require('../../utils/logger');
 const { update_avatar_controller } = require('../../controllers/userController');
+const { authenticateToken } = require('../../middleware/auth');
 const user_routes = express.Router();
 
 // Route for PATCH /metaverse/v1/users/:id/avatar
-user_routes.patch('/:id/avatar', (req, res) => {
+user_routes.patch('/:id/avatar', authenticateToken, (req, res) => {
     logger.info('Update avatar route accessed', { userId: req.params.id });
     update_avatar_controller(req, res);
 });
