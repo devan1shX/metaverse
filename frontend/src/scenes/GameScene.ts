@@ -229,8 +229,9 @@ export class GameScene extends Phaser.Scene {
     );
     background.setDepth(-100); // Ensure it's behind everything
 
-    // 2. Procedural Plant Generation
-    // Scatters plants around the border to create a "garden/forest" feel
+    // 2. Procedural Plant Generation - DISABLED
+    // Commented out to remove plants outside map boundaries
+    /*
     if (this.textures.exists('plant')) {
       const plantGroup = this.add.group();
       const density = 0.6; // Chance to spawn a plant in each grid cell
@@ -274,6 +275,7 @@ export class GameScene extends Phaser.Scene {
         for (let x = map.widthInPixels; x < map.widthInPixels + borderSize; x += gridSize) spawnPlant(x, y);
       }
     }
+    */
     // ---------------------------
 
     this.input.on('pointerdown', () => {
@@ -338,9 +340,24 @@ export class GameScene extends Phaser.Scene {
 
       for (const userId in state.users) {
         console.log(`Phaser: Processing user ${userId}, isMainPlayer: ${userId === this.mainPlayerId}`);
-        if (userId !== this.mainPlayerId && !this.otherPlayers.has(userId)) {
-          console.log(`Phaser: Adding other player ${userId}`);
-          this.addOtherPlayer(state.users[userId], state.positions[userId] || { x: 0, y: 0 });
+
+        if (userId !== this.mainPlayerId) {
+          const existingPlayer = this.otherPlayers.get(userId);
+
+          if (existingPlayer) {
+            // Check if avatar has changed
+            const oldAvatarUrl = existingPlayer.playerData.user_avatar_url;
+            const newAvatarUrl = state.users[userId].user_avatar_url;
+
+            if (oldAvatarUrl !== newAvatarUrl) {
+              console.log(`Phaser: User ${userId} has different avatar in space state, updating...`);
+              this.removeOtherPlayer(userId);
+              this.addOtherPlayer(state.users[userId], state.positions[userId] || { x: 0, y: 0 });
+            }
+          } else {
+            console.log(`Phaser: Adding other player ${userId}`);
+            this.addOtherPlayer(state.users[userId], state.positions[userId] || { x: 0, y: 0 });
+          }
         }
       }
     });
@@ -350,9 +367,27 @@ export class GameScene extends Phaser.Scene {
       console.log('Phaser: Is main player?', event.user_id === this.mainPlayerId);
       console.log('Phaser: Already exists?', this.otherPlayers.has(event.user_id));
 
-      if (event.user_id !== this.mainPlayerId && !this.otherPlayers.has(event.user_id)) {
-        console.log('Phaser: Adding new player from user-joined event');
-        this.addOtherPlayer(event.user_data, { x: event.x, y: event.y });
+      if (event.user_id !== this.mainPlayerId) {
+        // Check if player already exists (rejoin scenario)
+        const existingPlayer = this.otherPlayers.get(event.user_id);
+
+        if (existingPlayer) {
+          // Check if avatar has changed by comparing avatar URLs
+          const oldAvatarUrl = existingPlayer.playerData.user_avatar_url;
+          const newAvatarUrl = event.user_data.user_avatar_url;
+
+          if (oldAvatarUrl !== newAvatarUrl) {
+            console.log(`Phaser: User ${event.user_id} rejoined with different avatar, updating...`);
+            // Remove old player and add with new avatar
+            this.removeOtherPlayer(event.user_id);
+            this.addOtherPlayer(event.user_data, { x: event.x, y: event.y });
+          } else {
+            console.log('Phaser: User rejoined with same avatar, skipping');
+          }
+        } else {
+          console.log('Phaser: Adding new player from user-joined event');
+          this.addOtherPlayer(event.user_data, { x: event.x, y: event.y });
+        }
       } else if (event.user_id === this.mainPlayerId) {
         console.log('Phaser: Ignoring user-joined for self');
       }

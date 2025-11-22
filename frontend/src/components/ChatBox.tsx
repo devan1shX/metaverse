@@ -22,6 +22,29 @@ export function ChatBox({ spaceId }: { spaceId: string }) {
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Load messages from localStorage on mount
+  useEffect(() => {
+    const storageKey = `chat-history-${spaceId}`;
+    const storedMessages = localStorage.getItem(storageKey);
+    if (storedMessages) {
+      try {
+        const parsedMessages = JSON.parse(storedMessages);
+        setMessages(parsedMessages);
+      } catch (error) {
+        console.error('Failed to parse stored messages:', error);
+        localStorage.removeItem(storageKey);
+      }
+    }
+  }, [spaceId]);
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    const storageKey = `chat-history-${spaceId}`;
+    if (messages.length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify(messages));
+    }
+  }, [messages, spaceId]);
+
   useEffect(() => {
     onChatMessage((message) => {
       setMessages((prev) => [...prev, message]);
