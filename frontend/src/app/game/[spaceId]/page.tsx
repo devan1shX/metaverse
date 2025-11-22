@@ -2,14 +2,12 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useParams } from "next/navigation";
-import { useEffect } from "react"; // Removed useState
+import { useEffect } from "react";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import SpaceLobby from "@/components/SpaceLobby";
 import { useSpace } from "@/hooks/useApi";
 import { useSpaces } from "@/contexts/SpacesContext";
 import { MetaverseGame } from "@/components/MetaverseGame";
-// Import User type if needed, but it's available from useAuth
-// import { User } from "@/contexts/AuthContext"; 
 
 export default function SpacePage() {
   // === 1. HOOKS ===
@@ -70,10 +68,11 @@ export default function SpacePage() {
     return (
       <MetaverseGame
         spaceId={spaceId}
+        spaceName={spaceData.space.name}
         user={user}
         logout={logout}
-        mapId={spaceData.space.mapId} // <-- **FIX: Pass mapId**
-        avatarUrl={user.avatarUrl}     // <-- **FIX: Pass avatarUrl**
+        mapId={spaceData.space.mapId}
+        avatarUrl={user.user_avatar_url}
       />
     );
   }
@@ -84,10 +83,8 @@ export default function SpacePage() {
     try {
       await joinSpace(spaceId);
       await refetchSpace();
-      // No need to setGameShouldBeLoaded, component will re-render
     } catch (error: any) {
       console.error("Failed to join space:", error);
-      throw error;
     }
   };
 

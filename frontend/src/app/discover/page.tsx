@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { DiscoverSpaces } from "@/components/DiscoverSpaces";
+import { DashboardHeader } from "@/components/DashboardHeader";
 
 export default function DiscoverPage() {
   const { user, loading } = useAuth();
@@ -20,5 +21,10 @@ export default function DiscoverPage() {
     return <LoadingScreen />;
   }
 
-  return <DiscoverSpaces />;
+  return (
+    <>
+      <DashboardHeader avatarUrl={user.user_avatar_url} />
+      <DiscoverSpaces />
+    </>
+  );
 }

@@ -6,7 +6,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// This must match the interface in useSpaceWebSocket.ts
 interface ChatMessage {
   event: 'CHAT_MESSAGE';
   user_id: string;
@@ -24,14 +23,12 @@ export function ChatBox({ spaceId }: { spaceId: string }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Listen for new chat messages
     onChatMessage((message) => {
       setMessages((prev) => [...prev, message]);
     });
   }, [onChatMessage]);
 
   useEffect(() => {
-    // Scroll to bottom when new messages arrive
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
@@ -44,42 +41,59 @@ export function ChatBox({ spaceId }: { spaceId: string }) {
   };
 
   return (
-    <div className="bg-apple-light-bg/50 dark:bg-apple-dark-bg/50 rounded-lg p-3 flex flex-col h-full max-h-96">
-      <h4 className="text-sm font-medium text-apple-light-label dark:text-apple-dark-label mb-2 flex-shrink-0">
+    <div className="flex flex-col h-full">
+      <h4 className="text-sm font-semibold text-gray-900 mb-3 px-1">
         Space Chat
       </h4>
-      <div className="flex-1 overflow-y-auto mb-2 space-y-2 pr-2">
+      
+      {/* Messages Container */}
+      <div className="flex-1 overflow-y-auto mb-3 space-y-3 px-1">
         <AnimatePresence>
-          {messages.map((msg, index) => (
-            <motion.div
-              key={msg.timestamp + msg.user_id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className={`text-sm ${msg.user_id === user?.id ? 'text-right' : 'text-left'}`}
-            >
-              <span className={`font-semibold text-xs ${msg.user_id === user?.id ? 'text-apple-blue' : 'text-green-500'}`}>
-                {msg.user_id === user?.id ? 'You' : (msg.user_name || 'Anonymous')}
-              </span>
-              <p className="text-apple-black dark:text-apple-white break-words bg-apple-light-bg dark:bg-apple-dark-bg px-2 py-1 rounded-md inline-block max-w-xs">
-                {msg.message}
-              </p>
-            </motion.div>
-          ))}
+          {messages.map((msg) => {
+            const isOwn = msg.user_id === user?.id;
+            return (
+              <motion.div
+                key={msg.timestamp + msg.user_id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+              >
+                <div className={`max-w-[80%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
+                  <span className="text-xs font-medium text-gray-600 mb-1 px-1">
+                    {isOwn ? 'You' : (msg.user_name || 'Anonymous')}
+                  </span>
+                  <div className={`rounded-lg px-3 py-2 ${
+                    isOwn 
+                      ? 'bg-indigo-600 text-white' 
+                      : 'bg-gray-100 text-gray-900'
+                  }`}>
+                    <p className="text-sm break-words">{msg.message}</p>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
         <div ref={messagesEndRef} />
       </div>
-      <form onSubmit={handleSend} className="flex space-x-2 flex-shrink-0">
+      
+      {/* Input Form */}
+      <form onSubmit={handleSend} className="flex gap-2">
         <input
           type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          placeholder={isSubscribed ? 'Type a message...' : 'Connecting to chat...'}
+          placeholder={isSubscribed ? 'Type a message...' : 'Connecting...'}
           disabled={!isSubscribed}
-          className="flex-1 auth-input text-sm"
+          className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-50"
           onKeyDown={(e) => e.stopPropagation()}
         />
-        <button type="submit" disabled={!isSubscribed || !newMessage.trim()} className="auth-button p-2 w-auto h-auto disabled:opacity-50">
+        <button 
+          type="submit" 
+          disabled={!isSubscribed || !newMessage.trim()} 
+          className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
           <Send className="w-4 h-4" />
         </button>
       </form>

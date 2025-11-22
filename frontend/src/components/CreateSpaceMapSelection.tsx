@@ -34,8 +34,8 @@ export default function CreateSpaceMapSelection({
 
   if (!selectedMap) {
     return (
-      <div className="text-center text-red-500">
-        <h2>Error: Map not found for this selection.</h2>
+      <div className="card p-8 text-center max-w-md">
+        <h2 className="text-lg font-semibold text-red-600">Error: Map not found for this selection.</h2>
       </div>
     );
   }
@@ -48,11 +48,11 @@ export default function CreateSpaceMapSelection({
       className="w-full max-w-4xl"
     >
       <div className="text-center mb-8">
-        <h1 className="text-3xl sm:text-4xl font-bold mb-2">Choose a Space</h1>
-        <p className="text-gray-400">Select a map template for your new space.</p>
+        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Choose a Space</h1>
+        <p className="text-gray-600">Select a map template for your new space.</p>
       </div>
 
-      <div className="bg-[#35354e] border border-gray-700/50 rounded-2xl p-4 sm:p-6 shadow-2xl">
+      <div className="card p-6">
         <div className="aspect-video w-full rounded-lg overflow-hidden mb-6 relative">
           <Image
             src={selectedMap.image}
@@ -61,14 +61,14 @@ export default function CreateSpaceMapSelection({
             style={{ objectFit: 'cover' }}
           />
         </div>
-        <div className="flex flex-col sm:flex-row justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h3 className="text-xl font-bold">{selectedMap.title}</h3>
-            <p className="text-gray-400 text-sm">{selectedMap.description}</p>
+            <h3 className="text-xl font-bold text-gray-900 mb-1">{selectedMap.title}</h3>
+            <p className="text-gray-600 text-sm">{selectedMap.description}</p>
           </div>
           <button
             onClick={() => onSelect(selectedMap.id)}
-            className="mt-4 sm:mt-0 flex items-center gap-2 rounded-md bg-green-500 px-5 py-3 text-sm font-medium text-white shadow transition-colors hover:bg-green-600"
+            className="btn-success text-sm flex items-center gap-2 whitespace-nowrap"
           >
             <span>Create with this map</span>
             <ArrowRight className="w-4 h-4" />

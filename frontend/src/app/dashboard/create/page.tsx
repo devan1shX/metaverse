@@ -6,6 +6,7 @@ import CreateSpaceUseCase from "@/components/CreateSpaceUseCase";
 import CreateSpaceMapSelection from "@/components/CreateSpaceMapSelection";
 import CreateSpaceCustomize from "@/components/CreateSpaceCustomize";
 import CreateSpaceName from "@/components/CreateSpaceName";
+import { DashboardHeader } from "@/components/DashboardHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSpaces } from "@/contexts/SpacesContext";
 import { useRouter } from "next/navigation";
@@ -86,7 +87,7 @@ export default function CreateSpacePage() {
       description: `A space for ${finalData.useCase}`,
       isPublic: true,
       maxUsers: finalData.size,
-      mapId: selectedMapId, // Send the actual map ID (office-01 or office-02)
+      mapId: selectedMapId,
     };
 
     console.log("🚀 Creating space with data:", requestData);
@@ -97,11 +98,9 @@ export default function CreateSpacePage() {
       console.log("📦 Create space result:", result);
 
       if (result.success) {
-        // Store in localStorage for immediate use
         localStorage.setItem("selectedMap", selectedMapId);
         router.push(`/space/${result.space.id}`);
       } else {
-        // Use the actual error from the backend if available
         const errorMsg = result.errors ? result.errors.join(", ") : result.message;
         console.error("❌ Backend error:", errorMsg, result);
         setError(errorMsg || "Failed to create space. Please try again.");
@@ -155,7 +154,11 @@ export default function CreateSpacePage() {
               onConfirm={handleNameConfirm}
             />
             {error && (
-              <p className="mt-4 text-center text-red-400 max-w-md">{error}</p>
+              <div className="max-w-lg mx-auto mt-4">
+                <div className="card p-4 bg-red-50 border-red-200">
+                  <p className="text-sm text-red-600 text-center">{error}</p>
+                </div>
+              </div>
             )}
           </>
         );
@@ -165,8 +168,11 @@ export default function CreateSpacePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#2a2a3e] text-white flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
-      {renderStep()}
-    </div>
+    <>
+      <DashboardHeader avatarUrl={user?.user_avatar_url} />
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
+        {renderStep()}
+      </div>
+    </>
   );
 }

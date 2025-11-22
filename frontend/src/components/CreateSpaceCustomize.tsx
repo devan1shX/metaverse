@@ -5,10 +5,10 @@ import Image from "next/image";
 import {
   ArrowLeft,
   CheckCircle,
-  Rocket,
   Building,
   Trees,
   Home,
+  Users,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -50,7 +50,11 @@ export default function CreateSpaceCustomize({
   };
 
   if (!mapInfo) {
-    return <p className="text-red-500">Error: Map details not found.</p>;
+    return (
+      <div className="card p-8 text-center max-w-md">
+        <p className="text-red-600">Error: Map details not found.</p>
+      </div>
+    );
   }
 
   const getPeopleRange = (s: number) => {
@@ -67,89 +71,98 @@ export default function CreateSpaceCustomize({
       transition={{ duration: 0.5, ease: "easeInOut" }}
       className="w-full max-w-4xl"
     >
-      <h1 className="text-3xl sm:text-4xl font-bold text-center mb-2">
-        Choose your office template
-      </h1>
-      <p className="text-center text-gray-400 mb-10">
-        Select the size and theme of your office. You can change this later!
-      </p>
+      <div className="text-center mb-8">
+        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
+          Customize Your Space
+        </h1>
+        <p className="text-gray-600">
+          Select the size and theme of your office. You can change this later!
+        </p>
+      </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="grid md:grid-cols-2 gap-10 items-center"
-      >
-        <div className="aspect-video w-full rounded-lg overflow-hidden relative border-4 border-gray-700">
-          <Image
-            src={mapInfo.image}
-            alt={mapInfo.title}
-            fill
-            style={{ objectFit: 'cover' }}
-          />
-        </div>
-
-        <div className="space-y-8">
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <label className="font-bold text-lg">MAP SIZE</label>
-              <span className="text-sm font-medium text-gray-300">
-                👥 {getPeopleRange(size)}
-              </span>
-            </div>
-            <input
-              type="range"
-              min="2"
-              max="100" // FIX: Changed max value from 150 to 100
-              step="1"
-              value={size}
-              onChange={(e) => setSize(parseInt(e.target.value))}
-              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg accent-green-500"
+      <form onSubmit={handleSubmit} className="card p-6">
+        <div className="grid md:grid-cols-2 gap-8 items-start">
+          {/* Map Preview */}
+          <div className="aspect-video w-full rounded-lg overflow-hidden relative border-2 border-gray-200">
+            <Image
+              src={mapInfo.image}
+              alt={mapInfo.title}
+              fill
+              style={{ objectFit: 'cover' }}
             />
           </div>
-          <div>
-            <label className="font-bold text-lg mb-4 block">MAP THEME</label>
-            <div className="grid grid-cols-2 gap-4">
-              {themes.map((theme) => {
-                const Icon = theme.icon;
-                const isActive = selectedTheme === theme.id;
-                return (
-                  <button
-                    type="button"
-                    key={theme.id}
-                    onClick={() => setSelectedTheme(theme.id)}
-                    className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all duration-200 ${
-                      isActive
-                        ? "bg-green-500/20 border-green-500"
-                        : "bg-[#35354e] border-gray-700 hover:border-gray-500"
-                    }`}
-                  >
-                    <Icon
-                      className={`w-6 h-6 ${
-                        isActive ? "text-green-400" : "text-gray-400"
+
+          {/* Customization Options */}
+          <div className="space-y-6">
+            {/* Map Size Slider */}
+            <div>
+              <div className="flex justify-between items-center mb-3">
+                <label className="font-semibold text-gray-900">Map Size</label>
+                <span className="flex items-center gap-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
+                  <Users className="w-4 h-4" />
+                  {getPeopleRange(size)} people
+                </span>
+              </div>
+              <input
+                type="range"
+                min="2"
+                max="100"
+                step="1"
+                value={size}
+                onChange={(e) => setSize(parseInt(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+              />
+            </div>
+
+            {/* Map Theme Selection */}
+            <div>
+              <label className="font-semibold text-gray-900 mb-3 block">Map Theme</label>
+              <div className="grid grid-cols-2 gap-3">
+                {themes.map((theme) => {
+                  const Icon = theme.icon;
+                  const isActive = selectedTheme === theme.id;
+                  return (
+                    <button
+                      type="button"
+                      key={theme.id}
+                      onClick={() => setSelectedTheme(theme.id)}
+                      className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-all duration-200 ${
+                        isActive
+                          ? "bg-indigo-50 border-indigo-500"
+                          : "bg-white border-gray-200 hover:border-gray-300"
                       }`}
-                    />
-                    <span className="font-semibold">{theme.name}</span>
-                    {theme.id === "cozy" && (
-                      <Rocket className="w-5 h-5 ml-auto text-purple-400" />
-                    )}
-                  </button>
-                );
-              })}
+                    >
+                      <Icon
+                        className={`w-5 h-5 ${
+                          isActive ? "text-indigo-600" : "text-gray-400"
+                        }`}
+                      />
+                      <span className={`text-sm font-medium ${
+                        isActive ? "text-indigo-900" : "text-gray-700"
+                      }`}>
+                        {theme.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="md:col-span-2 flex justify-between items-center mt-6">
+        {/* Action Buttons */}
+        <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
           <button
             type="button"
             onClick={onBack}
-            className="rounded-md bg-gray-600/50 px-5 py-3 text-sm font-medium text-white shadow transition-colors hover:bg-gray-600/80"
+            className="btn-secondary text-sm flex items-center gap-2"
           >
-            <ArrowLeft className="w-4 h-4 inline-block mr-2" />
+            <ArrowLeft className="w-4 h-4" />
             Back
           </button>
           <button
             type="submit"
-            className="flex items-center gap-2 rounded-md bg-green-500 px-5 py-3 text-sm font-medium text-white shadow transition-colors hover:bg-green-600"
+            className="btn-success text-sm flex items-center gap-2"
           >
             <span>Confirm selection</span>
             <CheckCircle className="w-4 h-4" />

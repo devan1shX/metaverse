@@ -9,7 +9,7 @@ export interface PlayerData {
 export class Player extends Phaser.Physics.Arcade.Sprite {
   public playerId: string;
   public playerData: PlayerData;
-  private playerNameLabel: Phaser.GameObjects.Text;
+  private nameContainer: Phaser.GameObjects.Container | null = null;
 
   // FIX: This will store the clean texture key like 'avatar-key-123'
   private cleanTextureKey: string;
@@ -46,20 +46,54 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.body.setOffset(this.width * 0.2, this.height * 0.6);
     }
 
-    this.playerNameLabel = scene.add.text(
-      x,
-      y - this.height + 10,
-      this.playerData.user_name,
-      {
-        font: "12px Arial",
-        color: "#ffffff",
-        stroke: "#000000",
-        strokeThickness: 2,
-      },
-    );
-    this.playerNameLabel.setOrigin(0.5, 0.5);
+    // Only create name label if it's NOT the main player ("You")
+    if (this.playerData.user_name !== 'You') {
+      this.createNameLabel(scene, x, y);
+    }
 
     this.createAnimations();
+  }
+
+  private createNameLabel(scene: Phaser.Scene, x: number, y: number) {
+    // Position slightly above the sprite's head
+    // Using a fixed offset from the feet (y) minus height looks consistent
+    this.nameContainer = scene.add.container(x, y - this.height - 10);
+
+    // High-resolution text strategy:
+    // 1. Create text large (24px)
+    // 2. Scale it down (0.3)
+    // This prevents blurriness when the game camera is zoomed in
+    const text = scene.add.text(0, 0, this.playerData.user_name, {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '24px', // Large source size for crispness
+      color: '#ffffff',
+      align: 'center',
+      stroke: '#000000',
+      strokeThickness: 4, // Thicker stroke to survive scaling down
+    });
+
+    text.setOrigin(0.5, 0.5);
+    text.setScale(0.3); // Scale down to be minimal (~7px visual height in world space)
+    text.setResolution(2); // Double internal resolution for extra sharpness
+
+    this.nameContainer.add(text);
+    this.nameContainer.setDepth(1000); // Ensure it's above everything
+  }
+
+  update() {
+    // Sync container position with player
+    if (this.nameContainer) {
+      // Keep position locked above head
+      this.nameContainer.setPosition(this.x, this.y - this.height - 5);
+    }
+  }
+
+  // Override destroy to clean up container
+  destroy(fromScene?: boolean) {
+    if (this.nameContainer) {
+      this.nameContainer.destroy();
+    }
+    super.destroy(fromScene);
   }
 
   private createAnimations() {

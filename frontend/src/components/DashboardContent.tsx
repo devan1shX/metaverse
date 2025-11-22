@@ -1,281 +1,263 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Search, Users, Calendar, MapPin, Settings, UserPlus } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
-import { useAuth } from "@/contexts/AuthContext";
+import { useMemo, useState } from "react";
 import { useSpaces } from "@/contexts/SpacesContext";
-import { useNotificationManager } from "@/hooks/useApi"; 
-import { Space, Notification } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { Search, Clock, Users, Calendar, UserPlus } from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+import { Space } from "@/types/api";
 import { InviteModal } from "@/components/InviteModal";
 
+type TabType = "visited" | "created";
+
 export function DashboardContent() {
+  const { mySpaces, loading, errorMySpaces } = useSpaces();
   const { user } = useAuth();
-  const { 
-    mySpaces, 
-    loading: spacesLoading, 
-    errorMySpaces: spacesError,
-    createdSpaces,
-    totalSpacesCount 
-  } = useSpaces();
-  const [activeTab, setActiveTab] = useState("last-visited");
+  const [activeTab, setActiveTab] = useState<TabType>("visited");
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Invite Modal State
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
-  const [selectedSpace, setSelectedSpace] = useState<{ id: string; name: string } | null>(null);
-  const { notifications, summary, loading: notificationsLoading } = useNotificationManager(user?.id); 
+  const [selectedSpaceForInvite, setSelectedSpaceForInvite] = useState<{id: string, name: string} | null>(null);
 
-  // Filter spaces based on tab and search
-  const filteredSpaces = useMemo(() => {
-    if (!mySpaces) return [];
-    
-    let spaces = mySpaces;
-    
-    // Filter by tab
-    if (activeTab === "created-spaces") {
-      spaces = createdSpaces;
+  const { lastVisitedSpaces, createdSpaces } = useMemo(() => {
+    if (!mySpaces || mySpaces.length === 0) {
+      return { lastVisitedSpaces: [], createdSpaces: [] };
     }
-    
-    // Filter by search query
-    if (searchQuery.trim()) {
-      spaces = spaces.filter(space => 
-        space.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        space.description?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-    
-    return spaces;
-  }, [mySpaces, activeTab, searchQuery, createdSpaces]);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
+    // For recently visited, show all spaces sorted by updatedAt or createdAt
+    const lastVisited = [...mySpaces]
+      .sort((a, b) => {
+        const dateA = new Date(a.updatedAt || a.createdAt).getTime();
+        const dateB = new Date(b.updatedAt || b.createdAt).getTime();
+        return dateB - dateA;
+      })
+      .slice(0, 10);
+
+    // For created spaces, filter by adminUserId matching current user
+    const created = [...mySpaces]
+      .filter((space) => space.adminUserId === user?.id)
+      .sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateB - dateA;
+      });
+
+    return {
+      lastVisitedSpaces: lastVisited,
+      createdSpaces: created,
+    };
+  }, [mySpaces, user?.id]);
+
+  const displayedSpaces = useMemo(() => {
+    const spacesToDisplay = activeTab === "visited" ? lastVisitedSpaces : createdSpaces;
+
+    if (!searchQuery.trim()) {
+      return spacesToDisplay;
+    }
+
+    return spacesToDisplay.filter((space) =>
+      space.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [searchQuery, activeTab, lastVisitedSpaces, createdSpaces]);
+
+  const getSpaceImage = (space: Space) => {
+    const description = space.description?.toLowerCase() || "";
+    if (description.includes("conference")) {
+      return "/images/space-2.png";
+    } else if (description.includes("remote")) {
+      return "/images/space-1.png";
+    }
+    return space.mapImageUrl || "/images/space-1.png";
   };
 
-  const handleOpenInviteModal = (space: Space) => {
-    setSelectedSpace({ id: space.id, name: space.name });
+  const handleInviteClick = (space: Space) => {
+    setSelectedSpaceForInvite({ id: space.id, name: space.name });
     setInviteModalOpen(true);
   };
 
-  const handleCloseInviteModal = () => {
-    setInviteModalOpen(false);
-    setSelectedSpace(null);
-  };
-
   const renderSpaceCard = (space: Space) => (
-    <div key={space.id} className="bg-[#35354e] rounded-lg p-6 border border-gray-700/50 hover:border-purple-400/50 transition-colors">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-white mb-2">{space.name}</h3>
+    <Link
+      key={space.id}
+      href={`/space/${space.id}`}
+      className="group"
+    >
+      <div className="card card-hover h-full overflow-hidden flex flex-col">
+        {/* Header with Image */}
+        <div className="h-32 relative">
+          <Image
+            src={getSpaceImage(space)}
+            alt={space.name}
+            fill
+            style={{ objectFit: 'cover' }}
+          />
+        </div>
+        
+        {/* Content */}
+        <div className="p-4 flex-1 flex flex-col">
+          <h3 className="text-base font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors mb-2 line-clamp-1">
+            {space.name}
+          </h3>
+          
           {space.description && (
-            <p className="text-gray-400 text-sm mb-3 line-clamp-2">{space.description}</p>
+            <p className="text-sm text-gray-600 mb-3 line-clamp-2 flex-1">
+              {space.description}
+            </p>
           )}
-        </div>
-        {space.mapImageUrl && (
-          <div className="w-16 h-16 rounded-lg overflow-hidden ml-4 flex-shrink-0">
-            <Image
-              src={space.mapImageUrl}
-              alt={space.name}
-              width={64}
-              height={64}
-              className="w-full h-full object-cover"
-            />
-          </div>
-        )}
-      </div>
-      
-      <div className="flex items-center gap-4 text-sm text-gray-400 mb-4">
-        <div className="flex items-center gap-1">
-          <Users className="w-4 h-4" />
-          <span>{space.currentUsers}/{space.maxUsers}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Calendar className="w-4 h-4" />
-          <span>{formatDate(space.createdAt)}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <MapPin className="w-4 h-4" />
-          <span className={`px-2 py-1 rounded-full text-xs ${
-            space.isPublic ? 'bg-green-500/20 text-green-400' : 'bg-orange-500/20 text-orange-400'
-          }`}>
-            {space.isPublic ? 'Public' : 'Private'}
-          </span>
-        </div>
-      </div>
+          
+          {/* Meta Info */}
+          <div className="flex items-center gap-3 text-xs text-gray-500 pt-3 border-t border-gray-100 mt-auto">
+            <div className="flex items-center gap-1.5" title="Active users">
+              <Users className="w-4 h-4 text-indigo-500" />
+              <span className="font-medium">{space.currentUsers}/{space.maxUsers}</span>
+            </div>
+            
+            <div className="flex items-center gap-1.5" title="Created date">
+              <Calendar className="w-4 h-4 text-purple-500" />
+              <span>{new Date(space.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            </div>
 
-      <div className="flex items-center justify-between gap-2">
-        <Link
-          href={`/space/${space.id}`}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
-        >
-          Enter Space
-        </Link>
-        <div className="flex items-center gap-2">
-          {(space.adminUserId === user?.id || space.currentUsers < space.maxUsers) && (
+            {/* Invite Button */}
             <button
-              onClick={() => handleOpenInviteModal(space)}
-              className="flex items-center gap-1 text-green-400 hover:text-green-300 p-2 hover:bg-green-500/10 rounded-md transition-colors"
-              title="Invite users"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleInviteClick(space);
+              }}
+              className="ml-auto flex items-center gap-1 text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors font-medium"
+              title="Invite users to this space"
             >
-              <UserPlus className="w-4 h-4" />
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Invite</span>
             </button>
-          )}
-          {space.adminUserId === user?.id && (
-            <button className="text-gray-400 hover:text-white p-2 hover:bg-white/10 rounded-md transition-colors">
-              <Settings className="w-4 h-4" />
-            </button>
-          )}
+          </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 
-  const renderNotifications = () => {
-    if (!notifications?.length) return null;
-
+  if (loading) {
     return (
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold text-white mb-4">Recent Notifications</h2>
-        <div className="space-y-3">
-          {notifications.slice(0, 3).map((notification: Notification) => (
-            <div key={notification.id} className="bg-[#35354e] rounded-lg p-4 border border-gray-700/50">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h4 className="text-white font-medium mb-1">{notification.title}</h4>
-                  <p className="text-gray-400 text-sm">{notification.message}</p>
-                </div>
-                <span className="text-xs text-gray-500">{formatDate(notification.createdAt)}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  if (spacesLoading) {
-    return (
-      <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-3 border-gray-200 border-t-indigo-600"></div>
+          <p className="mt-3 text-gray-600 text-sm">Loading spaces...</p>
         </div>
       </div>
     );
   }
 
-  if (spacesError) {
+  if (errorMySpaces) {
     return (
-      <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center text-red-400">
-          <p>Error loading dashboard data: {spacesError}</p>
+      <div className="flex items-center justify-center h-96">
+        <div className="card max-w-md p-6 text-center">
+          <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-red-50 flex items-center justify-center">
+            <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <h3 className="text-base font-semibold text-gray-900 mb-1">Error Loading Spaces</h3>
+          <p className="text-sm text-gray-600">{errorMySpaces}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-8">
-      {/* Notifications */}
-      {renderNotifications()}
+    <div className="container-main py-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">Your Spaces</h1>
+        <p className="text-sm text-gray-600">Browse and join your virtual spaces</p>
+      </div>
 
-      {/* Tabs and Search */}
-      <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between mb-8">
-        {/* Tabs */}
-        <div className="flex-shrink-0 border-b border-gray-700/50 self-start">
-          <div className="flex items-center -mb-px gap-4">
-            <TabButton
-              id="last-visited"
-              activeTab={activeTab}
-              onClick={setActiveTab}
+      {/* Tabs & Search */}
+      <div className="mb-6 space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveTab("visited")}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === "visited"
+                  ? "bg-indigo-600 text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
+              }`}
             >
-              Last Visited ({totalSpacesCount || 0})
-            </TabButton>
-            <TabButton
-              id="created-spaces"
-              activeTab={activeTab}
-              onClick={setActiveTab}
+              Recently Visited
+            </button>
+            <button
+              onClick={() => setActiveTab("created")}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === "created"
+                  ? "bg-indigo-600 text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
+              }`}
             >
-              Created Spaces ({createdSpaces.length || 0})
-            </TabButton>
+              Created by Me
+            </button>
           </div>
+
+          
         </div>
 
-        {/* Search Bar */}
-        <div className="relative w-full md:max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
-            type="search"
+            type="text"
             placeholder="Search spaces..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-md border-gray-700 bg-[#35354e] py-2.5 pl-10 pr-4 text-white placeholder-gray-400 focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
         </div>
       </div>
 
       {/* Spaces Grid */}
-      {filteredSpaces.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredSpaces.map(renderSpaceCard)}
+      {displayedSpaces.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {displayedSpaces.map((space) => renderSpaceCard(space))}
         </div>
       ) : (
-        /* Empty State */
-        <div className="flex flex-col items-center justify-center text-center mt-16 md:mt-20">
-          <div className="relative mb-4">
+        <div className="card p-12 text-center">
+          <div className="w-20 h-20 mx-auto mb-4 relative rounded-full overflow-hidden ring-4 ring-gray-100">
             <Image
               src="/images/avatar.png"
-              alt="Player Avatar"
-              width={96}
-              height={96}
-              className="object-cover"
+              alt="Avatar"
+              fill
+              style={{ objectFit: 'cover' }}
+              className="bg-gray-100"
             />
-            <div className="absolute -top-4 -right-2 bg-white text-black w-8 h-8 rounded-full flex items-center justify-center font-bold text-xl shadow-lg">
-              ?
-            </div>
           </div>
-          <p className="text-gray-400">
-            {searchQuery ? `No spaces found matching "${searchQuery}"` : 
-             activeTab === "created-spaces" ? "You haven't created any spaces yet." :
-             "You haven't visited any spaces."}{" "}
-            <Link
-              href="/dashboard/create"
-              className="font-semibold text-green-400 hover:underline"
-            >
-              Create a Space
-            </Link>{" "}
-            to get started!
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            {searchQuery ? "No Spaces Found" : activeTab === "visited" ? "No Recent Spaces" : "No Created Spaces"}
+          </h3>
+          <p className="text-sm text-gray-600 mb-6">
+            {searchQuery
+              ? "Try adjusting your search"
+              : activeTab === "visited"
+              ? "Create or discover spaces to get started"
+              : "Get started by creating your first space"}
           </p>
+          <div className="flex items-center justify-center gap-3">
+            <Link href="/dashboard/create">
+              <button className="btn-success text-sm">Create Space</button>
+            </Link>
+            <Link href="/discover">
+              <button className="btn-secondary text-sm">Discover Spaces</button>
+            </Link>
+          </div>
         </div>
       )}
 
       {/* Invite Modal */}
-      {selectedSpace && (
+      {selectedSpaceForInvite && (
         <InviteModal
           isOpen={inviteModalOpen}
-          onClose={handleCloseInviteModal}
-          spaceId={selectedSpace.id}
-          spaceName={selectedSpace.name}
+          onClose={() => setInviteModalOpen(false)}
+          spaceId={selectedSpaceForInvite.id}
+          spaceName={selectedSpaceForInvite.name}
         />
       )}
     </div>
   );
 }
-
-const TabButton = ({ id, activeTab, onClick, children }: any) => {
-  const isActive = id === activeTab;
-  return (
-    <button
-      onClick={() => onClick(id)}
-      className={`px-1 pb-2 text-sm font-medium transition-colors border-b-2 ${
-        isActive
-          ? "border-green-400 text-white"
-          : "border-transparent text-gray-400 hover:text-white"
-      }`}
-    >
-      {children}
-    </button>
-  );
-};

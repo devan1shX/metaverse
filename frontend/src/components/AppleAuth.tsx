@@ -6,12 +6,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, Mail, Lock, User, CheckCircle2 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 
-const AuthBackground = () => (
-  <div className="auth-background">
-    <div className="gradient-bg" />
-  </div>
-);
-
 interface AuthFormInputProps {
   name: string;
   type?: string;
@@ -32,7 +26,7 @@ const AuthFormInput = ({
   onIconClick,
 }: AuthFormInputProps) => (
   <div className="relative">
-    <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-apple-light-label dark:text-apple-dark-label w-5 h-5" />
+    <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
     <input
       id={name}
       name={name}
@@ -47,7 +41,7 @@ const AuthFormInput = ({
       <button
         type="button"
         onClick={onIconClick}
-        className="absolute right-4 top-1/2 -translate-y-1/2 text-apple-light-label dark:text-apple-dark-label hover:text-apple-black dark:hover:text-apple-white transition-colors"
+        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
       >
         {type === "password" ? (
           <Eye className="w-5 h-5" />
@@ -118,11 +112,9 @@ export function AppleAuth() {
           router.push("/dashboard");
         }, 1000);
       } else {
-        
         setError(isLogin ? "Invalid credentials." : "Could not create account.");
       }
     } catch (err: any) {
-      // catch the specific error message from the AuthContext
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -133,37 +125,51 @@ export function AppleAuth() {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 animate-subtle-fade-in">
-      <AuthBackground />
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="auth-card rounded-3xl p-8 sm:p-10 w-full max-w-md"
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="auth-card p-8 sm:p-10 w-full max-w-md"
       >
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-1">
+          <div className="inline-flex p-3 bg-indigo-100 rounded-2xl mb-4">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+            </div>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
             {isLogin ? "Welcome Back" : "Create Account"}
           </h1>
-          <p className="text-apple-light-label dark:text-apple-dark-label">
-            {isLogin ? "Sign in to continue." : "Join the metaverse."}
+          <p className="text-gray-500">
+            {isLogin ? "Sign in to continue your journey" : "Join the metaverse today"}
           </p>
         </div>
 
-        <div className="flex mb-8 bg-apple-light-bg dark:bg-apple-dark-bg rounded-xl p-1 relative">
+        <div className="flex mb-8 bg-gray-100 rounded-xl p-1 relative">
           <motion.div
             layout
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="absolute inset-0 bg-apple-light-elevated dark:bg-apple-dark-elevated shadow-md rounded-lg"
+            className="absolute bg-white shadow-sm rounded-lg"
             style={{
-              width: isLogin ? "50%" : "50%",
-              left: isLogin ? "0%" : "50%",
+              width: "50%",
+              height: "calc(100% - 8px)",
+              top: "4px",
+              left: isLogin ? "4px" : "calc(50% - 4px)",
             }}
           />
-          <button onClick={() => router.push("/login")} className="auth-tab">
+          <button 
+            onClick={() => router.push("/login")} 
+            className={`auth-tab z-10 ${isLogin ? 'active' : ''}`}
+          >
             Sign In
           </button>
-          <button onClick={() => router.push("/signup")} className="auth-tab">
+          <button 
+            onClick={() => router.push("/signup")} 
+            className={`auth-tab z-10 ${!isLogin ? 'active' : ''}`}
+          >
             Sign Up
           </button>
         </div>
@@ -171,12 +177,12 @@ export function AppleAuth() {
         <AnimatePresence mode="wait">
           <motion.form
             key={isLogin ? "login" : "signup"}
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
             onSubmit={handleSubmit}
-            className="space-y-5"
+            className="space-y-4"
           >
             {!isLogin && (
               <AuthFormInput
@@ -219,20 +225,20 @@ export function AppleAuth() {
             <AnimatePresence>
               {error && (
                 <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="p-3 bg-red-500/10 rounded-lg text-red-500 text-center text-xs font-semibold"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-center text-sm font-medium"
                 >
                   {error}
                 </motion.p>
               )}
               {success && (
                 <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="p-3 bg-green-500/10 rounded-lg text-green-500 text-center text-xs font-semibold flex items-center justify-center gap-2"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-600 text-center text-sm font-medium flex items-center justify-center gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" /> {success}
                 </motion.div>
@@ -243,19 +249,32 @@ export function AppleAuth() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="auth-button flex items-center justify-center"
+                className="auth-button flex items-center justify-center gap-2"
               >
                 {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                ) : isLogin ? (
-                  "Sign In"
+                  <>
+                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    <span>{isLogin ? "Signing in..." : "Creating account..."}</span>
+                  </>
                 ) : (
-                  "Create Account"
+                  <span>{isLogin ? "Sign In" : "Create Account"}</span>
                 )}
               </button>
             </div>
           </motion.form>
         </AnimatePresence>
+
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            {isLogin ? "Don't have an account? " : "Already have an account? "}
+            <button
+              onClick={() => router.push(isLogin ? "/signup" : "/login")}
+              className="text-indigo-600 font-semibold hover:text-indigo-700 transition-colors"
+            >
+              {isLogin ? "Sign Up" : "Sign In"}
+            </button>
+          </p>
+        </div>
       </motion.div>
     </div>
   );

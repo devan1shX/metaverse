@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect } from "react";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { DashboardHeader } from "@/components/DashboardHeader";
 import SpaceLobby from "@/components/SpaceLobby";
 import { useSpace } from "@/hooks/useApi";
 import { useSpaces } from "@/contexts/SpacesContext";
@@ -40,24 +41,40 @@ export default function SpacePage() {
   // Error handling
   if (spaceError) {
     return (
-      <div className="flex items-center justify-center h-screen text-red-400">
-        Error loading space: {spaceError}
-      </div>
+      <>
+        <DashboardHeader avatarUrl={user.user_avatar_url} />
+        <div className="container-main py-12">
+          <div className="card p-8 text-center max-w-md mx-auto">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-50 flex items-center justify-center">
+              <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Space</h3>
+            <p className="text-sm text-gray-600">{spaceError}</p>
+          </div>
+        </div>
+      </>
     );
   }
 
   // Handling case where space is not found
   if (!spaceData?.space) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        Space not found
-      </div>
+      <>
+        <DashboardHeader avatarUrl={user.user_avatar_url} />
+        <div className="container-main py-12">
+          <div className="card p-8 text-center max-w-md mx-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Space Not Found</h3>
+            <p className="text-sm text-gray-600">The space you're looking for doesn't exist.</p>
+          </div>
+        </div>
+      </>
     );
   }
 
   const space = spaceData.space;
   const isUserAdmin = space.adminUserId === user.id;
-  // Check if the current space is in the user's list of joined/created spaces
   const isUserMember = mySpaces.some((s) => s.id === space.id);
 
   // Action handlers
@@ -67,21 +84,12 @@ export default function SpacePage() {
       console.log("SpacePage: Calling joinSpace from context");
       const result = await joinSpace(spaceId);
       console.log("SpacePage: joinSpace result:", result);
-      // Refresh space data and user's spaces list
       await Promise.all([
         refetchSpace(),
-        // The SpacesContext should already refresh mySpaces after joinSpace
       ]);
       console.log("SpacePage: Space data refreshed after join");
     } catch (error: any) {
       console.error("SpacePage: Failed to join space:", error);
-      console.error("SpacePage: Error details:", {
-        message: error?.message,
-        response: error?.response?.data,
-        status: error?.response?.status,
-        stack: error?.stack,
-      });
-      // Re-throw to let SpaceLobby handle the error display
       throw error;
     }
   };
@@ -89,7 +97,7 @@ export default function SpacePage() {
   const handleLeave = async () => {
     try {
       await leaveSpace(spaceId);
-      router.push("/dashboard"); // Redirect after leaving
+      router.push("/dashboard");
     } catch (error) {
       console.error("Failed to leave space:", error);
     }
@@ -99,7 +107,7 @@ export default function SpacePage() {
     if (isUserAdmin) {
       try {
         await deleteSpace(spaceId);
-        router.push("/dashboard"); // Redirect after deleting
+        router.push("/dashboard");
       } catch (error) {
         console.error("Failed to delete space:", error);
       }
@@ -118,14 +126,17 @@ export default function SpacePage() {
   };
 
   return (
-    <SpaceLobby
-      space={space}
-      isUserAdmin={isUserAdmin}
-      isUserMember={isUserMember}
-      onJoin={handleJoin}
-      onLeave={handleLeave}
-      onDelete={handleDelete}
-      onUpdate={handleUpdate}
-    />
+    <>
+      <DashboardHeader avatarUrl={user.user_avatar_url} />
+      <SpaceLobby
+        space={space}
+        isUserAdmin={isUserAdmin}
+        isUserMember={isUserMember}
+        onJoin={handleJoin}
+        onLeave={handleLeave}
+        onDelete={handleDelete}
+        onUpdate={handleUpdate}
+      />
+    </>
   );
 }

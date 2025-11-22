@@ -43,7 +43,7 @@ export default function PhaserGameWrapper({
       parent: containerRef.current,
       width: window.innerWidth,
       height: window.innerHeight,
-      backgroundColor: '#000000',
+      backgroundColor: '#f9fafb', // Light gray background to match dashboard
       physics: {
         default: 'arcade',
         arcade: {
@@ -152,7 +152,7 @@ export default function PhaserGameWrapper({
   return (
     <div 
       ref={containerRef} 
-      className="w-full h-full bg-black"
+      className="w-full h-full bg-gray-50"
       style={{ 
         position: 'absolute', 
         top: 0, 
@@ -163,12 +163,12 @@ export default function PhaserGameWrapper({
       }}
     >
       {!isGameReady && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black">
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
           <div className="text-center">
-            <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-blue-500 font-semibold">Initializing Game Engine...</p>
+            <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-indigo-600 font-semibold">Initializing Game Engine...</p>
             {normalizedMapId && (
-              <p className="text-gray-400 text-sm mt-2">Loading Map: {normalizedMapId}</p>
+              <p className="text-gray-500 text-sm mt-2">Loading Map: {normalizedMapId}</p>
             )}
           </div>
         </div>

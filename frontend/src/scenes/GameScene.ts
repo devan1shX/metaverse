@@ -191,7 +191,8 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-    this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+    // Allow camera to see the outside environment (1000px padding)
+    this.cameras.main.setBounds(-1000, -1000, map.widthInPixels + 2000, map.heightInPixels + 2000);
 
     let spawnPointObject = null;
     const objectLayerNames = ['Objects', 'objects', 'Spawn', 'spawn', 'SpawnPoints'];
@@ -210,6 +211,70 @@ export class GameScene extends Phaser.Scene {
       : { x: map.widthInPixels / 2, y: map.heightInPixels / 2 };
 
     console.log('Spawn point:', spawnPoint);
+
+    // --- ENVIRONMENT GENERATION ---
+    // Create a pleasant background outside the map boundaries
+    const borderSize = 1000; // Size of the extra environment around the map
+    const bgWidth = map.widthInPixels + (borderSize * 2);
+    const bgHeight = map.heightInPixels + (borderSize * 2);
+
+    // 1. Grass Background
+    // Uses the 'Green' tile texture to create a seamless grass field
+    const background = this.add.tileSprite(
+      map.widthInPixels / 2,
+      map.heightInPixels / 2,
+      bgWidth,
+      bgHeight,
+      'Green'
+    );
+    background.setDepth(-100); // Ensure it's behind everything
+
+    // 2. Procedural Plant Generation
+    // Scatters plants around the border to create a "garden/forest" feel
+    if (this.textures.exists('plant')) {
+      const plantGroup = this.add.group();
+      const density = 0.6; // Chance to spawn a plant in each grid cell
+      const gridSize = 60; // Spacing between potential plant spots
+
+      // Helper to spawn plant
+      const spawnPlant = (x: number, y: number) => {
+        if (Math.random() < density) {
+          const plant = this.add.image(
+            x + Phaser.Math.Between(-20, 20),
+            y + Phaser.Math.Between(-20, 20),
+            'plant'
+          );
+          // Randomize scale slightly for variety
+          const scale = 0.8 + Math.random() * 0.4;
+          plant.setScale(scale);
+          // Random rotation
+          plant.setAngle(Phaser.Math.Between(-10, 10));
+          plant.setDepth(-50); // Behind map objects but above grass
+          plantGroup.add(plant);
+        }
+      };
+
+      // Top Border
+      for (let x = -borderSize; x < map.widthInPixels + borderSize; x += gridSize) {
+        for (let y = -borderSize; y < 0; y += gridSize) spawnPlant(x, y);
+      }
+
+      // Bottom Border
+      for (let x = -borderSize; x < map.widthInPixels + borderSize; x += gridSize) {
+        for (let y = map.heightInPixels; y < map.heightInPixels + borderSize; y += gridSize) spawnPlant(x, y);
+      }
+
+      // Left Border
+      for (let y = 0; y < map.heightInPixels; y += gridSize) {
+        for (let x = -borderSize; x < 0; x += gridSize) spawnPlant(x, y);
+      }
+
+      // Right Border
+      for (let y = 0; y < map.heightInPixels; y += gridSize) {
+        for (let x = map.widthInPixels; x < map.widthInPixels + borderSize; x += gridSize) spawnPlant(x, y);
+      }
+    }
+    // ---------------------------
 
     this.input.on('pointerdown', () => {
       const soundManager = this.sound as Phaser.Sound.WebAudioSoundManager;
