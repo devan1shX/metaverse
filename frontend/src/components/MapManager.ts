@@ -129,9 +129,15 @@ export class GameMap {
         }
       });
 
-      wallsLayer!.setCollisionByProperty({ collides: true });
-      objectsLayer!.setCollisionByProperty({ collides: true });
-      aboveObjectsLayer!.setCollisionByProperty({ collides: true });
+      if (wallsLayer) {
+        wallsLayer.setCollisionByProperty({ collides: true });
+      }
+      if (objectsLayer) {
+        objectsLayer.setCollisionByProperty({ collides: true });
+      }
+      if (aboveObjectsLayer) {
+        aboveObjectsLayer.setCollisionByProperty({ collides: true });
+      }
       if (partitionsLayer) {
         partitionsLayer.setCollisionByProperty({ collides: true });
       }
@@ -253,10 +259,18 @@ export class GameMap {
         }
       });
 
-      wallsLayer!.setCollisionByProperty({ collides: true });
-      objectsLayer!.setCollisionByProperty({ collides: true });
-      partitionsLayer!.setCollisionByProperty({ collides: true });
-      aboveObjectsLayer!.setDepth(10);
+      if (wallsLayer) {
+        wallsLayer.setCollisionByProperty({ collides: true });
+      }
+      if (objectsLayer) {
+        objectsLayer.setCollisionByProperty({ collides: true });
+      }
+      if (partitionsLayer) {
+        partitionsLayer.setCollisionByProperty({ collides: true });
+      }
+      if (aboveObjectsLayer) {
+        aboveObjectsLayer.setDepth(10);
+      }
 
       return {
         groundLayer,
