@@ -221,7 +221,32 @@ class Space {
     return this.isActive === true;
   }
 
-
+  /**
+   * Update space properties
+   * @param {Object} updateData - Data to update
+   * @returns {void}
+   */
+  update(updateData) {
+    if (updateData.name !== undefined) {
+      this.name = updateData.name;
+    }
+    if (updateData.description !== undefined) {
+      this.description = updateData.description;
+    }
+    if (updateData.mapImageUrl !== undefined) {
+      this.mapImageUrl = updateData.mapImageUrl;
+    }
+    if (updateData.mapId !== undefined) {
+      this.mapId = updateData.mapId;
+    }
+    if (updateData.isPublic !== undefined) {
+      this.isPublic = updateData.isPublic;
+    }
+    if (updateData.maxUsers !== undefined) {
+      this.maxUsers = updateData.maxUsers;
+    }
+    this.updatedAt = new Date();
+  }
 
   /**
    * Convert space to safe object (for API responses)
