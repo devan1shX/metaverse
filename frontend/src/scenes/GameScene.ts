@@ -84,7 +84,7 @@ export class GameScene extends Phaser.Scene {
       this.load.image('coffee-maker', '/maps/map1/assets/coffee-maker.png');
       this.load.image('sink', '/maps/map1/assets/sink.png');
       this.load.image('water-cooler', '/maps/map1/assets/water-cooler.png');
-      this.load.image('stamping-table', '/maps/map1/assets/stamp ing-table.png');
+      this.load.image('stamping-table', '/maps/map1/assets/stamping-table.png');
       this.load.image('Idle (32x32)', '/maps/map1/assets/Idle (32x32).png');
       this.load.image('Run (32x32)', '/maps/map1/assets/Run (32x32).png');
     } else {

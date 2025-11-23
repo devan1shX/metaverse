@@ -15,6 +15,8 @@ export class GameScene extends Phaser.Scene {
   private sendPositionUpdate!: ((x: number, y: number) => void) | null;
   private userId!: string | null;
   private lastPositionSent: { x: number; y: number } | null = null;
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private wasd!: any;
 
   constructor() {
     super({ key: "GameScene" });
@@ -124,7 +126,11 @@ export class GameScene extends Phaser.Scene {
       this,
       spawnPoint.x!,
       spawnPoint.y!,
-      this.selectedAvatarKey
+      this.selectedAvatarKey,
+      {
+        id: this.userId || "main-player",
+        user_name: "You", // This prevents name tag from showing for main player
+      }
     );
 
     if (wallsLayer) this.physics.add.collider(this.player, wallsLayer);
@@ -160,6 +166,15 @@ export class GameScene extends Phaser.Scene {
 
     this.events.emit("ready");
 
+    // Setup keyboard controls
+    this.cursors = this.input.keyboard!.createCursorKeys();
+    this.wasd = {
+      W: this.input.keyboard!.addKey("W"),
+      A: this.input.keyboard!.addKey("A"),
+      S: this.input.keyboard!.addKey("S"),
+      D: this.input.keyboard!.addKey("D"),
+    };
+
     const fKey = this.input.keyboard!.addKey("F");
     fKey.on("down", () => {
       if (this.scale.isFullscreen) {
@@ -176,8 +191,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number) {
-    if (this.player) {
-      this.player.handleMovement();
+    if (this.player && this.cursors && this.wasd) {
+      this.player.updateMovement(this.cursors, this.wasd);
 
       // Update sit timer
       this.player.updateSitTimer(delta);

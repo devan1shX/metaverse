@@ -47,7 +47,16 @@ export function ChatBox({ spaceId }: { spaceId: string }) {
 
   useEffect(() => {
     onChatMessage((message) => {
-      setMessages((prev) => [...prev, message]);
+      // Check for duplicates before adding
+      setMessages((prev) => {
+        const isDuplicate = prev.some(
+          (msg) => msg.timestamp === message.timestamp && msg.user_id === message.user_id
+        );
+        if (isDuplicate) {
+          return prev;
+        }
+        return [...prev, message];
+      });
     });
   }, [onChatMessage]);
 

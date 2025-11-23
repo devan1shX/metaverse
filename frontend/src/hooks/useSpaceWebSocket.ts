@@ -199,6 +199,34 @@ export function useSpaceWebSocket(spaceId: string | null) {
             userLeftCallbackRef.current?.(message as UserLeftEvent);
           }
           else if (message.event === 'CHAT_MESSAGE') {
+            // CRITICAL FIX: Always save chat messages to localStorage, even if ChatBox is not mounted
+            // This ensures messages are available when the user opens the chat later
+            if (spaceId) {
+              try {
+                const storageKey = `chat-history-${spaceId}`;
+                const storedMessages = localStorage.getItem(storageKey);
+                let messages: ChatMessage[] = [];
+                
+                if (storedMessages) {
+                  messages = JSON.parse(storedMessages);
+                }
+                
+                // Add new message if it doesn't already exist (prevent duplicates)
+                const isDuplicate = messages.some(
+                  (msg) => msg.timestamp === message.timestamp && msg.user_id === message.user_id
+                );
+                
+                if (!isDuplicate) {
+                  messages.push(message as ChatMessage);
+                  localStorage.setItem(storageKey, JSON.stringify(messages));
+                  console.log('Chat message saved to localStorage:', message);
+                }
+              } catch (storageErr) {
+                console.error('Error saving chat message to localStorage:', storageErr);
+              }
+            }
+            
+            // Also call the callback if ChatBox is mounted and listening
             chatCallbackRef.current?.(message as ChatMessage);
           }
           else if (message.event === 'position_move_ack') {
