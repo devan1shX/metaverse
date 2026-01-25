@@ -47,6 +47,48 @@ async function update_avatar_controller(req, res) {
 }
 
 /**
+ * Update username controller
+ */
+async function update_username_controller(req, res) {
+    try {
+        const { id } = req.params;
+        const { username } = req.body;
+
+        if (!username) {
+            return res.status(400).json({ 
+                success: false,
+                message: "Username is required" 
+            });
+        }
+
+        logger.info('User username update attempt', { userId: id, username });
+        
+        const result = await userService.updateUsername(id, username);
+
+        if (!result.success) {
+            const statusCode = result.error === 'User not found' ? 404 : 400;
+            return res.status(statusCode).json({ 
+                success: false,
+                message: result.error 
+            });
+        }
+
+        return res.status(200).json({ 
+            success: true,
+            message: "Username updated successfully", 
+            user: result.user.toSafeObject() 
+        });
+
+    } catch (error) {
+        logger.error('Username update controller error', { error: error.message, stack: error.stack });
+        return res.status(500).json({ 
+            success: false,
+            message: "Internal server error" 
+        });
+    }
+}
+
+/**
  * Get user by ID controller
  */
 async function get_user_controller(req, res) {
@@ -202,6 +244,7 @@ module.exports = {
     get_user_controller,
     get_all_users_controller,
     update_user_controller,
+    update_username_controller,
     deactivate_user_controller,
     
     // Export UserService instance for direct access if needed

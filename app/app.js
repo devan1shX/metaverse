@@ -11,6 +11,7 @@ const spaceRoutes = require('./routes/rest/spaces');
 const notificationRoutes = require('./routes/rest/notifications');
 const inviteRoutes = require('./routes/rest/invites');
 const internalRoutes = require('./routes/rest/internal');
+const firebaseSyncRoute = require('./routes/rest/post/firebase-sync');
 const app = express();
 const {Config} = require('./config/config');
 logger.info('Initializing Express application...');
@@ -65,6 +66,7 @@ init_db(Config.skipCleaner).then(() => {
 app.use('/metaverse/login', login_routes);
 app.use('/metaverse/signup', signup_routes);
 app.post('/metaverse/logout', log_out_router);
+app.use('/metaverse/auth/firebase-sync', firebaseSyncRoute);
 
 app.use('/metaverse/protected', protectedRoutes);
 app.use('/metaverse/dashboard', dashboard_routes);

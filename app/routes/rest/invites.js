@@ -1,5 +1,5 @@
 const express = require('express');
-const { authenticateToken } = require('../../middleware/auth');
+const { verifyFirebaseToken, attachDbUser } = require('../../middleware/firebaseAuth');
 const { logger } = require('../../utils/logger');
 const {
     sendInvite,
@@ -29,28 +29,28 @@ router.use((req, res, next) => {
  * @access  Private (authenticated users)
  * @body    { toUserId, spaceId }
  */
-router.post('/send', authenticateToken, sendInvite);
+router.post('/send', verifyFirebaseToken, attachDbUser, sendInvite);
 
 /**
  * @route   POST /invites/:notificationId/accept
  * @desc    Accept a space invite
  * @access  Private (authenticated users)
  */
-router.post('/:notificationId/accept', authenticateToken, acceptInvite);
+router.post('/:notificationId/accept', verifyFirebaseToken, attachDbUser, acceptInvite);
 
 /**
  * @route   POST /invites/:notificationId/decline
  * @desc    Decline a space invite
  * @access  Private (authenticated users)
  */
-router.post('/:notificationId/decline', authenticateToken, declineInvite);
+router.post('/:notificationId/decline', verifyFirebaseToken, attachDbUser, declineInvite);
 
 /**
  * @route   GET /invites/users/:spaceId
  * @desc    Get list of users that can be invited to a space
  * @access  Private (authenticated users)
  */
-router.get('/users/:spaceId', authenticateToken, getInvitableUsers);
+router.get('/users/:spaceId', verifyFirebaseToken, attachDbUser, getInvitableUsers);
 
 /**
  * @route   GET /invites/my-invites
@@ -58,7 +58,7 @@ router.get('/users/:spaceId', authenticateToken, getInvitableUsers);
  * @access  Private (authenticated users)
  * @query   { includeExpired? }
  */
-router.get('/my-invites', authenticateToken, getMyInvites);
+router.get('/my-invites', verifyFirebaseToken, attachDbUser, getMyInvites);
 
 // Health check for invites API
 router.get('/health/check', (req, res) => {

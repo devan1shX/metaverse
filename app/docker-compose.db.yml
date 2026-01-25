@@ -6,17 +6,32 @@ services:
     container_name: metaverse-db
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: aahan123
-      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: metaverse
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d postgres" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: metaverse-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 30s
       timeout: 10s
       retries: 3
 
 volumes:
   pgdata:
+  redisdata:

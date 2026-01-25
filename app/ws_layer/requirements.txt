@@ -10,3 +10,5 @@ pyjwt
 requests
 websockets
 uvicorn
+redis
+aioredis

@@ -15,23 +15,23 @@ class DataFetcher:
         try:
             async with self.db_manager.get_connection() as conn:
                 query = """
-                    SELECT id, username, email, role, avatar_url, is_active, 
-                           created_at, updated_at
+                    SELECT id, user_name, email, role, user_avatar_url, user_is_active, 
+                           user_created_at, user_updated_at
                     FROM users 
-                    WHERE id = $1 AND is_active = true
+                    WHERE id = $1 AND user_is_active = true
                 """
                 row = await conn.fetchrow(query, user_id)
                 
                 if row:
                     return {
                         'id': str(row['id']),
-                        'username': row['username'],
+                        'username': row['user_name'],
                         'email': row['email'],
                         'role': row['role'],
-                        'avatar_url': row['avatar_url'],
-                        'is_active': row['is_active'],
-                        'created_at': row['created_at'].isoformat(),
-                        'updated_at': row['updated_at'].isoformat()
+                        'avatar_url': row['user_avatar_url'],
+                        'is_active': row['user_is_active'],
+                        'created_at': row['user_created_at'].isoformat(),
+                        'updated_at': row['user_updated_at'].isoformat()
                     }
                 return None
         except Exception as e:
@@ -73,20 +73,20 @@ class DataFetcher:
         try:
             async with self.db_manager.get_connection() as conn:
                 query = """
-                    SELECT u.id, u.username, u.email, u.role, u.avatar_url
+                    SELECT u.id, u.user_name, u.email, u.role, u.user_avatar_url
                     FROM users u
                     INNER JOIN user_spaces us ON u.id = us.user_id
-                    WHERE us.space_id = $1 AND u.is_active = true
+                    WHERE us.space_id = $1 AND u.user_is_active = true
                 """
                 rows = await conn.fetch(query, space_id)
                 
                 return [
                     {
                         'id': str(row['id']),
-                        'username': row['username'],
+                        'username': row['user_name'],
                         'email': row['email'],
                         'role': row['role'],
-                        'avatar_url': row['avatar_url']
+                        'avatar_url': row['user_avatar_url']
                     }
                     for row in rows
                 ]

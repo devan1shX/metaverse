@@ -18,16 +18,22 @@ async function init_db(skipCleaner = false) {
     logger.info('[init_db][init_db] Initializing database...');
     const db = await get_async_db();
 
-    await db.query(`
-      CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+    // Create extension separately with error handling
+    try {
+      await db.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
+    } catch (extError) {
+      // Extension might already exist, log and continue
+      logger.warn('[init_db] pgcrypto extension may already exist', { error: extError.message });
+    }
 
+    await db.query(`
       -- Users table
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
         role VARCHAR(50) NOT NULL DEFAULT 'participant',
         user_name VARCHAR(100) UNIQUE NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
+        password VARCHAR(255),
         user_designation TEXT DEFAULT 'None',
         user_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         user_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -86,6 +92,24 @@ async function init_db(skipCleaner = false) {
         CONSTRAINT notifications_status_check CHECK (status IN ('unread', 'read', 'dismissed'))
       );
 
+      -- Messages table (for chat functionality)
+      CREATE TABLE IF NOT EXISTS messages (
+        message_id UUID PRIMARY KEY NOT NULL,
+        sender_id UUID NOT NULL,
+        message_type VARCHAR(20) NOT NULL,
+        content TEXT NOT NULL,
+        timestamp TIMESTAMP NOT NULL,
+        space_id UUID,
+        receiver_id UUID,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE CASCADE,
+        FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT messages_type_check CHECK (message_type IN ('space', 'private')),
+        CONSTRAINT messages_status_check CHECK (status IN ('pending', 'validated', 'cached', 'broadcast', 'persisted', 'failed', 'rolled_back'))
+      );
+
       -- Create indexes for better performance
       CREATE INDEX IF NOT EXISTS idx_spaces_admin_user_id ON spaces(admin_user_id);
       CREATE INDEX IF NOT EXISTS idx_spaces_is_public ON spaces(is_public);
@@ -102,6 +126,14 @@ async function init_db(skipCleaner = false) {
       CREATE INDEX IF NOT EXISTS idx_notifications_is_active ON notifications(is_active);
       CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
       CREATE INDEX IF NOT EXISTS idx_notifications_expires_at ON notifications(expires_at);
+      
+      CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
+      CREATE INDEX IF NOT EXISTS idx_messages_space_id ON messages(space_id);
+      CREATE INDEX IF NOT EXISTS idx_messages_receiver_id ON messages(receiver_id);
+      CREATE INDEX IF NOT EXISTS idx_messages_message_type ON messages(message_type);
+      CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);
+      CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
+      CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 
       -- Blacklisted tokens table (for logout functionality)
       CREATE TABLE IF NOT EXISTS blacklisted_tokens (
@@ -115,7 +147,7 @@ async function init_db(skipCleaner = false) {
       CREATE INDEX IF NOT EXISTS idx_blacklisted_tokens_expires_at ON blacklisted_tokens(expires_at);
     `);
 
-    logger.info("[init_db][init_db] Database tables created successfully (users, spaces, user_spaces, notifications, blacklisted_tokens)");
+    logger.info("[init_db][init_db] Database tables created successfully (users, spaces, user_spaces, notifications, messages, blacklisted_tokens)");
     await add_admin();
   } catch (error) {
     logger.error('[init_db][init_db] Database initialization failed', { error: error.message, stack: error.stack });

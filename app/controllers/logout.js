@@ -112,11 +112,12 @@ async function log_out_router(req, res) {
             });
 
         } catch (jwtError) {
-            logger.warn('Invalid token during logout', { error: jwtError.message });
-            return res.status(401).json({
-                success: false,
-                message: "Token verification failed",
-                errors: ["Invalid or expired token"]
+            logger.warn('Invalid token during logout - proceeding as successful', { error: jwtError.message });
+            // If token is invalid/expired, the user is effectively logged out anyway
+            return res.status(200).json({
+                success: true,
+                message: "Logout successful (token was invalid/expired)",
+                logged_out_at: new Date().toISOString()
             });
         }
 

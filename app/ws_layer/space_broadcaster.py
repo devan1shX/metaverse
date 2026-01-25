@@ -105,7 +105,13 @@ class space_broadcaster:
         user_id = None # Track which user this websocket belongs to
         try:
             while True:
-                data = await ws.receive_text()
+                try:
+                    data = await ws.receive_text()
+                except RuntimeError as e:
+                    # WebSocket already closed - treat as disconnect
+                    logger.info(f"WebSocket connection closed for space {self.space_id}")
+                    break
+                
                 message = json.loads(data)
                 event = message.get("event" , None)
                 
@@ -156,6 +162,9 @@ class space_broadcaster:
                     self.users[user_id] = user_data # Add to this space's user dict
                     self.position_map[user_id] = {"x" : 0 , "y" : 0}
                     
+                    # Get active media streams
+                    media_info = await self.media_manager.get_space_media_info(self.space_id)
+
                     # Send current space state to the new user FIRST (including map_id)
                     # FIX 2: Use the custom JSON encoder
                     await ws.send_text(json.dumps({
@@ -163,7 +172,8 @@ class space_broadcaster:
                         "space_id": self.space_id,
                         "map_id": self.map_id,  # FIX: Include map_id so all users load the same map
                         "users": self.users,
-                        "positions": self.position_map
+                        "positions": self.position_map,
+                        "media_info": media_info # Include active media streams
                     }, cls=CustomEncoder))
                     
                     # Then notify all OTHER users (exclude the joining user)
@@ -218,13 +228,51 @@ class space_broadcaster:
 
                 # --- WebRTC Signaling Event ---
                 elif event_lower == "webrtc_signal":
+                    # Frontend sends: { event, signal_type, to_user_id, space_id, data }
+                    signal_type = message.get("signal_type")
+                    to_user_id = message.get("to_user_id")
                     signal_data = message.get("data", {})
-                    await self.media_manager.handle_webrtc_signal(
-                        signal_type=signal_data.get("signal_type"),
-                        from_user_id=user_id, # Enforce sender
-                        to_user_id=signal_data.get("to_user_id"),
+                    
+                    logger.info(f"WebRTC signal: {signal_type} from {user_id} to {to_user_id}")
+                    
+                    if signal_type and to_user_id:
+                        success, result = await self.media_manager.handle_webrtc_signal(
+                            signal_type=signal_type,
+                            from_user_id=user_id,
+                            to_user_id=to_user_id,
+                            space_id=self.space_id,
+                            signal_data=signal_data
+                        )
+                        if not success:
+                            logger.error(f"WebRTC signal failed: {result}")
+                    else:
+                        logger.error(f"Invalid WebRTC signal: signal_type={signal_type}, to_user_id={to_user_id}")
+                
+                # --- Media Stream Events ---
+                elif event_lower == "start_audio_stream":
+                    await self.media_manager.start_audio_stream(
+                        user_id=user_id,
                         space_id=self.space_id,
-                        signal_data=signal_data.get("data")
+                        metadata=message.get("metadata")
+                    )
+                
+                elif event_lower == "stop_audio_stream":
+                    await self.media_manager.stop_audio_stream(
+                        user_id=user_id,
+                        space_id=self.space_id
+                    )
+                
+                elif event_lower == "start_video_stream":
+                    await self.media_manager.start_video_stream(
+                        user_id=user_id,
+                        space_id=self.space_id,
+                        metadata=message.get("metadata")
+                    )
+                
+                elif event_lower == "stop_video_stream":
+                    await self.media_manager.stop_video_stream(
+                        user_id=user_id,
+                        space_id=self.space_id
                     )
                 
                 # --- Leave Event ---

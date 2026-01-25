@@ -415,6 +415,77 @@ class UserService {
   }
 
   /**
+   * Update username
+   * @param {string} userId - User ID
+   * @param {string} newUsername - New username
+   * @returns {Promise<{success: boolean, user?: User, error?: string}>}
+   */
+  async updateUsername(userId, newUsername) {
+    try {
+      logger.info('[UserService][updateUsername] Updating username', { user_id: userId, new_username: newUsername });
+
+      if (!userId || !newUsername) {
+        return {
+          success: false,
+          error: 'User ID and new username are required'
+        };
+      }
+
+      // Check if username is valid (alphanumeric, 3-32 chars)
+      const usernameRegex = /^[a-zA-Z0-9_-]{3,32}$/;
+      if (!usernameRegex.test(newUsername)) {
+        return {
+          success: false,
+          error: 'Username must be 3-32 characters long and contain only letters, numbers, underscores, and hyphens'
+        };
+      }
+
+      // Check if username is already taken
+      const existingUser = await this.userRepository.findByUsername(newUsername);
+      if (existingUser && existingUser.id !== userId) {
+        return {
+          success: false,
+          error: 'Username already exists'
+        };
+      }
+
+      // Update username in database
+      const user = await this.userRepository.findById(userId);
+      if (!user) {
+        return {
+          success: false,
+          error: 'User not found'
+        };
+      }
+
+      user.username = newUsername;
+      const updatedUser = await this.userRepository.update(user);
+
+      if (!updatedUser) {
+        return {
+          success: false,
+          error: 'Failed to update username'
+        };
+      }
+
+      return {
+        success: true,
+        user: updatedUser
+      };
+    } catch (error) {
+      logger.error('[UserService][updateUsername] Error in updateUsername service', { 
+        error: error.message, 
+        stack: error.stack, 
+        user_id: userId 
+      });
+      return {
+        success: false,
+        error: 'Internal server error'
+      };
+    }
+  }
+
+  /**
    * Authenticate user (login)
    * @param {string} email - User email
    * @param {string} password - User password
@@ -587,6 +658,85 @@ class UserService {
       return {
         success: false,
         error: 'Internal server error'
+      };
+    }
+  }
+  
+  /**
+   * Find or create user from Firebase authentication
+   * @param {Object} firebaseUser - Firebase user data
+   * @param {string} userLevel - User role level
+   * @returns {Promise<{success: boolean, user?: User, errors?: string[], isNew?: boolean}>}
+   */
+  async findOrCreateFromFirebase(firebaseUser, userLevel = 'participant') {
+    try {
+      logger.info('[UserService][findOrCreateFromFirebase] Syncing Firebase user', {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email?.substring(0, 3) + '***',
+      });
+
+      // Check if user exists by email
+      const existingUserResult = await this.getUserByEmail(firebaseUser.email);
+      
+      if (existingUserResult.success && existingUserResult.user) {
+        // User already exists
+        logger.info('[UserService][findOrCreateFromFirebase] Existing user found', {
+          user_id: existingUserResult.user.id,
+        });
+        return {
+          success: true,
+          user: existingUserResult.user,
+          isNew: false,
+        };
+      }
+
+      // User doesn't exist, create new user
+      let username = firebaseUser.name || firebaseUser.email.split('@')[0];
+      
+      // Try to create user, if username taken, append random number
+      let userData = {
+        username: username,
+        email: firebaseUser.email,
+        password: null, // No password for Firebase users
+        role: userLevel,
+        avatarUrl: firebaseUser.picture || '/avatars/avatar-2.png',
+      };
+
+      let createResult = await this.createUser(userData);
+      
+      // If failed due to duplicate username, try again with suffix
+      if (!createResult.success && createResult.errors && createResult.errors.some(e => e.includes('Username already exists'))) {
+        const randomSuffix = Math.floor(Math.random() * 10000);
+        userData.username = `${username}_${randomSuffix}`;
+        
+        logger.info('[UserService] Username taken, retrying with suffix', { newUsername: userData.username });
+        createResult = await this.createUser(userData);
+      }
+      
+      if (!createResult.success) {
+        logger.error('[UserService][findOrCreateFromFirebase] Failed to create user', {
+          errors: createResult.errors,
+        });
+        return createResult;
+      }
+
+      logger.info('[UserService][findOrCreateFromFirebase] New user created from Firebase', {
+        user_id: createResult.user.id,
+      });
+
+      return {
+        success: true,
+        user: createResult.user,
+        isNew: true,
+      };
+    } catch (error) {
+      logger.error('[UserService][findOrCreateFromFirebase] Error in findOrCreateFromFirebase', {
+        error: error.message,
+        stack: error.stack,
+      });
+      return {
+        success: false,
+        errors: ['Internal server error'],
       };
     }
   }

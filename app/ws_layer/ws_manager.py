@@ -18,7 +18,6 @@ from db_layer import (
 )
 from config import WSConfig
 from event_types import SpaceEventType, UserEventType, SpaceEvent, UserEvent, UserState
-from chat import ChatManager
 from media import MediaManager
 from space_broadcaster import space_broadcaster
 
