@@ -11,6 +11,7 @@ const spaceRoutes = require('./routes/rest/spaces');
 const notificationRoutes = require('./routes/rest/notifications');
 const inviteRoutes = require('./routes/rest/invites');
 const internalRoutes = require('./routes/rest/internal');
+const customMapsRoutes = require('./routes/rest/customMaps');
 const firebaseSyncRoute = require('./routes/rest/post/firebase-sync');
 const app = express();
 const {Config} = require('./config/config');
@@ -74,6 +75,7 @@ app.use('/metaverse/spaces', spaceRoutes);
 app.use('/metaverse/notifications', notificationRoutes);
 app.use('/metaverse/invites', inviteRoutes);
 app.use('/metaverse/users', user_routes);
+app.use('/metaverse/custom-maps', customMapsRoutes);
 
 app.use('/int', internalRoutes);
 
