@@ -38,9 +38,8 @@ async function createSpace(req, res) {
       });
     }
 
-    // Validate mapId (optional but recommended)
-    const validMapIds = ['office-01', 'office-02'];
-    const finalMapId = mapId && validMapIds.includes(mapId) ? mapId : 'office-01';
+    // Accept any mapId - supports office-01, office-02, and custom-* maps
+    const finalMapId = mapId || 'office-01'; // Default to office-01 only if no mapId provided
 
     // Prepare space data
     const spaceData = {
