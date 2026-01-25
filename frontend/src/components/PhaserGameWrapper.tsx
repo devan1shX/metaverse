@@ -10,13 +10,15 @@ interface PhaserGameWrapperProps {
   mapId?: string | null;
   spaceId?: string;
   userId?: string;
+  streams?: Map<string, MediaStream>;
 }
 
 export default function PhaserGameWrapper({ 
   avatarUrl, 
   mapId, 
   spaceId, 
-  userId 
+  userId,
+  streams
 }: PhaserGameWrapperProps) {
   const gameRef = useRef<Phaser.Game | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -44,6 +46,9 @@ export default function PhaserGameWrapper({
       width: window.innerWidth,
       height: window.innerHeight,
       backgroundColor: '#f9fafb', // Light gray background to match dashboard
+      dom: {
+        createContainer: true
+      },
       physics: {
         default: 'arcade',
         arcade: {
@@ -109,6 +114,15 @@ export default function PhaserGameWrapper({
   }, [normalizedMapId, spaceId, userId, avatarUrl]); 
 
   // This update effect is for handling changes *after* the game is loaded
+  useEffect(() => {
+    if (isGameReady && gameRef.current) {
+        if (streams && streams.size > 0) {
+            console.log(`📡 PhaserGameWrapper: Emitting update-streams with ${streams.size} streams`);
+            gameRef.current.events.emit('update-streams', streams);
+        }
+    }
+  }, [isGameReady, streams]);
+
   useEffect(() => {
     if (isGameReady && gameRef.current && gameRef.current.registry) {
       const oldMapId = gameRef.current.registry.get('mapId');

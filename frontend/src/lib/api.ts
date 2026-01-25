@@ -22,8 +22,8 @@ export const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // Add auth token if available
-    const token = localStorage.getItem('metaverse_token')
+    // Add Firebase auth token if available
+    const token = localStorage.getItem('firebase_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -56,7 +56,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && originalRequest.url !== '/metaverse/login') {
+    if (error.response?.status === 401 && originalRequest.url !== '/metaverse/login' && originalRequest.url !== '/metaverse/logout') {
       // Handle unauthorized access for expired tokens
       localStorage.removeItem('metaverse_user');
       localStorage.removeItem('metaverse_token');
@@ -145,11 +145,9 @@ api.interceptors.response.use(
 
 // Authentication APIs
 export const authAPI = {
-  login: (email: string, password: string, userLevel: string) =>
-    api.post('/metaverse/login', { email, password, user_level: userLevel }),
-
-  signup: (userName: string, email: string, password: string) =>
-    api.post('/metaverse/signup', { user_name: userName, email, password }),
+  // Sync Firebase user with backend (login or create account)
+  syncFirebaseUser: (firebaseToken: string, userLevel: string = 'participant') =>
+    api.post('/metaverse/auth/firebase-sync', { firebaseToken, user_level: userLevel }),
 
   logout: () =>
     api.post('/metaverse/logout'),
@@ -165,6 +163,9 @@ export const dashboardAPI = {
 export const userAPI = {
   updateAvatar: (userId: string, avatarUrl: string) =>
     api.patch(`/metaverse/users/${userId}/avatar`, { avatarUrl }),
+
+  updateUsername: (userId: string, username: string) =>
+    api.patch(`/metaverse/users/${userId}/username`, { username }),
 
   getProfile: () =>
     api.get('/metaverse/protected/profile'),

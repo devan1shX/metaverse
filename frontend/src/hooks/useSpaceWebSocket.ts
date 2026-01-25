@@ -58,6 +58,28 @@ export interface SpaceState {
   map_id?: string;  // FIX: Include map_id from space
   users: { [key: string]: any };
   positions: { [key: string]: { x: number; y: number } };
+  media_info?: {
+    audio_streams: Array<{ user_id: string; stream_id: string }>;
+    video_streams: Array<{ user_id: string; stream_id: string }>;
+  };
+}
+
+export interface WebRTCSignal {
+  event: 'WEBRTC_SIGNAL';
+  signal_type: 'offer' | 'answer' | 'ice_candidate';
+  from_user_id: string;
+  space_id: string;
+  data: any;
+  timestamp: number;
+}
+
+export interface MediaStreamEvent {
+  event: 'AUDIO_STREAM_STARTED' | 'AUDIO_STREAM_STOPPED' | 'VIDEO_STREAM_STARTED' | 'VIDEO_STREAM_STOPPED';
+  user_id: string;
+  user_name: string;
+  space_id: string;
+  stream_id: string;
+  timestamp: number;
 }
 
 export function useSpaceWebSocket(spaceId: string | null) {
@@ -82,6 +104,8 @@ export function useSpaceWebSocket(spaceId: string | null) {
   const userLeftCallbackRef = useRef<((event: UserLeftEvent) => void) | null>(null);
   const chatCallbackRef = useRef<((message: ChatMessage) => void) | null>(null);
   const spaceStateCallbackRef = useRef<((state: SpaceState) => void) | null>(null);
+  const webrtcSignalCallbackRef = useRef<((signal: WebRTCSignal) => void) | null>(null);
+  const mediaStreamCallbackRef = useRef<((event: MediaStreamEvent) => void) | null>(null);
 
   // Update ref when state changes
   useEffect(() => {
@@ -231,6 +255,19 @@ export function useSpaceWebSocket(spaceId: string | null) {
           }
           else if (message.event === 'position_move_ack') {
             // Acknowledged
+          }
+          else if (message.event === 'WEBRTC_SIGNAL') {
+            console.log('📡 WebSocket: Received WEBRTC_SIGNAL:', message.signal_type, 'from', message.from_user_id);
+            webrtcSignalCallbackRef.current?.(message as WebRTCSignal);
+          }
+          else if (
+            message.event === 'AUDIO_STREAM_STARTED' ||
+            message.event === 'AUDIO_STREAM_STOPPED' ||
+            message.event === 'VIDEO_STREAM_STARTED' ||
+            message.event === 'VIDEO_STREAM_STOPPED'
+          ) {
+            console.log('📡 WebSocket: Received media event:', message.event, 'from user', message.user_id);
+            mediaStreamCallbackRef.current?.(message as MediaStreamEvent);
           }
           else if (message.event === 'error') {
             console.error('WebSocket server error:', message.message);
@@ -382,6 +419,63 @@ export function useSpaceWebSocket(spaceId: string | null) {
     spaceStateCallbackRef.current = callback;
   }, []);
 
+  const sendMediaSignal = useCallback((signalType: string, toUserId: string, data: any) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !isSubscribedRef.current || !userId || !spaceId) {
+      return;
+    }
+    try {
+      const signalMessage = {
+        event: 'webrtc_signal',
+        signal_type: signalType,
+        to_user_id: toUserId,
+        space_id: spaceId,
+        data: data
+      };
+      wsRef.current.send(JSON.stringify(signalMessage));
+    } catch (err) {
+      console.error('Error sending media signal:', err);
+    }
+  }, [userId, spaceId]);
+
+  const startMediaStream = useCallback((type: 'audio' | 'video', metadata: any = {}) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !isSubscribedRef.current || !userId || !spaceId) {
+      return;
+    }
+    try {
+      wsRef.current.send(JSON.stringify({
+        event: `start_${type}_stream`,
+        user_id: userId,
+        space_id: spaceId,
+        metadata
+      }));
+    } catch (err) {
+      console.error(`Error starting ${type} stream:`, err);
+    }
+  }, [userId, spaceId]);
+
+  const stopMediaStream = useCallback((type: 'audio' | 'video') => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !isSubscribedRef.current || !userId || !spaceId) {
+      return;
+    }
+    try {
+      wsRef.current.send(JSON.stringify({
+        event: `stop_${type}_stream`,
+        user_id: userId,
+        space_id: spaceId
+      }));
+    } catch (err) {
+      console.error(`Error stopping ${type} stream:`, err);
+    }
+  }, [userId, spaceId]);
+
+  const onWebRTCSignal = useCallback((callback: (signal: WebRTCSignal) => void) => {
+    webrtcSignalCallbackRef.current = callback;
+  }, []);
+
+  const onMediaStreamEvent = useCallback((callback: (event: MediaStreamEvent) => void) => {
+    mediaStreamCallbackRef.current = callback;
+  }, []);
+
   // Connect on mount
   useEffect(() => {
     isMountedRef.current = true;
@@ -419,5 +513,10 @@ export function useSpaceWebSocket(spaceId: string | null) {
     sendChatMessage,
     onChatMessage,
     onSpaceState,
+    sendMediaSignal,
+    startMediaStream,
+    stopMediaStream,
+    onWebRTCSignal,
+    onMediaStreamEvent,
   };
 }

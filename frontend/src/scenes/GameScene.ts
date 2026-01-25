@@ -20,6 +20,7 @@ export class GameScene extends Phaser.Scene {
   private mapId: string = 'office-01';
   private chairs: Phaser.Physics.Arcade.StaticGroup | null = null;
   private currentOverlappingChair: any = null;
+  private playerVideos: Map<string, Phaser.GameObjects.DOMElement> = new Map();
 
   constructor() {
     super({ key: 'GameScene' });
@@ -448,8 +449,82 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
+    // Listen for stream updates from React
+    this.game.events.on('update-streams', (streams: Map<string, MediaStream>) => {
+      this.handleStreamsUpdate(streams);
+    });
+
     console.log('GameScene: Signaling scene is ready for events');
     gameEventEmitter.setSceneReady();
+  }
+
+  handleStreamsUpdate(streams: Map<string, MediaStream>) {
+    console.log(`🎥 GameScene: Received streams update. Count: ${streams.size}`);
+    
+    // 1. Add new videos
+    streams.forEach((stream, userId) => {
+      console.log(`🎥 Processing stream for user ${userId}. Has video: ${!this.playerVideos.has(userId)}`);
+      if (!this.playerVideos.has(userId)) {
+        // Only add if we know where the player is
+        const player = this.otherPlayers.get(userId);
+        if (player) {
+          console.log(`✅ Player found for ${userId}, adding video`);
+          this.addVideoForUser(userId, stream);
+        } else {
+          console.log(`⚠️ No player found for ${userId} in otherPlayers map`);
+          console.log(`   Available players: ${Array.from(this.otherPlayers.keys()).join(', ')}`);
+        }
+      }
+    });
+
+    // 2. Remove old videos
+    this.playerVideos.forEach((_, userId) => {
+      if (!streams.has(userId)) {
+        console.log(`🗑️ Removing video for user ${userId}`);
+        this.removeVideoForUser(userId);
+      }
+    });
+  }
+
+  addVideoForUser(userId: string, stream: MediaStream) {
+    console.log(`🎬 Adding video element for user ${userId}`);
+    console.log(`   Stream tracks: ${stream.getTracks().map(t => `${t.kind}:${t.enabled}`).join(', ')}`);
+    
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.muted = true; // Mute to allow autoplay
+    video.style.width = '80px';
+    video.style.height = '60px';
+    video.style.borderRadius = '8px';
+    video.style.border = '2px solid #10b981';
+    video.style.objectFit = 'cover';
+    video.style.backgroundColor = '#000';
+    video.style.pointerEvents = 'none'; // Don't block clicks
+    
+    // Force play
+    video.play().catch(err => {
+      console.warn(`⚠️ Video autoplay failed for ${userId}:`, err);
+    });
+    
+    const player = this.otherPlayers.get(userId);
+    const startX = player ? player.x : 0;
+    const startY = player ? player.y - 60 : 0;
+    
+    const domElement = this.add.dom(startX, startY, video);
+    domElement.setDepth(100); // Ensure video is above everything
+    this.playerVideos.set(userId, domElement);
+    
+    console.log(`✅ Video element created for ${userId} at (${startX}, ${startY})`);
+  }
+
+  removeVideoForUser(userId: string) {
+    const video = this.playerVideos.get(userId);
+    if (video) {
+      video.destroy();
+      this.playerVideos.delete(userId);
+    }
   }
 
   addOtherPlayer(playerData: PlayerData, position: { x: number; y: number }) {
@@ -523,6 +598,7 @@ export class GameScene extends Phaser.Scene {
       this.otherPlayersGroup.remove(player);
       player.destroy();
       this.otherPlayers.delete(userId);
+      this.removeVideoForUser(userId); // Cleanup video if player leaves
     }
   }
 
@@ -558,6 +634,15 @@ export class GameScene extends Phaser.Scene {
     this.mainPlayer.update();
 
     this.otherPlayers.forEach((player) => player.update());
+
+    // Update video positions
+    this.playerVideos.forEach((video, userId) => {
+      const player = this.otherPlayers.get(userId);
+      if (player) {
+        video.x = player.x;
+        video.y = player.y - 60; // Position above head
+      }
+    });
 
     // Check if player is still near the chair
     if (!this.mainPlayer.getIsSitting() && this.currentOverlappingChair) {

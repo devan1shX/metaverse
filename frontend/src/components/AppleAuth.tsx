@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, Mail, Lock, User, CheckCircle2 } from "lucide-react";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
 import { useRouter, usePathname } from "next/navigation";
 
 interface AuthFormInputProps {
@@ -54,7 +55,7 @@ const AuthFormInput = ({
 );
 
 export function AppleAuth() {
-  const { login, signup } = useAuth();
+  const { login, loginWithGoogle, signup, signupWithGoogle } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const isLogin = pathname !== "/signup";
@@ -113,6 +114,34 @@ export function AppleAuth() {
         }, 1000);
       } else {
         setError(isLogin ? "Invalid credentials." : "Could not create account.");
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      let authSuccess = false;
+      if (isLogin) {
+        authSuccess = await loginWithGoogle(formData.userLevel);
+      } else {
+        authSuccess = await signupWithGoogle();
+      }
+
+      if (authSuccess) {
+        setSuccess(isLogin ? "Login successful!" : "Account created successfully!");
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 1000);
+      } else {
+        setError("Could not sign in with Google.");
       }
     } catch (err: any) {
       setError(err.message);
@@ -261,6 +290,20 @@ export function AppleAuth() {
                 )}
               </button>
             </div>
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-white text-gray-500">Or continue with</span>
+              </div>
+            </div>
+
+            <GoogleSignInButton
+              onSignIn={handleGoogleSignIn}
+              text={isLogin ? "Sign in with Google" : "Sign up with Google"}
+            />
           </motion.form>
         </AnimatePresence>
 

@@ -26,6 +26,9 @@ import { ChatBox } from "./ChatBox";
 import { InviteModal } from "./InviteModal";
 import { useSpaceWebSocket } from "@/hooks/useSpaceWebSocket";
 import { gameEventEmitter } from "@/lib/GameEventEmitter";
+import { useMediaStream } from "@/hooks/useMediaStream";
+import { MediaControls } from "@/components/MediaControls";
+import { VideoGrid } from "@/components/VideoGrid";
 
 const PhaserGame = dynamic(() => import("./PhaserGameWrapper"), {
   ssr: false,
@@ -63,7 +66,24 @@ export function MetaverseGame({ spaceId, spaceName, user, logout, mapId, avatarU
     onPositionUpdate,
     sendPositionUpdate,
     onChatMessage,
+    sendMediaSignal,
+    onWebRTCSignal,
+    onMediaStreamEvent,
+    startMediaStream,
+    stopMediaStream,
   } = useSpaceWebSocket(spaceId);
+
+  const {
+    mediaState,
+    toggleAudio,
+    toggleVideo,
+    localStream,
+    remoteStreams,
+    handleSignal,
+    handleStreamEvent,
+    handleInitialState,
+    error: mediaError,
+  } = useMediaStream(user?.id, spaceId, sendMediaSignal, startMediaStream, stopMediaStream);
 
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -91,6 +111,12 @@ export function MetaverseGame({ spaceId, spaceName, user, logout, mapId, avatarU
           user_avatar_url: userData.user_avatar_url,
         }));
         setOnlineUsers(users);
+      }
+
+      // Handle initial media state if available
+      if (state.media_info) {
+        console.log('MetaverseGame: Received initial media info', state.media_info);
+        handleInitialState(state.media_info);
       }
       
       gameEventEmitter.emit('space-state', state);
@@ -130,7 +156,25 @@ export function MetaverseGame({ spaceId, spaceName, user, logout, mapId, avatarU
     onPositionUpdate((update) => {
       gameEventEmitter.emit('position-update', update);
     });
-  }, [onSpaceState, onUserJoined, onUserLeft, onPositionUpdate]);
+
+    onWebRTCSignal((signal) => {
+      console.log('📡 MetaverseGame: Received WebRTC signal', signal.signal_type);
+      handleSignal(signal);
+    });
+
+    onMediaStreamEvent((event) => {
+      console.log('📡 MetaverseGame: Received media stream event', event.event, 'from', event.user_id);
+      handleStreamEvent(event);
+    });
+  }, [onSpaceState, onUserJoined, onUserLeft, onPositionUpdate, onWebRTCSignal, onMediaStreamEvent, handleSignal, handleStreamEvent]);
+
+  // Log when remoteStreams changes
+  useEffect(() => {
+    console.log(`🎥 MetaverseGame: remoteStreams updated, count: ${remoteStreams.size}`);
+    remoteStreams.forEach((stream, userId) => {
+      console.log(`   - ${userId}: ${stream.getTracks().length} tracks`);
+    });
+  }, [remoteStreams]);
 
   useEffect(() => {
     const handlePlayerMoved = (position: { x: number; y: number; direction?: string; isMoving?: boolean }) => {
@@ -364,6 +408,17 @@ export function MetaverseGame({ spaceId, spaceName, user, logout, mapId, avatarU
             mapId={actualMapId || mapId}
             spaceId={spaceId}
             userId={user?.id}
+            streams={remoteStreams}
+          />
+
+          {/* Media UI */}
+          {/* VideoGrid removed as videos are now attached to avatars */}
+          <MediaControls 
+            mediaState={mediaState}
+            toggleAudio={toggleAudio}
+            toggleVideo={toggleVideo}
+            localStream={localStream}
+            error={mediaError}
           />
 
           {/* Floating Controls */}

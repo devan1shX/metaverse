@@ -43,6 +43,7 @@ export interface Space {
   name: string
   description?: string
   mapImageUrl?: string
+  mapId?: string
   adminUserId: string
   isPublic: boolean
   maxUsers: number
