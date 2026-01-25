@@ -65,6 +65,9 @@ export default function SpacePage() {
 
   // If user is a member or admin, render the game
   if (isUserMember || isUserAdmin) {
+    console.log('🗺️ Loading game with mapId:', spaceData.space.mapId);
+    console.log('📦 Full space data:', spaceData.space);
+    
     return (
       <MetaverseGame
         spaceId={spaceId}

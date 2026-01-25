@@ -70,13 +70,19 @@ export default function CreateSpacePage() {
 
     // Map the frontend map selection to actual map IDs
     const getMapId = (frontendMapId: string) => {
+      // If it's already a valid mapId (office-01, office-02, custom-xxx), use it directly
+      if (frontendMapId.startsWith('office-') || frontendMapId.startsWith('custom-')) {
+        return frontendMapId;
+      }
+      
+      // Legacy mapping for old use-case based IDs
       switch (frontendMapId) {
         case "corporate-hq":
           return "office-01";
         case "conference-hall":
           return "office-02";
         default:
-          return "office-01"; // Default fallback
+          return frontendMapId; // Return as-is for any other IDs
       }
     };
 

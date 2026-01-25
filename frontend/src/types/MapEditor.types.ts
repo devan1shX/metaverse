@@ -21,9 +21,9 @@ export interface TileData {
 export interface Layer {
     id: number;
     name: string;
-    type: "tilelayer";
+    type: string;
     visible: boolean;
-    opacity: number;
+    opacity: number; // 0-1 range
     data: (TileData | null)[]; // Array of tile data or null for empty tiles
     width: number;
     height: number;

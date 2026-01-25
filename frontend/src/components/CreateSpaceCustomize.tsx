@@ -14,11 +14,9 @@ import { motion } from "framer-motion";
 
 const mapsData = [
   { id: "corporate-hq", title: "Corporate HQ", image: "/images/space-1.png" },
-  {
-    id: "conference-hall",
-    title: "Conference Hall",
-    image: "/images/space-2.png",
-  },
+  { id: "conference-hall", title: "Conference Hall", image: "/images/space-2.png" },
+  { id: "office-01", title: "Office Map 1", image: "/images/space-1.png" },
+  { id: "office-02", title: "Office Map 2", image: "/images/space-2.png" },
 ];
 
 const themes = [
@@ -42,7 +40,17 @@ export default function CreateSpaceCustomize({
   const [size, setSize] = useState(25);
   const [selectedTheme, setSelectedTheme] = useState("cozy");
 
-  const mapInfo = mapsData.find((map) => map.id === selectedMapId);
+  // Find map info or create default for custom maps
+  let mapInfo = mapsData.find((map) => map.id === selectedMapId);
+  
+  // If it's a custom map (starts with "custom-"), create a default display
+  if (!mapInfo && selectedMapId.startsWith('custom-')) {
+    mapInfo = {
+      id: selectedMapId,
+      title: "Custom Map",
+      image: "/images/space-1.png", // Default preview image
+    };
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +60,8 @@ export default function CreateSpaceCustomize({
   if (!mapInfo) {
     return (
       <div className="card p-8 text-center max-w-md">
-        <p className="text-red-600">Error: Map details not found.</p>
+        <p className="text-red-600">Error: Invalid map ID: {selectedMapId}</p>
+        <button onClick={onBack} className="btn-secondary mt-4">Go Back</button>
       </div>
     );
   }

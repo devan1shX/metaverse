@@ -109,6 +109,18 @@ export function DashboardHeader({ avatarUrl, onEditAvatar }: { avatarUrl?: strin
                       My Spaces
                     </Link>
                   </li>
+                  <li>
+                    <Link
+                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        pathname === '/map-editor'
+                          ? 'text-gray-900 bg-gray-100'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                      href="/map-editor"
+                    >
+                      Map Editor
+                    </Link>
+                  </li>
                 </ul>
               </nav>
             </div>
@@ -240,6 +252,19 @@ export function DashboardHeader({ avatarUrl, onEditAvatar }: { avatarUrl?: strin
                     onClick={() => setIsMenuOpen(false)}
                   >
                     My Spaces
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                      pathname === '/map-editor'
+                        ? 'text-gray-900 bg-gray-100'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                    href="/map-editor"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Map Editor
                   </Link>
                 </li>
                  <li className="my-2 border-t border-gray-100"></li>

@@ -10,6 +10,7 @@ interface CanvasProps {
   selectedTileId: number | null;
   selectedTilesetIndex: number;
   selectedTiles: SelectedTiles | null;
+  currentTool: 'brush' | 'eraser';
   onCanvasClick: (tileX: number, tileY: number) => void;
   onCursorMove: (position: TilePosition | null) => void;
 }
@@ -21,6 +22,7 @@ export default function Canvas({
   selectedTileId,
   selectedTilesetIndex,
   selectedTiles,
+  currentTool,
   onCanvasClick,
   onCursorMove,
 }: CanvasProps) {
@@ -71,6 +73,9 @@ export default function Canvas({
     // Draw tiles from ALL visible layers (in order: Ground → Walls → Objects → Above)
     mapData.layers.forEach((layer) => {
       if (layer && layer.visible) {
+        // Apply layer opacity
+        ctx.globalAlpha = layer.opacity;
+        
         for (let y = 0; y < mapData.height; y++) {
           for (let x = 0; x < mapData.width; x++) {
             const index = y * mapData.width + x;
@@ -100,6 +105,9 @@ export default function Canvas({
             }
           }
         }
+        
+        // Reset opacity for next layer
+        ctx.globalAlpha = 1;
       }
     });
 
@@ -277,7 +285,7 @@ export default function Canvas({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        className="cursor-crosshair"
+        className={currentTool === 'eraser' ? 'cursor-not-allowed' : 'cursor-crosshair'}
         style={{
           imageRendering: "pixelated",
         }}

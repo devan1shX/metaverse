@@ -57,59 +57,81 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload() {
-    const mapFolder = this.mapId === 'office-01' ? 'map1' : 'map2';
-    const mapJsonPath = `/maps/${mapFolder}/${this.mapId}.json`;
+    // Check if this is a custom map
+    const isCustomMap = this.mapId.startsWith('custom-');
 
-    console.log(`Loading map: ${mapJsonPath}`);
+    let mapJsonPath: string;
 
-    this.load.tilemapTiledJSON('map', mapJsonPath);
+    if (isCustomMap) {
+      // Custom maps are stored in /maps/custom/ directory
+      mapJsonPath = `/maps/custom/${this.mapId}.json`;
+      console.log(`Loading custom map: ${mapJsonPath}`);
 
-    if (this.mapId === 'office-01') {
-      this.load.image('Little_Bits_Office_Floors', '/maps/map1/assets/Little_Bits_Office_Floors.png');
-      this.load.image('Little_Bits_office_objects', '/maps/map1/assets/Little_Bits_office_objects.png');
-      this.load.image('Little_Bits_office_walls', '/maps/map1/assets/Little_Bits_office_walls.png');
-      this.load.image('floor_tiles', '/maps/map1/assets/floor_tiles.png');
-      this.load.image('Green', '/maps/map1/assets/Green.png');
-      this.load.image('worker1', '/maps/map1/assets/worker1.png');
-      this.load.image('Chair', '/maps/map1/assets/Chair.png');
-      this.load.image('desk-with-pc', '/maps/map1/assets/desk-with-pc.png');
-      this.load.image('office-partitions-1', '/maps/map1/assets/office-partitions-1.png');
-      this.load.image('office-partitions-2', '/maps/map1/assets/office-partitions-2.png');
-      this.load.image('plant', '/maps/map1/assets/plant.png');
-      this.load.image('Trash', '/maps/map1/assets/Trash.png');
-      this.load.image('interiors_demo', '/maps/map1/assets/interiors_demo.png');
-      this.load.image('boss', '/maps/map1/assets/boss.png');
-      this.load.image('Julia_Drinking_Coffee', '/maps/map1/assets/Julia_Drinking_Coffee.png');
-      this.load.image('cabinet', '/maps/map1/assets/cabinet.png');
-      this.load.image('furniture pack coloured outline', '/maps/map1/assets/furniture pack coloured outline.png');
-      this.load.image('coffee-maker', '/maps/map1/assets/coffee-maker.png');
-      this.load.image('sink', '/maps/map1/assets/sink.png');
-      this.load.image('water-cooler', '/maps/map1/assets/water-cooler.png');
-      this.load.image('stamping-table', '/maps/map1/assets/stamping-table.png');
-      this.load.image('Idle (32x32)', '/maps/map1/assets/Idle (32x32).png');
-      this.load.image('Run (32x32)', '/maps/map1/assets/Run (32x32).png');
+      // Load custom map JSON
+      this.load.tilemapTiledJSON('map', mapJsonPath);
+
+      // Load tilesets - keys MUST match what the map editor exports
+      this.load.image('Floor Tiles', '/map-editor/tilesets/floor_tiles.png');
+      this.load.image('Wall Tiles', '/map-editor/tilesets/wall_tiles.png');
+      this.load.image('Object Tiles', '/map-editor/tilesets/object_tiles.png');
+
     } else {
-      this.load.image('cabinet', '/maps/map2/assets/cabinet.png');
-      this.load.image('Chair', '/maps/map2/assets/Chair.png');
-      this.load.image('coffee-maker', '/maps/map2/assets/coffee-maker.png');
-      this.load.image('Desktop', '/maps/map2/assets/Desktop.png');
-      this.load.image('Floor Tiles', '/maps/map2/assets/Floor Tiles.png');
-      this.load.image('Green', '/maps/map2/assets/Green.png');
-      this.load.image('interiors_demo', '/maps/map2/assets/interiors_demo.png');
-      this.load.image('Little_Bits_Office_Floors', '/maps/map2/assets/Little_Bits_Office_Floors.png');
-      this.load.image('Little_Bits_office_objects', '/maps/map2/assets/Little_Bits_office_objects.png');
-      this.load.image('Little_Bits_office_walls', '/maps/map2/assets/Little_Bits_office_walls.png');
-      this.load.image('office-partitions-1', '/maps/map2/assets/office-partitions-1.png');
-      this.load.image('office-partitions-2', '/maps/map2/assets/office-partitions-2.png');
-      this.load.image('plant', '/maps/map2/assets/plant.png');
-      this.load.image('sink', '/maps/map2/assets/sink.png');
-      this.load.image('stamping-table', '/maps/map2/assets/stamping-table.png');
-      this.load.image('Trash', '/maps/map2/assets/Trash.png');
-      this.load.image('water-cooler', '/maps/map2/assets/water-cooler.png');
-      this.load.image('worker1', '/maps/map2/assets/worker1.png');
-      this.load.image('Yellow', '/maps/map2/assets/Yellow.png');
+      // Original map loading logic
+      const mapFolder = this.mapId === 'office-01' ? 'map1' : 'map2';
+      mapJsonPath = `/maps/${mapFolder}/${this.mapId}.json`;
+
+      console.log(`Loading map: ${mapJsonPath}`);
+
+      this.load.tilemapTiledJSON('map', mapJsonPath);
+
+      if (this.mapId === 'office-01') {
+        this.load.image('Little_Bits_Office_Floors', '/maps/map1/assets/Little_Bits_Office_Floors.png');
+        this.load.image('Little_Bits_office_objects', '/maps/map1/assets/Little_Bits_office_objects.png');
+        this.load.image('Little_Bits_office_walls', '/maps/map1/assets/Little_Bits_office_walls.png');
+        this.load.image('floor_tiles', '/maps/map1/assets/floor_tiles.png');
+        this.load.image('Green', '/maps/map1/assets/Green.png');
+        this.load.image('worker1', '/maps/map1/assets/worker1.png');
+        this.load.image('Chair', '/maps/map1/assets/Chair.png');
+        this.load.image('desk-with-pc', '/maps/map1/assets/desk-with-pc.png');
+        this.load.image('office-partitions-1', '/maps/map1/assets/office-partitions-1.png');
+        this.load.image('office-partitions-2', '/maps/map1/assets/office-partitions-2.png');
+        this.load.image('plant', '/maps/map1/assets/plant.png');
+        this.load.image('Trash', '/maps/map1/assets/Trash.png');
+        this.load.image('interiors_demo', '/maps/map1/assets/interiors_demo.png');
+        this.load.image('boss', '/maps/map1/assets/boss.png');
+        this.load.image('Julia_Drinking_Coffee', '/maps/map1/assets/Julia_Drinking_Coffee.png');
+        this.load.image('cabinet', '/maps/map1/assets/cabinet.png');
+        this.load.image('furniture pack coloured outline', '/maps/map1/assets/furniture pack coloured outline.png');
+        this.load.image('coffee-maker', '/maps/map1/assets/coffee-maker.png');
+        this.load.image('sink', '/maps/map1/assets/sink.png');
+        this.load.image('water-cooler', '/maps/map1/assets/water-cooler.png');
+        this.load.image('stamping-table', '/maps/map1/assets/stamping-table.png');
+        this.load.image('Idle (32x32)', '/maps/map1/assets/Idle (32x32).png');
+        this.load.image('Run (32x32)', '/maps/map1/assets/Run (32x32).png');
+      } else {
+        this.load.image('cabinet', '/maps/map2/assets/cabinet.png');
+        this.load.image('Chair', '/maps/map2/assets/Chair.png');
+        this.load.image('coffee-maker', '/maps/map2/assets/coffee-maker.png');
+        this.load.image('Desktop', '/maps/map2/assets/Desktop.png');
+        this.load.image('Floor Tiles', '/maps/map2/assets/Floor Tiles.png');
+        this.load.image('Green', '/maps/map2/assets/Green.png');
+        this.load.image('interiors_demo', '/maps/map2/assets/interiors_demo.png');
+        this.load.image('Little_Bits_Office_Floors', '/maps/map2/assets/Little_Bits_Office_Floors.png');
+        this.load.image('Little_Bits_office_objects', '/maps/map2/assets/Little_Bits_office_objects.png');
+        this.load.image('Little_Bits_office_walls', '/maps/map2/assets/Little_Bits_office_walls.png');
+        this.load.image('office-partitions-1', '/maps/map2/assets/office-partitions-1.png');
+        this.load.image('office-partitions-2', '/maps/map2/assets/office-partitions-2.png');
+        this.load.image('plant', '/maps/map2/assets/plant.png');
+        this.load.image('sink', '/maps/map2/assets/sink.png');
+        this.load.image('stamping-table', '/maps/map2/assets/stamping-table.png');
+        this.load.image('Trash', '/maps/map2/assets/Trash.png');
+        this.load.image('water-cooler', '/maps/map2/assets/water-cooler.png');
+        this.load.image('worker1', '/maps/map2/assets/worker1.png');
+        this.load.image('Yellow', '/maps/map2/assets/Yellow.png');
+      }
     }
 
+    // Load avatar spritesheets
     this.load.spritesheet('avatar-default', '/sprites/avatar-2-spritesheet.png', {
       frameWidth: 48,
       frameHeight: 48,
@@ -183,11 +205,18 @@ export class GameScene extends Phaser.Scene {
         console.log(`Created layer: ${layerName}`);
         layers[layerName] = layer;
 
-        if (layerName.toLowerCase().includes('wall') ||
-          layerName.toLowerCase().includes('collision') ||
-          layerName.toLowerCase().includes('object')) {
-          layer.setCollisionByProperty({ collides: true });
+        // Set collision for layers that should have collision
+        // Ground layer = no collision, all other layers = collision
+        if (layerName.toLowerCase() !== 'ground') {
+          // For custom maps: Set collision on ALL tiles in non-ground layers
+          layer.setCollisionByExclusion([-1]); // Exclude empty tiles (ID -1 or 0)
+          console.log(`✅ Collision enabled for layer: ${layerName}`);
+        } else {
+          console.log(`⚪ No collision for ground layer: ${layerName}`);
         }
+
+        // Also check tile properties for collision (legacy support)
+        layer.setCollisionByProperty({ collides: true });
       } else {
         console.warn(`Failed to create layer: ${layerName}`);
       }
@@ -239,7 +268,7 @@ export class GameScene extends Phaser.Scene {
       const plantGroup = this.add.group();
       const density = 0.6; // Chance to spawn a plant in each grid cell
       const gridSize = 60; // Spacing between potential plant spots
-
+ 
       // Helper to spawn plant
       const spawnPlant = (x: number, y: number) => {
         if (Math.random() < density) {
@@ -257,22 +286,22 @@ export class GameScene extends Phaser.Scene {
           plantGroup.add(plant);
         }
       };
-
+ 
       // Top Border
       for (let x = -borderSize; x < map.widthInPixels + borderSize; x += gridSize) {
         for (let y = -borderSize; y < 0; y += gridSize) spawnPlant(x, y);
       }
-
+ 
       // Bottom Border
       for (let x = -borderSize; x < map.widthInPixels + borderSize; x += gridSize) {
         for (let y = map.heightInPixels; y < map.heightInPixels + borderSize; y += gridSize) spawnPlant(x, y);
       }
-
+ 
       // Left Border
       for (let y = 0; y < map.heightInPixels; y += gridSize) {
         for (let x = -borderSize; x < 0; x += gridSize) spawnPlant(x, y);
       }
-
+ 
       // Right Border
       for (let y = 0; y < map.heightInPixels; y += gridSize) {
         for (let x = map.widthInPixels; x < map.widthInPixels + borderSize; x += gridSize) spawnPlant(x, y);
@@ -460,7 +489,7 @@ export class GameScene extends Phaser.Scene {
 
   handleStreamsUpdate(streams: Map<string, MediaStream>) {
     console.log(`🎥 GameScene: Received streams update. Count: ${streams.size}`);
-    
+
     // 1. Add new videos
     streams.forEach((stream, userId) => {
       console.log(`🎥 Processing stream for user ${userId}. Has video: ${!this.playerVideos.has(userId)}`);
@@ -489,7 +518,7 @@ export class GameScene extends Phaser.Scene {
   addVideoForUser(userId: string, stream: MediaStream) {
     console.log(`🎬 Adding video element for user ${userId}`);
     console.log(`   Stream tracks: ${stream.getTracks().map(t => `${t.kind}:${t.enabled}`).join(', ')}`);
-    
+
     const video = document.createElement('video');
     video.srcObject = stream;
     video.autoplay = true;
@@ -502,20 +531,20 @@ export class GameScene extends Phaser.Scene {
     video.style.objectFit = 'cover';
     video.style.backgroundColor = '#000';
     video.style.pointerEvents = 'none'; // Don't block clicks
-    
+
     // Force play
     video.play().catch(err => {
       console.warn(`⚠️ Video autoplay failed for ${userId}:`, err);
     });
-    
+
     const player = this.otherPlayers.get(userId);
     const startX = player ? player.x : 0;
     const startY = player ? player.y - 60 : 0;
-    
+
     const domElement = this.add.dom(startX, startY, video);
     domElement.setDepth(100); // Ensure video is above everything
     this.playerVideos.set(userId, domElement);
-    
+
     console.log(`✅ Video element created for ${userId} at (${startX}, ${startY})`);
   }
 

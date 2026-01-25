@@ -61,6 +61,8 @@ export default function MapEditor() {
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [mapName, setMapName] = useState<string>("my_custom_map");
   const [currentLayerIndex, setCurrentLayerIndex] = useState<number>(0);
+  const [currentTool, setCurrentTool] = useState<'brush' | 'eraser'>('brush');
+  const [isImporting, setIsImporting] = useState<boolean>(false);
   
   // Multi-tile selection state
   const [selectedTiles, setSelectedTiles] = useState<SelectedTiles | null>(null);
@@ -71,49 +73,13 @@ export default function MapEditor() {
     height: GRID_HEIGHT,
     tilewidth: TILE_SIZE,
     tileheight: TILE_SIZE,
-    layers: [
-      {
-        id: 0,
-        name: "Ground",
-        type: "tilelayer",
-        visible: true,
-        opacity: 1,
-        data: new Array(GRID_WIDTH * GRID_HEIGHT).fill(null),
-        width: GRID_WIDTH,
-        height: GRID_HEIGHT,
-      },
-      {
-        id: 1,
-        name: "Walls",
-        type: "tilelayer",
-        visible: true,
-        opacity: 1,
-        data: new Array(GRID_WIDTH * GRID_HEIGHT).fill(null),
-        width: GRID_WIDTH,
-        height: GRID_HEIGHT,
-      },
-      {
-        id: 2,
-        name: "Objects",
-        type: "tilelayer",
-        visible: true,
-        opacity: 1,
-        data: new Array(GRID_WIDTH * GRID_HEIGHT).fill(null),
-        width: GRID_WIDTH,
-        height: GRID_HEIGHT,
-      },
-      {
-        id: 3,
-        name: "Above Objects",
-        type: "tilelayer",
-        visible: true,
-        opacity: 1,
-        data: new Array(GRID_WIDTH * GRID_HEIGHT).fill(null),
-        width: GRID_WIDTH,
-        height: GRID_HEIGHT,
-      },
-    ],
     tilesets: TILESETS,
+    layers: [
+      { id: 1, name: "Ground", type: "tilelayer", visible: true, opacity: 1, data: new Array(GRID_WIDTH * GRID_HEIGHT).fill(null), width: GRID_WIDTH, height: GRID_HEIGHT },
+      { id: 2, name: "Walls", type: "tilelayer", visible: true, opacity: 1, data: new Array(GRID_WIDTH * GRID_HEIGHT).fill(null), width: GRID_WIDTH, height: GRID_HEIGHT },
+      { id: 3, name: "Objects", type: "tilelayer", visible: true, opacity: 1, data: new Array(GRID_WIDTH * GRID_HEIGHT).fill(null), width: GRID_WIDTH, height: GRID_HEIGHT },
+      { id: 4, name: "Above Objects", type: "tilelayer", visible: true, opacity: 1, data: new Array(GRID_WIDTH * GRID_HEIGHT).fill(null), width: GRID_WIDTH, height: GRID_HEIGHT },
+    ],
   });
 
   // Handle tileset change
@@ -131,13 +97,31 @@ export default function MapEditor() {
     setSelectedTileId(selection.tiles[0]?.[0]?.tileId || null);
   };
 
-  // Handle tile painting on canvas (paints on current layer)
+  // Handle tile painting or erasing on canvas
   const handleCanvasClick = (tileX: number, tileY: number) => {
+    const index = tileY * GRID_WIDTH + tileX;
+    const newData = [...mapData.layers[currentLayerIndex].data];
+    
+    // Eraser tool - clear the tile
+    if (currentTool === 'eraser') {
+      newData[index] = null;
+      
+      const updatedLayers = [...mapData.layers];
+      updatedLayers[currentLayerIndex] = {
+        ...updatedLayers[currentLayerIndex],
+        data: newData,
+      };
+
+      setMapData({
+        ...mapData,
+        layers: updatedLayers,
+      });
+      return;
+    }
+
+    // Brush tool - paint tiles
     if (!selectedTiles) {
       if (selectedTileId === null) return;
-
-      const index = tileY * GRID_WIDTH + tileX;
-      const newData = [...mapData.layers[currentLayerIndex].data];
       
       newData[index] = {
         tileId: selectedTileId,
@@ -155,19 +139,18 @@ export default function MapEditor() {
         layers: updatedLayers,
       });
     } else {
-      const newData = [...mapData.layers[currentLayerIndex].data];
-      
+      // Paint stamp
       for (let row = 0; row < selectedTiles.height; row++) {
         for (let col = 0; col < selectedTiles.width; col++) {
           const canvasX = tileX + col;
           const canvasY = tileY + row;
           
           if (canvasX >= 0 && canvasX < GRID_WIDTH && canvasY >= 0 && canvasY < GRID_HEIGHT) {
-            const index = canvasY * GRID_WIDTH + canvasX;
+            const stampIndex = canvasY * GRID_WIDTH + canvasX;
             const tile = selectedTiles.tiles[row]?.[col];
             
             if (tile) {
-              newData[index] = {
+              newData[stampIndex] = {
                 tileId: tile.tileId,
                 tilesetIndex: selectedTilesetIndex,
               };
@@ -231,6 +214,109 @@ export default function MapEditor() {
     });
   };
 
+  const handleLayerClear = (index: number) => {
+    const updatedLayers = [...mapData.layers];
+    updatedLayers[index] = {
+      ...updatedLayers[index],
+      data: new Array(GRID_WIDTH * GRID_HEIGHT).fill(null),
+    };
+    
+    setMapData({
+      ...mapData,
+      layers: updatedLayers,
+    });
+  };
+
+  const handleLayerOpacityChange = (index: number, opacity: number) => {
+    const updatedLayers = [...mapData.layers];
+    updatedLayers[index] = {
+      ...updatedLayers[index],
+      opacity,
+    };
+    
+    setMapData({
+      ...mapData,
+      layers: updatedLayers,
+    });
+  };
+
+  const handleImportToSpaces = async () => {
+    setIsImporting(true);
+    try {
+      // Get Firebase auth token
+      const { getAuth } = await import('firebase/auth');
+      const firebaseAuth = getAuth();
+      const user = firebaseAuth.currentUser;
+
+      if (!user) {
+        alert('Please sign in to import maps to spaces');
+        setIsImporting(false);
+        return;
+      }
+
+      const token = await user.getIdToken();
+
+      // Export map to Tiled JSON format
+      const tiledJSON = exportToTiledJSON(mapData, mapName);
+
+      // Step 1: Save custom map
+      const mapResponse = await fetch('http://localhost:3000/metaverse/custom-maps', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          mapData: tiledJSON,
+        }),
+      });
+
+      const mapResult = await mapResponse.json();
+
+      if (!mapResult.success) {
+        alert(`❌ Failed to import map: ${mapResult.message}`);
+        setIsImporting(false);
+        return;
+      }
+
+      const customMapId = mapResult.mapId;
+
+      // Step 2: Automatically create a space with this map
+      const spaceResponse = await fetch('http://localhost:3000/metaverse/spaces', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: mapName || 'My Custom Map Space',
+          description: `Space created from custom map editor`,
+          isPublic: true,
+          maxUsers: 50,
+          mapId: customMapId,
+        }),
+      });
+
+      const spaceResult = await spaceResponse.json();
+
+      if (spaceResult.success) {
+        alert(`✅ Success!\n\n✓ Map imported: ${customMapId}\n✓ Space created: ${spaceResult.space.name}\n\nYour new space is now in your dashboard!`);
+        
+        // Redirect to dashboard after 1 second
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 1500);
+      } else {
+        alert(`⚠️ Map imported but space creation failed: ${spaceResult.message}\n\nMap ID: ${customMapId}\n\nYou can manually create a space with this map ID.`);
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      alert(`❌ Error importing map: ${error}`);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white">
       {/* Header */}
@@ -247,6 +333,13 @@ export default function MapEditor() {
             />
           </div>
           <div className="flex gap-3 items-center">
+            <button
+              onClick={handleImportToSpaces}
+              disabled={isImporting}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:opacity-50 px-4 py-2 rounded font-semibold transition-colors shadow-lg"
+            >
+              {isImporting ? '⏳ Importing...' : '🚀 Import to Spaces'}
+            </button>
             <button
               onClick={handleTestMap}
               className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded font-semibold transition-colors shadow-lg"
@@ -307,6 +400,7 @@ export default function MapEditor() {
             selectedTileId={selectedTileId}
             selectedTilesetIndex={selectedTilesetIndex}
             selectedTiles={selectedTiles}
+            currentTool={currentTool}
             onCanvasClick={handleCanvasClick}
             onCursorMove={setCursorPosition}
           />
@@ -319,6 +413,8 @@ export default function MapEditor() {
             currentLayerIndex={currentLayerIndex}
             onLayerSelect={handleLayerSelect}
             onLayerToggle={handleLayerToggle}
+            onLayerClear={handleLayerClear}
+            onLayerOpacityChange={handleLayerOpacityChange}
           />
           
           <div className="p-4 border-t border-gray-700">
@@ -376,7 +472,7 @@ export default function MapEditor() {
       </div>
 
       {/* Toolbar */}
-      <Toolbar currentTool="brush" onToolChange={() => {}} />
+      <Toolbar currentTool={currentTool} onToolChange={setCurrentTool} />
     </div>
   );
 }
