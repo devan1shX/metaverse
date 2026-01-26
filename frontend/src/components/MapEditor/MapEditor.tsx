@@ -3,15 +3,14 @@
 import { useRef, useEffect, useState } from "react";
 import Canvas from "@/components/MapEditor/Canvas";
 import TilesetPalette from "@/components/MapEditor/TilesetPalette";
-import Toolbar from "@/components/MapEditor/Toolbar";
 import LayerPanel from "@/components/MapEditor/LayerPanel";
 import { MapData, TilesetConfig, SelectedTiles } from "@/types/MapEditor.types";
 import { downloadMapJSON, saveMapToPublic, exportToTiledJSON } from "@/utils/MapExporter";
+import { ChevronLeft, ChevronRight, Brush, Eraser, Grid, Download, Save, Play, Upload, LayoutDashboard } from "lucide-react";
 
 // Map configuration
 const TILE_SIZE = 16;
-const GRID_WIDTH = 20; // tiles
-const GRID_HEIGHT = 15; // tiles
+// CONSTANTS DELETED: GRID_WIDTH and GRID_HEIGHT are now dynamic state
 
 // Tileset configurations
 const TILESETS: TilesetConfig[] = [
@@ -25,7 +24,7 @@ const TILESETS: TilesetConfig[] = [
     tileHeight: 16,
     tileCount: 33,
     columns: 11,
-    collisionTiles: [], // Floors typically don't have collision
+    collisionTiles: [],
   },
   {
     id: "walls",
@@ -37,7 +36,7 @@ const TILESETS: TilesetConfig[] = [
     tileHeight: 16,
     tileCount: 112,
     columns: 16,
-    collisionTiles: [], // User will mark which wall tiles have collision
+    collisionTiles: [],
   },
   {
     id: "objects",
@@ -49,7 +48,7 @@ const TILESETS: TilesetConfig[] = [
     tileHeight: 16,
     tileCount: 66,
     columns: 11,
-    collisionTiles: [], // User will mark which objects block movement
+    collisionTiles: [],
   },
 ];
 
@@ -59,30 +58,81 @@ export default function MapEditor() {
   const [selectedTilesetIndex, setSelectedTilesetIndex] = useState<number>(0);
   const [showGrid, setShowGrid] = useState<boolean>(true);
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
-  const [mapName, setMapName] = useState<string>("my_custom_map");
+  
+  // Setup State
+  const [isSetupMode, setIsSetupMode] = useState<boolean>(true);
+  const [mapName, setMapName] = useState<string>("My New Map");
+  const [mapWidth, setMapWidth] = useState<number>(30);
+  const [mapHeight, setMapHeight] = useState<number>(20);
+
   const [currentLayerIndex, setCurrentLayerIndex] = useState<number>(0);
   const [currentTool, setCurrentTool] = useState<'brush' | 'eraser'>('brush');
   const [isImporting, setIsImporting] = useState<boolean>(false);
+  const [leftCollapsed, setLeftCollapsed] = useState<boolean>(false);
+  const [rightCollapsed, setRightCollapsed] = useState<boolean>(false);
   
-  // Multi-tile selection state
   const [selectedTiles, setSelectedTiles] = useState<SelectedTiles | null>(null);
+  // Default zoom 2x (Physical) = 100% (Visual Perception for Pixel Art)
+  const BASE_ZOOM = 2;
+  const [zoom, setZoom] = useState<number>(BASE_ZOOM);
+  const [isPanning, setIsPanning] = useState<boolean>(false);
+  const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null);
+  const [scrollStart, setScrollStart] = useState<{ x: number; y: number } | null>(null);
+  
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [isCanvasHovered, setIsCanvasHovered] = useState<boolean>(false);
 
-  // Initialize map data with 4 layers
-  const [mapData, setMapData] = useState<MapData>({
-    width: GRID_WIDTH,
-    height: GRID_HEIGHT,
-    tilewidth: TILE_SIZE,
-    tileheight: TILE_SIZE,
-    tilesets: TILESETS,
-    layers: [
-      { id: 1, name: "Ground", type: "tilelayer", visible: true, opacity: 1, data: new Array(GRID_WIDTH * GRID_HEIGHT).fill(null), width: GRID_WIDTH, height: GRID_HEIGHT },
-      { id: 2, name: "Walls", type: "tilelayer", visible: true, opacity: 1, data: new Array(GRID_WIDTH * GRID_HEIGHT).fill(null), width: GRID_WIDTH, height: GRID_HEIGHT },
-      { id: 3, name: "Objects", type: "tilelayer", visible: true, opacity: 1, data: new Array(GRID_WIDTH * GRID_HEIGHT).fill(null), width: GRID_WIDTH, height: GRID_HEIGHT },
-      { id: 4, name: "Above Objects", type: "tilelayer", visible: true, opacity: 1, data: new Array(GRID_WIDTH * GRID_HEIGHT).fill(null), width: GRID_WIDTH, height: GRID_HEIGHT },
-    ],
-  });
+  // Handle Spacebar for Panning
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat && !isPanning) {
+        setIsPanning(true);
+      }
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsPanning(false);
+      }
+    };
 
-  // Handle tileset change
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [isPanning]);
+
+  const [mapData, setMapData] = useState<MapData | null>(null);
+
+  const handleCreateMap = () => {
+    // Validation
+    const w = Math.max(10, Math.min(100, mapWidth));
+    const h = Math.max(10, Math.min(100, mapHeight));
+    
+    // Initialize empty layers
+    const initialLayers = [
+      { id: 1, name: "Ground", type: "tilelayer", visible: true, opacity: 1, data: new Array(w * h).fill(null), width: w, height: h },
+      { id: 2, name: "Walls", type: "tilelayer", visible: true, opacity: 1, data: new Array(w * h).fill(null), width: w, height: h },
+      { id: 3, name: "Objects", type: "tilelayer", visible: true, opacity: 1, data: new Array(w * h).fill(null), width: w, height: h },
+      { id: 4, name: "Above Objects", type: "tilelayer", visible: true, opacity: 1, data: new Array(w * h).fill(null), width: w, height: h },
+    ];
+
+    setMapData({
+      width: w,
+      height: h,
+      tilewidth: TILE_SIZE,
+      tileheight: TILE_SIZE,
+      tilesets: TILESETS,
+      layers: initialLayers,
+    });
+    
+    setMapWidth(w);
+    setMapHeight(h);
+    setIsSetupMode(false);
+  };
+
   const handleTilesetChange = (tilesetId: string) => {
     setSelectedTileset(tilesetId);
     const index = TILESETS.findIndex(t => t.id === tilesetId);
@@ -91,388 +141,482 @@ export default function MapEditor() {
     setSelectedTiles(null);
   };
 
-  // Handle multi-tile selection from palette
   const handleTileSelection = (selection: SelectedTiles) => {
     setSelectedTiles(selection);
     setSelectedTileId(selection.tiles[0]?.[0]?.tileId || null);
   };
 
-  // Handle tile painting or erasing on canvas
   const handleCanvasClick = (tileX: number, tileY: number) => {
-    const index = tileY * GRID_WIDTH + tileX;
+    if (!mapData) return;
+    const index = tileY * mapData.width + tileX;
     const newData = [...mapData.layers[currentLayerIndex].data];
     
-    // Eraser tool - clear the tile
     if (currentTool === 'eraser') {
       newData[index] = null;
-      
       const updatedLayers = [...mapData.layers];
-      updatedLayers[currentLayerIndex] = {
-        ...updatedLayers[currentLayerIndex],
-        data: newData,
-      };
-
-      setMapData({
-        ...mapData,
-        layers: updatedLayers,
-      });
+      updatedLayers[currentLayerIndex] = { ...updatedLayers[currentLayerIndex], data: newData };
+      setMapData({ ...mapData, layers: updatedLayers });
       return;
     }
 
-    // Brush tool - paint tiles
     if (!selectedTiles) {
       if (selectedTileId === null) return;
-      
-      newData[index] = {
-        tileId: selectedTileId,
-        tilesetIndex: selectedTilesetIndex,
-      };
-
+      newData[index] = { tileId: selectedTileId, tilesetIndex: selectedTilesetIndex };
       const updatedLayers = [...mapData.layers];
-      updatedLayers[currentLayerIndex] = {
-        ...updatedLayers[currentLayerIndex],
-        data: newData,
-      };
-
-      setMapData({
-        ...mapData,
-        layers: updatedLayers,
-      });
+      updatedLayers[currentLayerIndex] = { ...updatedLayers[currentLayerIndex], data: newData };
+      setMapData({ ...mapData, layers: updatedLayers });
     } else {
-      // Paint stamp
       for (let row = 0; row < selectedTiles.height; row++) {
         for (let col = 0; col < selectedTiles.width; col++) {
           const canvasX = tileX + col;
           const canvasY = tileY + row;
-          
-          if (canvasX >= 0 && canvasX < GRID_WIDTH && canvasY >= 0 && canvasY < GRID_HEIGHT) {
-            const stampIndex = canvasY * GRID_WIDTH + canvasX;
+          if (canvasX >= 0 && canvasX < mapData.width && canvasY >= 0 && canvasY < mapData.height) {
+            const stampIndex = canvasY * mapData.width + canvasX;
             const tile = selectedTiles.tiles[row]?.[col];
-            
-            if (tile) {
-              newData[stampIndex] = {
-                tileId: tile.tileId,
-                tilesetIndex: selectedTilesetIndex,
-              };
-            }
+            if (tile) newData[stampIndex] = { tileId: tile.tileId, tilesetIndex: selectedTilesetIndex };
           }
         }
       }
-
       const updatedLayers = [...mapData.layers];
-      updatedLayers[currentLayerIndex] = {
-        ...updatedLayers[currentLayerIndex],
-        data: newData,
-      };
-
-      setMapData({
-        ...mapData,
-        layers: updatedLayers,
-      });
+      updatedLayers[currentLayerIndex] = { ...updatedLayers[currentLayerIndex], data: newData };
+      setMapData({ ...mapData, layers: updatedLayers });
     }
   };
 
-  // Handle instant test map
   const handleTestMap = () => {
+    if (!mapData) return;
     try {
       const tiledJSON = exportToTiledJSON(mapData, mapName);
       sessionStorage.setItem('testMapData', JSON.stringify(tiledJSON));
       sessionStorage.setItem('testMapName', mapName);
-      
       window.open('/map-editor/test', '_blank');
     } catch (error) {
       alert('Error preparing test map: ' + error);
     }
   };
 
-  // Handle export functions
   const handleDownload = () => {
+    if (!mapData) return;
     downloadMapJSON(mapData, mapName);
     alert(`Map "${mapName}.json" downloaded!`);
   };
 
-  const handleSaveToConsole = () => {
-    saveMapToPublic(mapData, mapName);
-    alert(`Map JSON logged to console!`);
-  };
-
-  // Handle layer selection and visibility
-  const handleLayerSelect = (index: number) => {
-    setCurrentLayerIndex(index);
-  };
-
+  const handleLayerSelect = (index: number) => setCurrentLayerIndex(index);
+  
   const handleLayerToggle = (index: number) => {
+    if (!mapData) return;
     const updatedLayers = [...mapData.layers];
-    updatedLayers[index] = {
-      ...updatedLayers[index],
-      visible: !updatedLayers[index].visible,
-    };
-    
-    setMapData({
-      ...mapData,
-      layers: updatedLayers,
-    });
+    updatedLayers[index] = { ...updatedLayers[index], visible: !updatedLayers[index].visible };
+    setMapData({ ...mapData, layers: updatedLayers });
   };
 
   const handleLayerClear = (index: number) => {
+    if (!mapData) return;
     const updatedLayers = [...mapData.layers];
-    updatedLayers[index] = {
-      ...updatedLayers[index],
-      data: new Array(GRID_WIDTH * GRID_HEIGHT).fill(null),
-    };
-    
-    setMapData({
-      ...mapData,
-      layers: updatedLayers,
-    });
+    updatedLayers[index] = { ...updatedLayers[index], data: new Array(mapData.width * mapData.height).fill(null) };
+    setMapData({ ...mapData, layers: updatedLayers });
   };
 
   const handleLayerOpacityChange = (index: number, opacity: number) => {
+    if (!mapData) return;
     const updatedLayers = [...mapData.layers];
-    updatedLayers[index] = {
-      ...updatedLayers[index],
-      opacity,
-    };
-    
-    setMapData({
-      ...mapData,
-      layers: updatedLayers,
-    });
+    updatedLayers[index] = { ...updatedLayers[index], opacity };
+    setMapData({ ...mapData, layers: updatedLayers });
   };
 
   const handleImportToSpaces = async () => {
     setIsImporting(true);
     try {
-      // Get Firebase auth token
       const { getAuth } = await import('firebase/auth');
       const firebaseAuth = getAuth();
       const user = firebaseAuth.currentUser;
-
       if (!user) {
         alert('Please sign in to import maps to spaces');
         setIsImporting(false);
         return;
-      }
-
+        }
       const token = await user.getIdToken();
-
-      // Export map to Tiled JSON format
+      if (!mapData) return; // Guard
       const tiledJSON = exportToTiledJSON(mapData, mapName);
-
-      // Step 1: Save custom map
       const mapResponse = await fetch('http://localhost:3000/metaverse/custom-maps', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          mapData: tiledJSON,
-        }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ mapData: tiledJSON }),
       });
-
       const mapResult = await mapResponse.json();
-
       if (!mapResult.success) {
-        alert(`❌ Failed to import map: ${mapResult.message}`);
+        alert(`Failed to import map: ${mapResult.message}`);
         setIsImporting(false);
         return;
       }
-
       const customMapId = mapResult.mapId;
-
-      // Step 2: Automatically create a space with this map
       const spaceResponse = await fetch('http://localhost:3000/metaverse/spaces', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: mapName || 'My Custom Map Space',
-          description: `Space created from custom map editor`,
-          isPublic: true,
-          maxUsers: 50,
-          mapId: customMapId,
-        }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ name: mapName || 'My Custom Map Space', description: 'Space created from custom map editor', isPublic: true, maxUsers: 50, mapId: customMapId }),
       });
-
       const spaceResult = await spaceResponse.json();
-
       if (spaceResult.success) {
-        alert(`✅ Success!\n\n✓ Map imported: ${customMapId}\n✓ Space created: ${spaceResult.space.name}\n\nYour new space is now in your dashboard!`);
-        
-        // Redirect to dashboard after 1 second
-        setTimeout(() => {
-          window.location.href = '/dashboard';
-        }, 1500);
+        alert(`Success!\n\nMap imported: ${customMapId}\nSpace created: ${spaceResult.space.name}\n\nYour new space is now in your dashboard!`);
+        setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
       } else {
-        alert(`⚠️ Map imported but space creation failed: ${spaceResult.message}\n\nMap ID: ${customMapId}\n\nYou can manually create a space with this map ID.`);
+        alert(`Map imported but space creation failed: ${spaceResult.message}\n\nMap ID: ${customMapId}`);
       }
     } catch (error) {
       console.error('Import error:', error);
-      alert(`❌ Error importing map: ${error}`);
+      alert(`Error importing map: ${error}`);
     } finally {
       setIsImporting(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-white">
-      {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold">Map Editor</h1>
-            <input
-              type="text"
-              value={mapName}
-              onChange={(e) => setMapName(e.target.value)}
-              placeholder="Map name"
-              className="bg-gray-700 text-white px-3 py-1 rounded border border-gray-600 focus:border-blue-500 outline-none w-48"
-            />
-          </div>
-          <div className="flex gap-3 items-center">
-            <button
-              onClick={handleImportToSpaces}
-              disabled={isImporting}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:opacity-50 px-4 py-2 rounded font-semibold transition-colors shadow-lg"
-            >
-              {isImporting ? '⏳ Importing...' : '🚀 Import to Spaces'}
-            </button>
-            <button
-              onClick={handleTestMap}
-              className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded font-semibold transition-colors shadow-lg"
-            >
-              🎮 Test Map
-            </button>
-            <button
-              onClick={handleDownload}
-              className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded font-semibold transition-colors shadow-lg"
-            >
-              💾 Download
-            </button>
-            <button
-              onClick={handleSaveToConsole}
-              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-semibold transition-colors shadow-lg"
-            >
-              📋 Copy JSON
-            </button>
-            <span className="text-sm text-gray-400">
-              Pos: {cursorPosition ? `(${cursorPosition.x}, ${cursorPosition.y})` : "—"}
-            </span>
-          </div>
-        </div>
-        <div className="mt-2 text-sm text-gray-400">
-          Selected: {selectedTiles 
-            ? `${selectedTiles.width}×${selectedTiles.height} Stamp (${TILESETS[selectedTilesetIndex].name})`
-            : selectedTileId !== null 
-              ? `Tile #${selectedTileId} (${TILESETS[selectedTilesetIndex].name})` 
-              : "None"}
-          {" | "}
-          <span className="text-blue-400 font-semibold">
-            Active Layer: {mapData.layers[currentLayerIndex].name}
-          </span>
-        </div>
-      </div>
+    <div className="flex h-full w-full bg-slate-50 text-slate-800 overflow-hidden relative">
+      
+      {/* SETUP SCREEN MODAL */}
+      {isSetupMode && (
+         <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-50/50 backdrop-blur-sm">
+            <div className="bg-white p-8 rounded-2xl shadow-2xl border border-slate-200 w-96 max-w-full">
+               <div className="text-center mb-6">
+                 <h1 className="text-2xl font-bold text-slate-800 mb-2">Create New Map</h1>
+                 <p className="text-slate-500 text-sm">Define your map dimensions to get started.</p>
+               </div>
+               
+               <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Map Name</label>
+                    <input
+                      type="text"
+                      value={mapName}
+                      onChange={(e) => setMapName(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                      placeholder="e.g. Forest Level 1"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                     <div>
+                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Width (Tiles)</label>
+                       <input
+                         type="number"
+                         min="10"
+                         max="100"
+                         value={mapWidth}
+                         onChange={(e) => setMapWidth(parseInt(e.target.value) || 10)}
+                         className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                       />
+                     </div>
+                     <div>
+                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Height (Tiles)</label>
+                       <input
+                         type="number"
+                         min="10"
+                         max="100"
+                         value={mapHeight}
+                         onChange={(e) => setMapHeight(parseInt(e.target.value) || 10)}
+                         className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                       />
+                     </div>
+                  </div>
+                  
+                  <div className="text-xs text-slate-400 text-center pt-2">
+                     Min: 10x10 • Max: 100x100
+                  </div>
+                  
+                  <button
+                    onClick={handleCreateMap}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-200 transition-all hover:scale-[1.02] active:scale-[0.98] mt-2"
+                  >
+                    Start Creating
+                  </button>
+               </div>
+            </div>
+         </div>
+      )}
 
-      {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar - Tileset Palette */}
-        <div className="w-64 bg-gray-800 border-r border-gray-700 overflow-y-auto">
-          <TilesetPalette
-            tilesets={TILESETS}
-            selectedTileset={selectedTileset}
-            selectedTileId={selectedTileId}
-            selectedTiles={selectedTiles}
-            onTilesetChange={handleTilesetChange}
-            onTileSelect={setSelectedTileId}
-            onTileSelection={handleTileSelection}
-          />
-        </div>
-
-        {/* Center - Canvas */}
-        <div className="flex-1 flex flex-col items-center justify-center bg-gray-900 overflow-auto p-8">
-          <Canvas
-            mapData={mapData}
-            tilesets={TILESETS}
-            showGrid={showGrid}
-            selectedTileId={selectedTileId}
-            selectedTilesetIndex={selectedTilesetIndex}
-            selectedTiles={selectedTiles}
-            currentTool={currentTool}
-            onCanvasClick={handleCanvasClick}
-            onCursorMove={setCursorPosition}
-          />
-        </div>
-
-        {/* Right Sidebar - Layers */}
-        <div className="w-64 bg-gray-800 border-l border-gray-700 overflow-y-auto">
-          <LayerPanel
-            layers={mapData.layers}
-            currentLayerIndex={currentLayerIndex}
-            onLayerSelect={handleLayerSelect}
-            onLayerToggle={handleLayerToggle}
-            onLayerClear={handleLayerClear}
-            onLayerOpacityChange={handleLayerOpacityChange}
-          />
+      {/* Editor Content - Only clickable when not in setup mode */}
+      <div className={`flex h-full w-full ${isSetupMode ? 'pointer-events-none blur-[2px]' : ''}`}>
+      
+      {/* LEFT SIDEBAR - Tools & Tilesets */}
+      <div 
+        className={`bg-white transition-all duration-300 ease-in-out relative overflow-hidden ${leftCollapsed ? 'w-0 border-none' : 'w-80 border-r border-slate-200'}`}
+      >
+        <div className="w-80 flex flex-col h-full bg-white overflow-hidden relative border-r border-slate-200">
           
-          <div className="p-4 border-t border-gray-700">
-            <h3 className="text-lg font-bold mb-4">Layer Collision</h3>
+          {/* Header & Tools - Compact */}
+          <div className="p-3 border-b border-slate-200 bg-white shrink-0 flex items-center justify-between gap-2">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tools</span>
             
-            <div className="space-y-3">
-              <div className={`p-3 rounded ${
-                currentLayerIndex === 0 
-                  ? 'bg-green-900 border-2 border-green-500'
-                  : 'bg-red-900 border-2 border-red-500'
-              }`}>
-                <div className="font-semibold mb-2">
-                  {mapData.layers[currentLayerIndex].name}
-                </div>
-                <div className="text-sm">
-                  {currentLayerIndex === 0 ? (
-                    <div className="text-green-200">
-                      ✅ <strong>Walkable</strong><br/>
-                      Tiles painted here have NO collision
-                    </div>
-                  ) : (
-                    <div className="text-red-200">
-                      🚫 <strong>Blocks Movement</strong><br/>
-                      Tiles painted here AUTO-COLLIDE
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="p-3 bg-blue-900 rounded text-xs text-blue-200">
-                <div className="font-semibold mb-2">How it works:</div>
-                <div className="space-y-1">
-                  <div>• <strong>Ground:</strong> Walkable floors</div>
-                  <div>• <strong>Walls:</strong> Auto-collision</div>
-                  <div>• <strong>Objects:</strong> Auto-collision</div>
-                  <div>• <strong>Above:</strong> Auto-collision</div>
-                </div>
-              </div>
+            <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200">
+               <button
+                onClick={() => setCurrentTool('brush')}
+                className={`p-1.5 rounded transition-all border ${
+                  currentTool === 'brush' 
+                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-sm' 
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-200'
+                }`}
+                title="Brush"
+              >
+                <Brush className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setCurrentTool('eraser')}
+                className={`p-1.5 rounded transition-all border ${
+                  currentTool === 'eraser' 
+                    ? 'bg-rose-600 border-rose-500 text-white shadow-sm' 
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-200'
+                }`}
+                title="Eraser"
+              >
+                <Eraser className="w-4 h-4" />
+              </button>
+              <div className="w-px bg-slate-300 mx-1"></div>
+              <button
+                onClick={() => setShowGrid(!showGrid)}
+                className={`p-1.5 rounded transition-all border ${
+                  showGrid
+                    ? 'bg-emerald-600/10 text-emerald-600 border-emerald-600/30' 
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-200'
+                }`}
+                title="Grid"
+              >
+                <Grid className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
-          <div className="p-4 border-t border-gray-700">
-            <h3 className="text-lg font-bold mb-4">Controls</h3>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showGrid}
-                onChange={(e) => setShowGrid(e.target.checked)}
-                className="w-4 h-4"
-              />
-              <span>Show Grid</span>
-            </label>
+          <div className="flex-1 w-full min-h-0">
+            <TilesetPalette
+              tilesets={TILESETS}
+              selectedTileset={selectedTileset}
+              selectedTileId={selectedTileId}
+              selectedTiles={selectedTiles}
+              onTilesetChange={handleTilesetChange}
+              onTileSelect={setSelectedTileId}
+              onTileSelection={handleTileSelection}
+            />
           </div>
         </div>
       </div>
 
-      {/* Toolbar */}
-      <Toolbar currentTool={currentTool} onToolChange={setCurrentTool} />
+       {/* LEFT COLLAPSE TOGGLE */}
+       <div className="relative h-full w-0 z-20">
+          <button
+           onClick={() => setLeftCollapsed(!leftCollapsed)}
+           className="absolute top-1/2 -translate-y-1/2 -right-3 bg-white border border-slate-200 rounded-full p-1 shadow-md hover:bg-slate-50 hover:text-slate-900 text-slate-400 transition-all z-50 flex items-center justify-center w-6 h-6"
+           title={leftCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+         >
+           {leftCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
+         </button>
+       </div>
+
+
+      {/* MAIN CANVAS AREA */}
+      <div className="flex-1 relative bg-slate-50 flex flex-col min-w-0 overflow-hidden">
+        {/* Canvas Toolbar Status */}
+        {/* Canvas Toolbar Status - Auto Hides */}
+        <div 
+          className={`absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur border border-slate-200 px-4 py-2 rounded-full shadow-lg shadow-slate-200/50 z-10 flex items-center gap-4 text-xs transition-opacity duration-300 ${isCanvasHovered ? 'opacity-100' : 'opacity-0'}`}
+        >
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-slate-600 font-medium">Map Size: {mapData ? `${mapData.width}×${mapData.height}` : '...'}</span>
+          </div>
+          <div className="w-px h-3 bg-slate-200"></div>
+          <div className="text-slate-500">
+             {selectedTiles ? (
+               <span className="text-indigo-600 font-medium">{selectedTiles.width}×{selectedTiles.height} Stamp</span>
+             ) : selectedTileId !== null ? (
+               <span className="text-emerald-600 font-medium">Tile #{selectedTileId}</span>
+             ) : (
+               "No Selection"
+             )}
+          </div>
+          <div className="w-px h-3 bg-slate-200"></div>
+          <div className="text-slate-500">
+            Layer: <span className="text-slate-800 font-medium">{mapData?.layers[currentLayerIndex]?.name || '...'}</span>
+          </div>
+        </div>
+
+        {/* Scrollable Canvas Container */}
+        <div 
+          ref={scrollContainerRef}
+          className={`flex-1 overflow-auto flex items-center justify-center p-8 custom-scrollbar relative ${isPanning ? 'cursor-grab active:cursor-grabbing select-none' : ''}`}
+          onMouseEnter={() => setIsCanvasHovered(true)}
+          onMouseDown={(e) => {
+            if (isPanning && scrollContainerRef.current) {
+              setPanStart({ x: e.clientX, y: e.clientY });
+              setScrollStart({ x: scrollContainerRef.current.scrollLeft, y: scrollContainerRef.current.scrollTop });
+            }
+          }}
+          onMouseMove={(e) => {
+            if (isPanning && panStart && scrollStart && scrollContainerRef.current) {
+              const dx = e.clientX - panStart.x;
+              const dy = e.clientY - panStart.y;
+              scrollContainerRef.current.scrollLeft = scrollStart.x - dx;
+              scrollContainerRef.current.scrollTop = scrollStart.y - dy;
+            }
+          }}
+          onMouseUp={() => {
+            setPanStart(null);
+            setScrollStart(null);
+          }}
+          onMouseLeave={() => {
+            setPanStart(null);
+            setScrollStart(null);
+            setIsCanvasHovered(false);
+          }}
+        >
+           <div className="shadow-2xl shadow-slate-300/50 border border-slate-200">
+            {mapData && (
+             <Canvas
+               mapData={mapData}
+               tilesets={TILESETS}
+               showGrid={showGrid}
+               selectedTileId={selectedTileId}
+               selectedTilesetIndex={selectedTilesetIndex}
+               selectedTiles={selectedTiles}
+               currentTool={currentTool}
+               scale={zoom}
+               onCanvasClick={handleCanvasClick}
+               onCursorMove={setCursorPosition}
+             />
+            )}
+           </div>
+        </div>
+
+        {/* Zoom Controls & Help */}
+        <div className="absolute bottom-6 right-6 flex flex-col gap-3 group z-20">
+           {/* Controls Help Tooltip */}
+           <div className="absolute bottom-full right-0 mb-2 w-max bg-white border border-slate-200 p-3 rounded-lg shadow-xl opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none">
+             <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Navigation</h4>
+             <ul className="text-xs text-slate-600 space-y-1">
+               <li className="flex items-center gap-2">
+                 <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] border border-slate-200 shadow-sm">Space</span>
+                 <span>+ Drag to Pan</span>
+               </li>
+               <li className="flex items-center gap-2">
+                 <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] border border-slate-200 shadow-sm">Scroll</span>
+                 <span>to Pan Vertical</span>
+               </li>
+             </ul>
+           </div>
+
+           <div className="flex flex-col bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
+             <button 
+               onClick={() => setZoom(prev => Math.min(prev + 0.5, 6))}
+               className="p-2 hover:bg-slate-50 text-slate-500 hover:text-slate-900 transition-colors border-b border-slate-200"
+               title="Zoom In"
+             >
+               <span className="font-bold text-lg leading-none">+</span>
+             </button>
+             <div className="px-1 py-1 text-center text-[10px] font-medium text-slate-500 bg-slate-50 cursor-default">
+               {Math.round((zoom / BASE_ZOOM) * 100)}%
+             </div>
+             <button 
+               onClick={() => setZoom(prev => Math.max(prev - 0.5, 1))}
+               className="p-2 hover:bg-slate-50 text-slate-500 hover:text-slate-900 transition-colors border-t border-slate-200"
+               title="Zoom Out"
+             >
+               <span className="font-bold text-lg leading-none">-</span>
+             </button>
+           </div>
+           
+           <button 
+            onClick={() => setZoom(BASE_ZOOM)}
+            className="self-end p-2 bg-white border border-slate-200 rounded-lg shadow hover:bg-slate-50 text-slate-500 hover:text-slate-900 transition-colors text-xs font-medium"
+            title="Reset View"
+           >
+             Reset
+           </button>
+        </div>
+      </div>
+
+
+       {/* RIGHT COLLAPSE TOGGLE */}
+       <div className="relative h-full w-0 z-20">
+         <button
+          onClick={() => setRightCollapsed(!rightCollapsed)}
+          className="absolute top-1/2 -translate-y-1/2 -left-3 bg-white border border-slate-200 rounded-full p-1 shadow-md hover:bg-slate-50 hover:text-slate-900 text-slate-400 transition-all z-50 flex items-center justify-center w-6 h-6"
+          title={rightCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          {rightCollapsed ? <ChevronLeft className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        </button>
+      </div>
+
+      {/* RIGHT SIDEBAR - Project & Layers */}
+      <div 
+        className={`bg-white transition-all duration-300 ease-in-out relative overflow-hidden ${rightCollapsed ? 'w-0 border-none' : 'w-80 border-l border-slate-200'}`}
+      >
+        <div className="w-80 flex flex-col h-full bg-white overflow-hidden relative">
+        
+        {/* Project Header */}
+        <div className="p-4 border-b border-slate-200 bg-white shrink-0 flex items-center justify-between">
+          <h2 className="font-bold text-slate-800">Project Settings</h2>
+          <a 
+            href="/dashboard" 
+            className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded transition-colors"
+            title="Back to Dashboard"
+          >
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            Dashboard
+          </a>
+        </div>
+        <div className="p-4 border-b border-slate-200 bg-white shrink-0">
+          <div className="space-y-3">
+             <div>
+               <label className="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-1 block">Map Name</label>
+               <input
+                type="text"
+                value={mapName}
+                onChange={(e) => setMapName(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                placeholder="Enter map name..."
+              />
+             </div>
+             
+             {/* Action Buttons Grid */}
+             <div className="grid grid-cols-2 gap-2">
+                <button 
+                  onClick={handleTestMap}
+                  className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-3 rounded text-xs font-medium transition-colors"
+                >
+                  <Play className="w-3 h-3 fill-current" /> Test Map
+                </button>
+                <button 
+                  onClick={handleDownload}
+                  className="flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 py-2 px-3 rounded text-xs font-medium transition-colors"
+                >
+                  <Download className="w-3 h-3" /> Export JSON
+                </button>
+                <button 
+                  onClick={handleImportToSpaces}
+                  disabled={isImporting}
+                  className="col-span-2 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 px-3 rounded text-xs font-medium transition-colors"
+                >
+                  <Upload className="w-3 h-3" /> {isImporting ? 'Importing...' : 'Import to Spaces'}
+                </button>
+             </div>
+          </div>
+        </div>
+
+        {/* Layers Section */}
+        <div className="flex-1 overflow-hidden flex flex-col w-full min-h-0">
+           {mapData && (
+             <LayerPanel
+              layers={mapData.layers}
+              currentLayerIndex={currentLayerIndex}
+              onLayerSelect={handleLayerSelect}
+              onLayerToggle={handleLayerToggle}
+              onLayerClear={handleLayerClear}
+              onLayerOpacityChange={handleLayerOpacityChange}
+            />
+           )}
+        </div>
+
+        </div>
+      </div>
+     </div>
     </div>
   );
 }

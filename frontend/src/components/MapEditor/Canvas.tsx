@@ -11,6 +11,7 @@ interface CanvasProps {
   selectedTilesetIndex: number;
   selectedTiles: SelectedTiles | null;
   currentTool: 'brush' | 'eraser';
+  scale: number;
   onCanvasClick: (tileX: number, tileY: number) => void;
   onCursorMove: (position: TilePosition | null) => void;
 }
@@ -23,6 +24,7 @@ export default function Canvas({
   selectedTilesetIndex,
   selectedTiles,
   currentTool,
+  scale,
   onCanvasClick,
   onCursorMove,
 }: CanvasProps) {
@@ -66,8 +68,8 @@ export default function Canvas({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Clear canvas
-    ctx.fillStyle = "#1a1a1a";
+    // Clear canvas with light background (slate-50)
+    ctx.fillStyle = "#f8fafc";
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     // Draw tiles from ALL visible layers (in order: Ground → Walls → Objects → Above)
@@ -111,9 +113,9 @@ export default function Canvas({
       }
     });
 
-    // Draw grid
+    // Draw grid with slate-300 color for light theme (subtle)
     if (showGrid) {
-      ctx.strokeStyle = "#4a4a4a";
+      ctx.strokeStyle = "#cbd5e1";
       ctx.lineWidth = 0.5;
 
       for (let x = 0; x <= mapData.width; x++) {
@@ -131,8 +133,8 @@ export default function Canvas({
       }
     }
 
-    // Draw stamp preview when hovering
-    if (hoveredTile && selectedTiles && tilesetImages.size > 0) {
+    // Draw stamp preview when hovering (only for brush tool)
+    if (hoveredTile && selectedTiles && tilesetImages.size > 0 && currentTool === 'brush') {
       const tileset = tilesets[selectedTilesetIndex];
       const img = tilesetImages.get(tileset.id);
       
@@ -170,8 +172,8 @@ export default function Canvas({
         ctx.globalAlpha = 1.0;
       }
       
-      // Draw stamp outline
-      ctx.strokeStyle = "#4CAF50";
+      // Draw stamp outline - Cyan/Teal for dark mode visibility
+      ctx.strokeStyle = "#22d3ee";
       ctx.lineWidth = 2;
       ctx.strokeRect(
         hoveredTile.x * mapData.tilewidth,
@@ -181,7 +183,7 @@ export default function Canvas({
       );
     } else if (hoveredTile) {
       // Draw single tile highlight
-      ctx.strokeStyle = "#4CAF50";
+      ctx.strokeStyle = "#22d3ee";
       ctx.lineWidth = 2;
       ctx.strokeRect(
         hoveredTile.x * mapData.tilewidth,
@@ -190,7 +192,7 @@ export default function Canvas({
         mapData.tileheight
       );
     }
-  }, [mapData, showGrid, tilesetImages, tilesets, hoveredTile, selectedTiles, selectedTilesetIndex, canvasWidth, canvasHeight]);
+  }, [mapData, showGrid, tilesetImages, tilesets, hoveredTile, selectedTiles, selectedTilesetIndex, canvasWidth, canvasHeight, currentTool, scale]); // Ensure scale is dependency
 
   // Paint tile at position
   const paintAtPosition = (tileX: number, tileY: number) => {
@@ -211,8 +213,9 @@ export default function Canvas({
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    // Adjust x/y for scale
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top) / scale;
 
     const tileX = Math.floor(x / mapData.tilewidth);
     const tileY = Math.floor(y / mapData.tileheight);
@@ -228,8 +231,8 @@ export default function Canvas({
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top) / scale;
 
     const tileX = Math.floor(x / mapData.tilewidth);
     const tileY = Math.floor(y / mapData.tileheight);
@@ -276,7 +279,13 @@ export default function Canvas({
   }, []);
 
   return (
-    <div className="inline-block border-2 border-gray-700 shadow-lg">
+    <div 
+      className="inline-block border-2 border-slate-200 shadow-lg bg-slate-50 transition-all origin-top-left"   
+      style={{ 
+        width: `${canvasWidth * scale}px`,
+        height: `${canvasHeight * scale}px`,
+      }}
+    >
       <canvas
         ref={canvasRef}
         width={canvasWidth}
@@ -285,9 +294,10 @@ export default function Canvas({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        className={currentTool === 'eraser' ? 'cursor-not-allowed' : 'cursor-crosshair'}
+        className={`w-full h-full ${currentTool === 'eraser' ? '' : 'cursor-crosshair'}`}
         style={{
           imageRendering: "pixelated",
+          cursor: currentTool === 'eraser' ? `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" fill="%23be185d"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>') 0 24, auto` : undefined
         }}
       />
     </div>

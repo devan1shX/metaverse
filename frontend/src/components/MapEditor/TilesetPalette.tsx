@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { TilesetConfig, SelectedTiles } from "@/types/MapEditor.types";
+import { ChevronDown, Check } from "lucide-react";
 
 interface TilesetPaletteProps {
   tilesets: TilesetConfig[];
@@ -26,8 +27,23 @@ export default function TilesetPalette({
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionStart, setSelectionStart] = useState<{ row: number; col: number } | null>(null);
   const [selectionEnd, setSelectionEnd] = useState<{ row: number; col: number } | null>(null);
+  
+  // Dropdown state
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const currentTileset = tilesets.find((t) => t.id === selectedTileset);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Load selected tileset image
   useEffect(() => {
@@ -141,16 +157,13 @@ export default function TilesetPalette({
             onMouseDown={(e) => handleMouseDown(row, col, tileId, e)}
             onMouseEnter={() => handleMouseEnter(row, col)}
             className={`
-              relative border cursor-pointer transition-all select-none
-              ${isSelected ? "border-green-500 border-2 shadow-lg shadow-green-500/50" : "border-gray-600"}
-              ${isInCurrentSelection ? "bg-blue-500/30" : ""}
-              hover:border-blue-400
+              relative cursor-pointer select-none
+              ${isSelected ? "z-10 ring-2 ring-indigo-500 ring-offset-1 ring-offset-white" : "hover:ring-1 hover:ring-slate-400 hover:z-10"}
+              ${isInCurrentSelection ? "after:absolute after:inset-0 after:bg-indigo-500/30" : ""}
             `}
             style={{
               width: `${currentTileset.tileWidth * 2}px`,
               height: `${currentTileset.tileHeight * 2}px`,
-              userSelect: 'none',
-              WebkitUserSelect: 'none',
             }}
           >
             {tilesetImage && (
@@ -166,7 +179,7 @@ export default function TilesetPalette({
                 }}
               />
             )}
-            <div className="absolute bottom-0 right-0 bg-black bg-opacity-70 text-white text-[8px] px-1 pointer-events-none">
+            <div className={`absolute bottom-0 right-0 text-[8px] px-1 pointer-events-none transition-opacity ${isSelected || isInCurrentSelection ? "opacity-100 bg-indigo-600 text-white" : "opacity-70 bg-black/60 text-slate-300"}`}>
               {tileId}
             </div>
           </div>
@@ -179,63 +192,91 @@ export default function TilesetPalette({
 
   return (
     <div 
-      className="p-4" 
+      className="p-4 flex flex-col h-full" 
       onMouseLeave={() => {
         if (isSelecting) {
           handleMouseUp();
         }
       }}
     >
-      <h3 className="text-lg font-bold mb-4">Tileset Palette</h3>
-
-      {/* Tileset Selector */}
-      <div className="mb-4">
-        <select
-          value={selectedTileset}
-          onChange={(e) => onTilesetChange(e.target.value)}
-          className="w-full bg-gray-700 text-white border border-gray-600 rounded px-3 py-2"
+      <div className="mb-4 relative" ref={dropdownRef}>
+        <label className="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-2 block">Active Tileset</label>
+        
+        {/* Custom Dropdown Trigger */}
+        <button
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          className={`w-full flex items-center justify-between bg-white text-slate-800 border rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+            isDropdownOpen ? 'border-indigo-500 ring-1 ring-indigo-500/50' : 'border-slate-200 hover:border-slate-300'
+          }`}
         >
-          {tilesets.map((tileset) => (
-            <option key={tileset.id} value={tileset.id}>
-              {tileset.name}
-            </option>
-          ))}
-        </select>
+          <span>{currentTileset ? currentTileset.name : 'Select Tileset'}</span>
+          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {/* Custom Dropdown Menu */}
+        {isDropdownOpen && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden text-sm">
+            {tilesets.map((tileset) => (
+              <button
+                key={tileset.id}
+                onClick={() => {
+                  onTilesetChange(tileset.id);
+                  setIsDropdownOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-slate-50 transition-colors ${
+                  selectedTileset === tileset.id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600'
+                }`}
+              >
+                <span>{tileset.name}</span>
+                {selectedTileset === tileset.id && <Check className="w-3 h-3" />}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Selection Info */}
-      {selectedTiles && selectedTiles.width > 1 || selectedTiles && selectedTiles.height > 1 ? (
-        <div className="mb-4 p-2 bg-blue-700 rounded text-sm">
-          <div className="text-blue-200">Stamp Selected:</div>
-          <div className="font-bold text-white">{selectedTiles.width}×{selectedTiles.height} tiles</div>
+      <div className="flex-1 overflow-hidden bg-slate-50 rounded-lg border border-slate-200 relative">
+        <div className="absolute inset-0 overflow-auto custom-scrollbar p-2">
+         <style jsx>{`
+            .custom-scrollbar::-webkit-scrollbar {
+              width: 8px;
+              height: 8px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+              background: #f8fafc;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+              background-color: #cbd5e1;
+              border-radius: 4px;
+              border: 2px solid #f8fafc;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+              background-color: #94a3b8;
+            }
+            .custom-scrollbar::-webkit-scrollbar-corner {
+               background: #f8fafc;
+            }
+         `}</style>
+         
+         {/* Tileset Grid Container - Forces width based on columns */}
+         <div
+          className="grid gap-px content-start bg-slate-200"
+          style={{
+            gridTemplateColumns: `repeat(${currentTileset?.columns || 8}, ${currentTileset?.tileWidth ? currentTileset.tileWidth * 2 : 32}px)`,
+            width: 'max-content', // Forces container to grow horizontally
+            minWidth: '100%'
+          }}
+          onMouseUp={handleMouseUp}
+        >
+          {renderTileGrid()}
         </div>
-      ) : selectedTileId !== null ? (
-        <div className="mb-4 p-2 bg-gray-700 rounded text-sm">
-          <div className="text-gray-400">Selected Tile:</div>
-          <div className="font-bold text-green-400">#{selectedTileId}</div>
         </div>
-      ) : null}
-
-      <div className="mb-2 text-xs text-gray-400">
-        💡 Click and drag to select multiple tiles
       </div>
 
-      {/* Tile Grid */}
-      <div
-        className="grid gap-1"
-        style={{
-          gridTemplateColumns: `repeat(${currentTileset?.columns || 4}, 1fr)`,
-        }}
-        onMouseUp={handleMouseUp}
-      >
-        {renderTileGrid()}
-      </div>
-
-      {/* Tileset Info */}
-      {currentTileset && (
-        <div className="mt-4 text-xs text-gray-400">
-          <div>Tiles: {currentTileset.tileCount}</div>
-          <div>Size: {currentTileset.tileWidth}×{currentTileset.tileHeight}px</div>
+       {currentTileset && (
+        <div className="mt-3 flex items-center justify-between text-[10px] text-slate-500 uppercase tracking-wider font-medium shrink-0">
+          <span>{currentTileset.name}</span>
+          <span>{currentTileset.tileCount} Tiles</span>
         </div>
       )}
     </div>

@@ -2,12 +2,18 @@
 
 import { useEffect, useState, useRef } from "react";
 import Phaser from "phaser";
+import { ChevronLeft, LayoutDashboard, Keyboard, MousePointer2 } from "lucide-react";
+import Link from "next/link"; // For dashboard link if needed, or simple buttons
 
 export default function MapTestPage() {
   const gameContainerRef = useRef<HTMLDivElement>(null);
   const [mapData, setMapData] = useState<any>(null);
   const [mapName, setMapName] = useState<string>("test_map");
   const [error, setError] = useState<string>("");
+  const [gameInstance, setGameInstance] = useState<Phaser.Game | null>(null);
+
+  // Zoom level for the test view - using 2x to make pixel art visible
+  const ZOOM_LEVEL = 2;
 
   useEffect(() => {
     // Get map data from sessionStorage
@@ -31,10 +37,27 @@ export default function MapTestPage() {
   useEffect(() => {
     if (!mapData || !gameContainerRef.current) return;
 
+    // cleanup previous game if exists (react strict mode double invoke)
+    if (gameInstance) {
+      gameInstance.destroy(true);
+      setGameInstance(null);
+    }
+
+    // Calculate exact canvas dimensions
+    // The map width in pixels * zoom level
+    const width = mapData.width * mapData.tilewidth * ZOOM_LEVEL;
+    const height = mapData.height * mapData.tileheight * ZOOM_LEVEL;
+
     // Create test Phaser scene
     class TestMapScene extends Phaser.Scene {
       private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
       private player?: Phaser.Physics.Arcade.Sprite;
+      private wasd?: {
+        up: Phaser.Input.Keyboard.Key;
+        down: Phaser.Input.Keyboard.Key;
+        left: Phaser.Input.Keyboard.Key;
+        right: Phaser.Input.Keyboard.Key;
+      };
 
       constructor() {
         super({ key: 'TestMapScene' });
@@ -68,56 +91,75 @@ export default function MapTestPage() {
           }
         });
 
-        // Create layers with layer-based collision
-        map.layers.forEach((layerData) => {
+        // Create layers with layer-based collision and depth
+        map.layers.forEach((layerData, index) => {
           const layer = map.createLayer(layerData.name, tilesets, 0, 0);
           if (layer) {
-            // Check if this layer has collision property set
+            // Check collision
             const hasCollision = layerData.properties?.some(
               (prop: any) => prop.name === 'collides' && prop.value === true
             );
             
             if (hasCollision) {
-              // This layer has collision - ALL tiles in it should collide
-              layer.setCollisionByExclusion([-1]); // -1 = empty tiles, so all non-empty tiles collide
-              console.log(`Layer "${layerData.name}" has AUTO-COLLISION enabled`);
-            } else {
-              console.log(`Layer "${layerData.name}" is walkable (no collision)`);
+              layer.setCollisionByExclusion([-1]);
             }
+            
+            // Set Layer Depth
+            // Ground (0), Walls (1), Objects (2) -> Below Player
+            // Above Objects -> Above Player
+            if (layerData.name === "Above Objects") {
+              layer.setDepth(20); // High depth to cover player
+            } else {
+              layer.setDepth(index); // 0, 1, 2...
+            }
+            
+            layer.setScale(1);
           }
         });
 
-        // Set world bounds
+        // Set world bounds to match map size
         this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
 
-        // Create player sprite at center
+        // Create player sprite
         const centerX = map.widthInPixels / 2;
         const centerY = map.heightInPixels / 2;
         this.player = this.physics.add.sprite(centerX, centerY, 'player');
+        this.player.setDepth(10); // Above Ground/Walls, Below Above Objects
 
-        // CRITICAL: Set precise collision body
-        // Avatar sprite is 48x48, but the actual character is much smaller
-        // We need a small collision body that matches the character's feet/body
+        // Precise collision body
         this.player.setCollideWorldBounds(true);
+        this.player.body.setSize(12, 12);
+        this.player.body.setOffset(18, 34);
         
-        // Set body size to 8x8 pixels (small, precise collision box)
-        // Offset it to center on the character's feet
-        this.player.body.setSize(8, 8);
-        this.player.body.setOffset(20, 36); // Center the small body on character's feet
-        
-        console.log('Player collision body:', {
-          width: this.player.body.width,
-          height: this.player.body.height,
-          offsetX: this.player.body.offset.x,
-          offsetY: this.player.body.offset.y
-        });
-        this.player.setScale(1);
-
         // Create animations
         if (!this.anims.exists('walk-down')) {
           this.anims.create({
             key: 'walk-down',
             frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }),
+            frameRate: 10,
+            repeat: -1
+          });
+        }
+        if (!this.anims.exists('walk-left')) {
+          this.anims.create({
+            key: 'walk-left',
+            frames: this.anims.generateFrameNumbers('player', { start: 4, end: 7 }),
+            frameRate: 10,
+            repeat: -1
+          });
+        }
+        if (!this.anims.exists('walk-right')) {
+          this.anims.create({
+            key: 'walk-right',
+            frames: this.anims.generateFrameNumbers('player', { start: 8, end: 11 }),
+            frameRate: 10,
+            repeat: -1
+          });
+        }
+        if (!this.anims.exists('walk-up')) {
+          this.anims.create({
+            key: 'walk-up',
+            frames: this.anims.generateFrameNumbers('player', { start: 12, end: 15 }),
             frameRate: 10,
             repeat: -1
           });
@@ -131,35 +173,49 @@ export default function MapTestPage() {
           }
         });
 
-        // Camera follow player
-        this.cameras.main.startFollow(this.player);
-        this.cameras.main.setZoom(2);
+        // Camera setup
+        // We zoom the CAMERA, not the game size.
+        // Game size = (Map Width * Tile Width * Zoom)
+        // So we need clear view.
+        this.cameras.main.startFollow(this.player, true);
+        this.cameras.main.setZoom(ZOOM_LEVEL);
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
 
         // Input
-        this.cursors = this.input.keyboard?.createCursorKeys();
+        if (this.input.keyboard) {
+           this.cursors = this.input.keyboard.createCursorKeys();
+           this.wasd = {
+            up: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+            down: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
+            left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+            right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+           };
+        }
       }
 
       update() {
-        if (!this.player || !this.cursors) return;
+        if (!this.player || !this.cursors || !this.wasd) return;
 
-        const speed = 160;
+        const speed = 120; // Adjusted speed
         this.player.setVelocity(0);
 
-        if (this.cursors.left.isDown) {
+        const left = this.cursors.left.isDown || this.wasd.left.isDown;
+        const right = this.cursors.right.isDown || this.wasd.right.isDown;
+        const up = this.cursors.up.isDown || this.wasd.up.isDown;
+        const down = this.cursors.down.isDown || this.wasd.down.isDown;
+
+        if (left) {
           this.player.setVelocityX(-speed);
-        } else if (this.cursors.right.isDown) {
+          this.player.anims.play('walk-left', true);
+        } else if (right) {
           this.player.setVelocityX(speed);
-        }
-
-        if (this.cursors.up.isDown) {
+          this.player.anims.play('walk-right', true);
+        } else if (up) {
           this.player.setVelocityY(-speed);
-        } else if (this.cursors.down.isDown) {
+          this.player.anims.play('walk-up', true);
+        } else if (down) {
           this.player.setVelocityY(speed);
-        }
-
-        if (this.player.body?.velocity.x !== 0 || this.player.body?.velocity.y !== 0) {
-          this.player.anims.play('walk-down', true);
+           this.player.anims.play('walk-down', true);
         } else {
           this.player.anims.stop();
         }
@@ -169,9 +225,10 @@ export default function MapTestPage() {
     // Create Phaser game
     const config: Phaser.Types.Core.GameConfig = {
       type: Phaser.AUTO,
-      width: 800,
-      height: 600,
+      width: width,
+      height: height,
       parent: gameContainerRef.current,
+      pixelArt: true, // Critical for crisp scaling
       physics: {
         default: 'arcade',
         arcade: {
@@ -180,10 +237,11 @@ export default function MapTestPage() {
         }
       },
       scene: TestMapScene,
-      backgroundColor: '#1a1a1a',
+      backgroundColor: '#f8fafc', // Match slate-50
     };
 
     const game = new Phaser.Game(config);
+    setGameInstance(game);
 
     return () => {
       game.destroy(true);
@@ -192,15 +250,15 @@ export default function MapTestPage() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Error</h1>
-          <p className="text-red-400">{error}</p>
+      <div className="flex items-center justify-center h-screen bg-slate-50 text-slate-800">
+        <div className="text-center p-8 bg-white border border-rose-200 rounded-xl shadow-2xl">
+          <h1 className="text-xl font-bold mb-2 text-rose-600">Unable to Load Map</h1>
+          <p className="text-slate-500 mb-6">{error}</p>
           <button
             onClick={() => window.close()}
-            className="mt-4 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm border border-slate-200 transition text-slate-700"
           >
-            Close
+            Close Window
           </button>
         </div>
       </div>
@@ -208,25 +266,66 @@ export default function MapTestPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-white">
-      <div className="bg-gray-800 border-b border-gray-700 p-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Testing: {mapName}</h1>
-          <div className="flex gap-3">
-            <div className="text-sm text-gray-400">
-              Use Arrow Keys to move
+    <div className="flex flex-col h-screen bg-slate-50 text-slate-800 font-sans selection:bg-indigo-500/30">
+      
+      {/* Navbar */}
+      <nav className="h-16 border-b border-slate-200 bg-white/80 backdrop-blur-md px-6 flex items-center justify-between shrink-0 z-50">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => window.close()}
+            className="group flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors"
+          >
+            <div className="p-1 rounded-md bg-slate-100 border border-slate-200 group-hover:border-indigo-500 transition-all">
+               <ChevronLeft className="w-4 h-4" />
             </div>
-            <button
-              onClick={() => window.close()}
-              className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded transition-colors"
-            >
-              Close
-            </button>
+            <span className="text-sm font-medium">Back to Editor</span>
+          </button>
+          
+          <div className="w-px h-6 bg-slate-200 mx-2" />
+          
+          <div className="flex flex-col">
+            <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Testing Map</span>
+            <span className="text-sm font-bold text-slate-800">{mapName}</span>
           </div>
         </div>
-      </div>
-      <div className="flex-1 flex items-center justify-center">
-        <div ref={gameContainerRef} />
+
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4 px-4 py-1.5 bg-slate-100 rounded-full border border-slate-200">
+             <div className="flex items-center gap-2 text-xs text-slate-500">
+               <Keyboard className="w-3 h-3" />
+               <span>Move: <strong className="text-slate-800">WASD</strong> or <strong className="text-slate-800">Arrows</strong></span>
+             </div>
+             <div className="w-px h-3 bg-slate-300" />
+             <div className="flex items-center gap-2 text-xs text-slate-500">
+               <MousePointer2 className="w-3 h-3" />
+               <span>Interactive</span>
+             </div>
+          </div>
+
+          <a 
+            href="/dashboard" 
+            target="_blank"
+            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition-all shadow-lg shadow-indigo-900/20"
+          >
+            <LayoutDashboard className="w-3 h-3" />
+            Dashboard
+          </a>
+        </div>
+      </nav>
+
+      {/* Game Area */}
+      <div className="flex-1 overflow-auto flex items-center justify-center p-8 bg-[url('/grid-pattern-light.svg')] bg-center relative">
+        <div className="relative">
+          {/* Game Container Wrapper for shadow/border */}
+          <div className="rounded-lg overflow-hidden shadow-2xl shadow-slate-300/80 border border-slate-200 ring-4 ring-white">
+             <div ref={gameContainerRef} />
+          </div>
+          
+          {/* Dimensions Label */}
+          <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs text-slate-400 font-mono">
+            {mapData?.width}x{mapData?.height} Tiles • {ZOOM_LEVEL}x Zoom
+          </div>
+        </div>
       </div>
     </div>
   );
