@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 import { TilesetConfig, SelectedTiles } from "@/types/MapEditor.types";
-import { ChevronDown, Check } from "lucide-react";
+import { ChevronDown, Check, Plus } from "lucide-react";
+import TilesetUploader from "./TilesetUploader";
 
 interface TilesetPaletteProps {
   tilesets: TilesetConfig[];
@@ -12,6 +13,8 @@ interface TilesetPaletteProps {
   onTilesetChange: (tilesetId: string) => void;
   onTileSelect: (tileId: number) => void;
   onTileSelection: (selection: SelectedTiles) => void;
+  onTilesetAdd?: (newTileset: TilesetConfig) => void;
+  mapName?: string;
 }
 
 export default function TilesetPalette({
@@ -22,8 +25,11 @@ export default function TilesetPalette({
   onTilesetChange,
   onTileSelect,
   onTileSelection,
+  onTilesetAdd,
+  mapName = "default",
 }: TilesetPaletteProps) {
   const [tilesetImage, setTilesetImage] = useState<HTMLImageElement | null>(null);
+  const [showUploader, setShowUploader] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionStart, setSelectionStart] = useState<{ row: number; col: number } | null>(null);
   const [selectionEnd, setSelectionEnd] = useState<{ row: number; col: number } | null>(null);
@@ -200,7 +206,18 @@ export default function TilesetPalette({
       }}
     >
       <div className="mb-4 relative" ref={dropdownRef}>
-        <label className="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-2 block">Active Tileset</label>
+        <div className="flex items-center gap-2">
+            <label className="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-2 block flex-1">Active Tileset</label>
+            {onTilesetAdd && (
+                <button 
+                  onClick={() => setShowUploader(true)}
+                  className="mb-2 p-1 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded transition-colors" 
+                  title="Add Custom Tileset"
+                >
+                    <Plus className="w-3 h-3" />
+                </button>
+            )}
+        </div>
         
         {/* Custom Dropdown Trigger */}
         <button
@@ -237,6 +254,7 @@ export default function TilesetPalette({
 
       <div className="flex-1 overflow-hidden bg-slate-50 rounded-lg border border-slate-200 relative">
         <div className="absolute inset-0 overflow-auto custom-scrollbar p-2">
+         {/* ... (existing styles) ... */}
          <style jsx>{`
             .custom-scrollbar::-webkit-scrollbar {
               width: 8px;
@@ -278,6 +296,17 @@ export default function TilesetPalette({
           <span>{currentTileset.name}</span>
           <span>{currentTileset.tileCount} Tiles</span>
         </div>
+      )}
+      
+      {showUploader && onTilesetAdd && (
+        <TilesetUploader
+            mapName={mapName}
+            onUpload={(newTileset) => {
+                onTilesetAdd(newTileset);
+                setShowUploader(false);
+            }}
+            onClose={() => setShowUploader(false)}
+        />
       )}
     </div>
   );

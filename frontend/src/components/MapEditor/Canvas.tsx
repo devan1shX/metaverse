@@ -41,23 +41,27 @@ export default function Canvas({
   useEffect(() => {
     const loadImages = async () => {
       const imageMap = new Map<string, HTMLImageElement>();
+      
+      const promises = tilesets.map(async (tileset) => {
+        try {
+          const img = new Image();
+          img.src = tileset.image;
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = (e) => reject(new Error(`Failed to load ${tileset.image}`));
+          });
+          imageMap.set(tileset.id, img);
+          console.log(`Loaded tileset image: ${tileset.name} (${tileset.image})`);
+        } catch (error) {
+          console.error(`Error loading tileset ${tileset.name}:`, error);
+        }
+      });
 
-      for (const tileset of tilesets) {
-        const img = new Image();
-        img.src = tileset.image;
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
-          img.onerror = reject;
-        });
-        imageMap.set(tileset.id, img);
-      }
-
+      await Promise.all(promises);
       setTilesetImages(imageMap);
     };
 
-    loadImages().catch((error) => {
-      console.error("Failed to load tileset images:", error);
-    });
+    loadImages();
   }, [tilesets]);
 
   // Render canvas
@@ -85,6 +89,9 @@ export default function Canvas({
 
             if (tileData && tileData.tileId > 0) {
               const tileset = tilesets[tileData.tilesetIndex];
+              // Safety check to prevent crash if tileset is missing
+              if (!tileset) continue;
+
               const img = tilesetImages.get(tileset.id);
 
               if (img && tileset) {
@@ -136,6 +143,9 @@ export default function Canvas({
     // Draw stamp preview when hovering (only for brush tool)
     if (hoveredTile && selectedTiles && tilesetImages.size > 0 && currentTool === 'brush') {
       const tileset = tilesets[selectedTilesetIndex];
+      // Safety check if tileset is undefined
+      if (!tileset) return;
+      
       const img = tilesetImages.get(tileset.id);
       
       if (img) {

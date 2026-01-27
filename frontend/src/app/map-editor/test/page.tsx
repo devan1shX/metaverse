@@ -64,6 +64,8 @@ export default function MapTestPage() {
       }
 
       preload() {
+        console.log("Loading Map Data into Phaser:", JSON.stringify(mapData, null, 2));
+
         // Load map data directly
         this.cache.tilemap.add('testMap', { format: 1, data: mapData });
 

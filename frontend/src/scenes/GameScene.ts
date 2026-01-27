@@ -60,76 +60,86 @@ export class GameScene extends Phaser.Scene {
     // Check if this is a custom map
     const isCustomMap = this.mapId.startsWith('custom-');
 
-    let mapJsonPath: string;
-
     if (isCustomMap) {
-      // Custom maps are stored in /maps/custom/ directory
-      mapJsonPath = `/maps/custom/${this.mapId}.json`;
-      console.log(`Loading custom map: ${mapJsonPath}`);
+      // --- CUSTOM DYNAMIC LOADING ---
+      const mapJsonPath = `/maps/custom/${this.mapId}.json`;
+      console.log(`Loading custom map JSON: ${mapJsonPath}`);
 
-      // Load custom map JSON
-      this.load.tilemapTiledJSON('map', mapJsonPath);
+      this.load.json('mapData', mapJsonPath);
 
-      // Load tilesets - keys MUST match what the map editor exports
-      this.load.image('Floor Tiles', '/map-editor/tilesets/floor_tiles.png');
-      this.load.image('Wall Tiles', '/map-editor/tilesets/wall_tiles.png');
-      this.load.image('Object Tiles', '/map-editor/tilesets/object_tiles.png');
+      this.load.on('filecomplete-json-mapData', (key: string, type: string, data: any) => {
+        console.log("Map JSON loaded successfully. Loading tilesets...", data);
+
+        this.load.tilemapTiledJSON('map', data);
+
+        if (data.tilesets && Array.isArray(data.tilesets)) {
+          data.tilesets.forEach((tileset: any) => {
+            if (tileset.image && tileset.name) {
+              console.log(`Dynamic loading tileset: ${tileset.name} -> ${tileset.image}`);
+              this.load.image(tileset.name, tileset.image);
+            }
+          });
+        }
+      });
 
     } else {
-      // Original map loading logic
-      const mapFolder = this.mapId === 'office-01' ? 'map1' : 'map2';
-      mapJsonPath = `/maps/${mapFolder}/${this.mapId}.json`;
-
-      console.log(`Loading map: ${mapJsonPath}`);
-
-      this.load.tilemapTiledJSON('map', mapJsonPath);
-
+      // --- LEGACY HARDCODED LOADING (RESTORED) ---
+      // Restore original functionality for office-01 and office-02
       if (this.mapId === 'office-01') {
-        this.load.image('Little_Bits_Office_Floors', '/maps/map1/assets/Little_Bits_Office_Floors.png');
-        this.load.image('Little_Bits_office_objects', '/maps/map1/assets/Little_Bits_office_objects.png');
-        this.load.image('Little_Bits_office_walls', '/maps/map1/assets/Little_Bits_office_walls.png');
-        this.load.image('floor_tiles', '/maps/map1/assets/floor_tiles.png');
-        this.load.image('Green', '/maps/map1/assets/Green.png');
-        this.load.image('worker1', '/maps/map1/assets/worker1.png');
-        this.load.image('Chair', '/maps/map1/assets/Chair.png');
-        this.load.image('desk-with-pc', '/maps/map1/assets/desk-with-pc.png');
-        this.load.image('office-partitions-1', '/maps/map1/assets/office-partitions-1.png');
-        this.load.image('office-partitions-2', '/maps/map1/assets/office-partitions-2.png');
-        this.load.image('plant', '/maps/map1/assets/plant.png');
-        this.load.image('Trash', '/maps/map1/assets/Trash.png');
-        this.load.image('interiors_demo', '/maps/map1/assets/interiors_demo.png');
-        this.load.image('boss', '/maps/map1/assets/boss.png');
-        this.load.image('Julia_Drinking_Coffee', '/maps/map1/assets/Julia_Drinking_Coffee.png');
-        this.load.image('cabinet', '/maps/map1/assets/cabinet.png');
-        this.load.image('furniture pack coloured outline', '/maps/map1/assets/furniture pack coloured outline.png');
-        this.load.image('coffee-maker', '/maps/map1/assets/coffee-maker.png');
-        this.load.image('sink', '/maps/map1/assets/sink.png');
-        this.load.image('water-cooler', '/maps/map1/assets/water-cooler.png');
-        this.load.image('stamping-table', '/maps/map1/assets/stamping-table.png');
-        this.load.image('Idle (32x32)', '/maps/map1/assets/Idle (32x32).png');
-        this.load.image('Run (32x32)', '/maps/map1/assets/Run (32x32).png');
+        console.log("Loading legacy map: office-01");
+        this.load.image("Little_Bits_Office_Floors", "/maps/map1/assets/Little_Bits_Office_Floors.png");
+        this.load.image("Little_Bits_office_objects", "/maps/map1/assets/Little_Bits_office_objects.png");
+        this.load.image("Little_Bits_office_walls", "/maps/map1/assets/Little_Bits_office_walls.png");
+        this.load.image("floor_tiles", "/maps/map1/assets/floor_tiles.png");
+        this.load.image("Green", "/maps/map1/assets/Green.png");
+        this.load.image("worker1", "/maps/map1/assets/worker1.png");
+        this.load.image("Chair", "/maps/map1/assets/Chair.png");
+        this.load.image("desk-with-pc", "/maps/map1/assets/desk-with-pc.png");
+        this.load.image("office-partitions-1", "/maps/map1/assets/office-partitions-1.png");
+        this.load.image("office-partitions-2", "/maps/map1/assets/office-partitions-2.png");
+        this.load.image("plant", "/maps/map1/assets/plant.png");
+        this.load.image("Trash", "/maps/map1/assets/Trash.png");
+        this.load.image("interiors_demo", "/maps/map1/assets/interiors_demo.png");
+        this.load.image("boss", "/maps/map1/assets/boss.png");
+        this.load.image("Julia_Drinking_Coffee", "/maps/map1/assets/Julia_Drinking_Coffee.png");
+        this.load.image("cabinet", "/maps/map1/assets/cabinet.png");
+        this.load.image("furniture pack coloured outline", "/maps/map1/assets/furniture pack coloured outline.png");
+        this.load.image("coffee-maker", "/maps/map1/assets/coffee-maker.png");
+        this.load.image("sink", "/maps/map1/assets/sink.png");
+        this.load.image("water-cooler", "/maps/map1/assets/water-cooler.png");
+        this.load.image("Run (32x32)", "/maps/map1/assets/Run (32x32).png");
+        this.load.image("Idle (32x32)", "/maps/map1/assets/Idle (32x32).png");
+        this.load.tilemapTiledJSON("map", "/maps/map1/office-01.json");
+
       } else {
-        this.load.image('cabinet', '/maps/map2/assets/cabinet.png');
-        this.load.image('Chair', '/maps/map2/assets/Chair.png');
-        this.load.image('coffee-maker', '/maps/map2/assets/coffee-maker.png');
-        this.load.image('Desktop', '/maps/map2/assets/Desktop.png');
-        this.load.image('Floor Tiles', '/maps/map2/assets/Floor Tiles.png');
-        this.load.image('Green', '/maps/map2/assets/Green.png');
-        this.load.image('interiors_demo', '/maps/map2/assets/interiors_demo.png');
-        this.load.image('Little_Bits_Office_Floors', '/maps/map2/assets/Little_Bits_Office_Floors.png');
-        this.load.image('Little_Bits_office_objects', '/maps/map2/assets/Little_Bits_office_objects.png');
-        this.load.image('Little_Bits_office_walls', '/maps/map2/assets/Little_Bits_office_walls.png');
-        this.load.image('office-partitions-1', '/maps/map2/assets/office-partitions-1.png');
-        this.load.image('office-partitions-2', '/maps/map2/assets/office-partitions-2.png');
-        this.load.image('plant', '/maps/map2/assets/plant.png');
-        this.load.image('sink', '/maps/map2/assets/sink.png');
-        this.load.image('stamping-table', '/maps/map2/assets/stamping-table.png');
-        this.load.image('Trash', '/maps/map2/assets/Trash.png');
-        this.load.image('water-cooler', '/maps/map2/assets/water-cooler.png');
-        this.load.image('worker1', '/maps/map2/assets/worker1.png');
-        this.load.image('Yellow', '/maps/map2/assets/Yellow.png');
+        console.log("Loading legacy map: office-02 (or default)");
+        this.load.image("cabinet", "/maps/map2/assets/cabinet.png");
+        this.load.image("Chair", "/maps/map2/assets/Chair.png");
+        this.load.image("coffee-maker", "/maps/map2/assets/coffee-maker.png");
+        this.load.image("Desktop", "/maps/map2/assets/Desktop.png");
+        this.load.image("Floor Tiles", "/maps/map2/assets/Floor Tiles.png");
+        this.load.image("Green", "/maps/map2/assets/Green.png");
+        this.load.image("interiors_demo", "/maps/map2/assets/interiors_demo.png");
+        this.load.image("Little_Bits_Office_Floors", "/maps/map2/assets/Little_Bits_Office_Floors.png");
+        this.load.image("Little_Bits_office_objects", "/maps/map2/assets/Little_Bits_office_objects.png");
+        this.load.image("Little_Bits_office_walls", "/maps/map2/assets/Little_Bits_office_walls.png");
+        this.load.image("office-partitions-1", "/maps/map2/assets/office-partitions-1.png");
+        this.load.image("office-partitions-2", "/maps/map2/assets/office-partitions-2.png");
+        this.load.image("plant", "/maps/map2/assets/plant.png");
+        this.load.image("sink", "/maps/map2/assets/sink.png");
+        this.load.image("stamping-table", "/maps/map2/assets/stamping-table.png");
+        this.load.image("Trash", "/maps/map2/assets/Trash.png"); // Note: Key mismatch fixed in user code to 'Trash_map2' but sticking to standard key logic if possible or use 'Trash' if collisions align
+        this.load.image("water-cooler", "/maps/map2/assets/water-cooler.png");
+        this.load.image("worker1", "/maps/map2/assets/worker1.png");
+        this.load.image("Yellow", "/maps/map2/assets/Yellow.png");
+        this.load.tilemapTiledJSON("map", "/maps/map2/office-02.json");
       }
     }
+
+    // Handle Load Errors
+    this.load.on('loaderror', (file: any) => {
+      console.error(`Error loading file: ${file.key} (${file.url})`);
+    });
 
     // Load avatar spritesheets
     this.load.spritesheet('avatar-default', '/sprites/avatar-2-spritesheet.png', {

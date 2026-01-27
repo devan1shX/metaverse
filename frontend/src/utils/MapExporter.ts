@@ -69,18 +69,26 @@ export function exportToTiledJSON(mapData: MapData, mapName: string = "custom_ma
         layer.data.forEach((tileData: TileData | null, index: number) => {
             if (tileData && tileData.tileId > 0) {
                 // Calculate global tile ID (GID) based on tileset
-                let gid = 0;
-                let currentFirstGid = 1;
+                if (tileData.tilesetIndex >= 0 && tileData.tilesetIndex < mapData.tilesets.length) {
+                    let gid = 0;
+                    let currentFirstGid = 1;
 
-                for (let i = 0; i <= tileData.tilesetIndex; i++) {
-                    if (i === tileData.tilesetIndex) {
-                        gid = currentFirstGid + (tileData.tileId - 1);
-                    } else {
-                        currentFirstGid += mapData.tilesets[i].tileCount;
+                    for (let i = 0; i <= tileData.tilesetIndex; i++) {
+                        if (i === tileData.tilesetIndex) {
+                            gid = currentFirstGid + (tileData.tileId - 1);
+                        } else {
+                            // Safety check for previous tilesets
+                            if (mapData.tilesets[i]) {
+                                currentFirstGid += mapData.tilesets[i].tileCount;
+                            }
+                        }
                     }
-                }
 
-                tiledData[index] = gid;
+                    tiledData[index] = gid;
+                } else {
+                    console.warn(`Encountered invalid tilesetIndex ${tileData.tilesetIndex} at index ${index}. Converting to empty tile.`);
+                    tiledData[index] = 0;
+                }
             }
         });
 
@@ -126,14 +134,20 @@ export function exportToTiledJSON(mapData: MapData, mapName: string = "custom_ma
 
         // Add collision properties for tiles that have collision enabled
         if (tileset.collisionTiles && tileset.collisionTiles.length > 0) {
-            tilesetData.tiles = tileset.collisionTiles.map(tileId => ({
-                id: tileId - 1, // Tiled uses 0-based IDs for tile properties
-                properties: [{
-                    name: "collides",
-                    type: "bool",
-                    value: true
-                }]
-            }));
+            const validTiles = tileset.collisionTiles
+                .filter(id => id > 0) // Ensure valid 1-based ID
+                .map(tileId => ({
+                    id: tileId - 1, // Tiled uses 0-based IDs
+                    properties: [{
+                        name: "collides",
+                        type: "bool",
+                        value: true
+                    }]
+                }));
+
+            if (validTiles.length > 0) {
+                tilesetData.tiles = validTiles;
+            }
         }
 
         tiledTilesets.push(tilesetData);

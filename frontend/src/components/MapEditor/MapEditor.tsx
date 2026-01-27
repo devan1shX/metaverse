@@ -53,6 +53,7 @@ const TILESETS: TilesetConfig[] = [
 ];
 
 export default function MapEditor() {
+  const [tilesets, setTilesets] = useState<TilesetConfig[]>(TILESETS);
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
   const [selectedTileset, setSelectedTileset] = useState<string>("floors");
   const [selectedTilesetIndex, setSelectedTilesetIndex] = useState<number>(0);
@@ -135,10 +136,31 @@ export default function MapEditor() {
 
   const handleTilesetChange = (tilesetId: string) => {
     setSelectedTileset(tilesetId);
-    const index = TILESETS.findIndex(t => t.id === tilesetId);
+    const index = tilesets.findIndex(t => t.id === tilesetId);
     setSelectedTilesetIndex(index);
     setSelectedTileId(null);
     setSelectedTiles(null);
+  };
+  
+  const handleTilesetAdd = (newTileset: TilesetConfig) => {
+    // We are appending, so the new index is the current length
+    const newIndex = tilesets.length;
+    
+    setTilesets(prev => [...prev, newTileset]);
+    
+    // Set selection immediately
+    setSelectedTileset(newTileset.id);
+    setSelectedTilesetIndex(newIndex);
+    setSelectedTileId(null);
+    setSelectedTiles(null);
+
+    // Update map data with new tileset list so it exports correctly
+    if (mapData) {
+        setMapData({
+            ...mapData,
+            tilesets: [...mapData.tilesets, newTileset]
+        });
+    }
   };
 
   const handleTileSelection = (selection: SelectedTiles) => {
@@ -199,6 +221,32 @@ export default function MapEditor() {
     if (!mapData) return;
     downloadMapJSON(mapData, mapName);
     alert(`Map "${mapName}.json" downloaded!`);
+  };
+
+  const handleSaveToServer = async () => {
+    if (!mapData) return;
+    try {
+        const response = await fetch('http://localhost:3000/metaverse/maps/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mapName: mapName,
+                mapData: {
+                    ...mapData,
+                    tilesets: tilesets // Use current dynamic tilesets
+                }
+            })
+        });
+        const result = await response.json();
+        if (result.success) {
+            alert('Map saved to server successfully!\nLocation: ' + result.path);
+        } else {
+            alert('Failed to save map: ' + result.message);
+        }
+    } catch (e: any) {
+        console.error(e);
+        alert('Error saving map: ' + e.message);
+    }
   };
 
   const handleLayerSelect = (index: number) => setCurrentLayerIndex(index);
@@ -387,13 +435,15 @@ export default function MapEditor() {
 
           <div className="flex-1 w-full min-h-0">
             <TilesetPalette
-              tilesets={TILESETS}
+              tilesets={tilesets}
               selectedTileset={selectedTileset}
               selectedTileId={selectedTileId}
               selectedTiles={selectedTiles}
               onTilesetChange={handleTilesetChange}
               onTileSelect={setSelectedTileId}
               onTileSelection={handleTileSelection}
+              onTilesetAdd={handleTilesetAdd}
+              mapName={mapName}
             />
           </div>
         </div>
@@ -471,7 +521,7 @@ export default function MapEditor() {
             {mapData && (
              <Canvas
                mapData={mapData}
-               tilesets={TILESETS}
+               tilesets={tilesets}
                showGrid={showGrid}
                selectedTileId={selectedTileId}
                selectedTilesetIndex={selectedTilesetIndex}
@@ -584,8 +634,14 @@ export default function MapEditor() {
                   <Play className="w-3 h-3 fill-current" /> Test Map
                 </button>
                 <button 
+                  onClick={handleSaveToServer}
+                  className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-3 rounded text-xs font-medium transition-colors"
+                >
+                  <Save className="w-3 h-3" /> Save to Server
+                </button>
+                <button 
                   onClick={handleDownload}
-                  className="flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 py-2 px-3 rounded text-xs font-medium transition-colors"
+                  className="col-span-2 flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 py-2 px-3 rounded text-xs font-medium transition-colors"
                 >
                   <Download className="w-3 h-3" /> Export JSON
                 </button>
