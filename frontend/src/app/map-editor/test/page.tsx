@@ -130,8 +130,10 @@ export default function MapTestPage() {
 
         // Precise collision body
         this.player.setCollideWorldBounds(true);
-        this.player.body.setSize(12, 12);
-        this.player.body.setOffset(18, 34);
+        if (this.player.body) {
+           this.player.body.setSize(12, 12);
+           this.player.body.setOffset(18, 34);
+        }
         
         // Create animations
         if (!this.anims.exists('walk-down')) {

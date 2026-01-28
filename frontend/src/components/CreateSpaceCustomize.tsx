@@ -28,12 +28,14 @@ const themes = [
 
 interface CreateSpaceCustomizeProps {
   selectedMapId: string;
+  thumbnailUrl?: string; // Add prop
   onBack: () => void;
   onConfirm: (customization: { size: number; theme: string }) => void;
 }
 
 export default function CreateSpaceCustomize({
   selectedMapId,
+  thumbnailUrl,
   onBack,
   onConfirm,
 }: CreateSpaceCustomizeProps) {
@@ -48,7 +50,7 @@ export default function CreateSpaceCustomize({
     mapInfo = {
       id: selectedMapId,
       title: "Custom Map",
-      image: "/images/space-1.png", // Default preview image
+      image: thumbnailUrl || "/images/space-1.png", // Use thumbnail if available
     };
   }
 

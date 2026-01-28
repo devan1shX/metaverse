@@ -42,6 +42,7 @@ interface SpacesContextType {
     maxUsers?: number;
     mapType?: string;
     mapId?: string;
+    mapImageUrl?: string;
   }) => Promise<any>;
   updateSpace: (
     spaceId: string,

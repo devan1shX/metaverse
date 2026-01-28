@@ -4,6 +4,7 @@ import { useRef, useEffect, useState } from "react";
 import Canvas from "@/components/MapEditor/Canvas";
 import TilesetPalette from "@/components/MapEditor/TilesetPalette";
 import LayerPanel from "@/components/MapEditor/LayerPanel";
+import { useToast } from "@/contexts/ToastContext";
 import { MapData, TilesetConfig, SelectedTiles } from "@/types/MapEditor.types";
 import { downloadMapJSON, saveMapToPublic, exportToTiledJSON } from "@/utils/MapExporter";
 import { ChevronLeft, ChevronRight, Brush, Eraser, Grid, Download, Save, Play, Upload, LayoutDashboard } from "lucide-react";
@@ -105,9 +106,47 @@ export default function MapEditor() {
     };
   }, [isPanning]);
 
+  // Global Toast Hook
+  const { showToast } = useToast();
+
   const [mapData, setMapData] = useState<MapData | null>(null);
 
+  // Canvas Ref for Thumbnail Capture
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const uploadThumbnail = async (mapId: string) => {
+    try {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) return;
+
+        const formData = new FormData();
+        formData.append('mapId', mapId);
+        formData.append('thumbnail', blob, 'thumbnail.png');
+
+        const { getAuth } = await import('firebase/auth');
+        const user = getAuth().currentUser;
+        if (!user) return;
+        const token = await user.getIdToken();
+
+        await fetch('http://localhost:3000/metaverse/custom-maps/thumbnail', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+        console.log('Thumbnail uploaded successfully');
+    } catch (e) {
+        console.error('Failed to upload thumbnail', e);
+        // Don't show toast for thumbnail failure to avoid annoying user if functionality otherwise works
+    }
+  };
+
   const handleCreateMap = () => {
+    // ... existing ... 
     // Validation
     const w = Math.max(10, Math.min(100, mapWidth));
     const h = Math.max(10, Math.min(100, mapHeight));
@@ -133,7 +172,7 @@ export default function MapEditor() {
     setMapHeight(h);
     setIsSetupMode(false);
   };
-
+ 
   const handleTilesetChange = (tilesetId: string) => {
     setSelectedTileset(tilesetId);
     const index = tilesets.findIndex(t => t.id === tilesetId);
@@ -143,18 +182,12 @@ export default function MapEditor() {
   };
   
   const handleTilesetAdd = (newTileset: TilesetConfig) => {
-    // We are appending, so the new index is the current length
     const newIndex = tilesets.length;
-    
     setTilesets(prev => [...prev, newTileset]);
-    
-    // Set selection immediately
     setSelectedTileset(newTileset.id);
     setSelectedTilesetIndex(newIndex);
     setSelectedTileId(null);
     setSelectedTiles(null);
-
-    // Update map data with new tileset list so it exports correctly
     if (mapData) {
         setMapData({
             ...mapData,
@@ -213,40 +246,14 @@ export default function MapEditor() {
       sessionStorage.setItem('testMapName', mapName);
       window.open('/map-editor/test', '_blank');
     } catch (error) {
-      alert('Error preparing test map: ' + error);
+      showToast('Error preparing test map: ' + error, 'error');
     }
   };
 
   const handleDownload = () => {
     if (!mapData) return;
     downloadMapJSON(mapData, mapName);
-    alert(`Map "${mapName}.json" downloaded!`);
-  };
-
-  const handleSaveToServer = async () => {
-    if (!mapData) return;
-    try {
-        const response = await fetch('http://localhost:3000/metaverse/maps/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                mapName: mapName,
-                mapData: {
-                    ...mapData,
-                    tilesets: tilesets // Use current dynamic tilesets
-                }
-            })
-        });
-        const result = await response.json();
-        if (result.success) {
-            alert('Map saved to server successfully!\nLocation: ' + result.path);
-        } else {
-            alert('Failed to save map: ' + result.message);
-        }
-    } catch (e: any) {
-        console.error(e);
-        alert('Error saving map: ' + e.message);
-    }
+    showToast(`Map "${mapName}.json" downloaded!`, 'success');
   };
 
   const handleLayerSelect = (index: number) => setCurrentLayerIndex(index);
@@ -272,6 +279,41 @@ export default function MapEditor() {
     setMapData({ ...mapData, layers: updatedLayers });
   };
 
+  const handleSaveToServer = async () => {
+    if (!mapData) return;
+    try {
+        const response = await fetch('http://localhost:3000/metaverse/maps/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mapName: mapName,
+                mapData: {
+                    ...mapData,
+                    tilesets: tilesets // Use current dynamic tilesets
+                }
+            })
+        });
+        const result = await response.json();
+        if (result.success) {
+            showToast('Map saved to server successfully!', 'success');
+            // Try to upload thumbnail if we can identify the map ID or if generic save supports it
+            // Note: The generic 'save' endpoint saves by name, not ID. 
+            // Thumbnail usually requires a consistent ID. For 'custom-maps' we have an ID.
+            // For file-based maps, maybe we skip thumbnail or use name? 
+            // The instructions mostly focus on "Custom Maps" which are imported to spaces. 
+            // But let's see if we can support it here too if needed. 
+            // For now, only custom maps (CreateSpace flow) definitely have the collection-based structure.
+        } else {
+            showToast('Failed to save map: ' + result.message, 'error');
+        }
+    } catch (e: any) {
+        console.error(e);
+        showToast('Error saving map: ' + e.message, 'error');
+    }
+  };
+  
+  // ... other handlers ...
+
   const handleImportToSpaces = async () => {
     setIsImporting(true);
     try {
@@ -279,7 +321,7 @@ export default function MapEditor() {
       const firebaseAuth = getAuth();
       const user = firebaseAuth.currentUser;
       if (!user) {
-        alert('Please sign in to import maps to spaces');
+        showToast('Please sign in to import maps to spaces', 'error');
         setIsImporting(false);
         return;
         }
@@ -293,26 +335,62 @@ export default function MapEditor() {
       });
       const mapResult = await mapResponse.json();
       if (!mapResult.success) {
-        alert(`Failed to import map: ${mapResult.message}`);
+        showToast(`Failed to import map: ${mapResult.message}`, 'error');
         setIsImporting(false);
         return;
       }
       const customMapId = mapResult.mapId;
+      
+      // Upload Thumbnail immediately after custom map creation
+      await uploadThumbnail(customMapId);
+
       const spaceResponse = await fetch('http://localhost:3000/metaverse/spaces', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ name: mapName || 'My Custom Map Space', description: 'Space created from custom map editor', isPublic: true, maxUsers: 50, mapId: customMapId }),
+        body: JSON.stringify({ 
+            name: mapName || 'My Custom Map Space', 
+            description: 'Space created from custom map editor', 
+            isPublic: true, 
+            maxUsers: 50, 
+            mapId: customMapId,
+            mapImageUrl: `/maps/custom/thumbnails/${customMapId}.png`
+        }),
       });
       const spaceResult = await spaceResponse.json();
+      
       if (spaceResult.success) {
-        alert(`Success!\n\nMap imported: ${customMapId}\nSpace created: ${spaceResult.space.name}\n\nYour new space is now in your dashboard!`);
+        showToast(`Success! Space "${spaceResult.space.name}" created.`, 'success');
         setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
       } else {
-        alert(`Map imported but space creation failed: ${spaceResult.message}\n\nMap ID: ${customMapId}`);
+        // Robust Error Handling for Space Creation
+        let errorMsg = spaceResult.message || "Failed to create space";
+        
+        // Check array errors (as seen in SpaceService.js)
+        if (spaceResult.errors && Array.isArray(spaceResult.errors)) {
+            if (spaceResult.errors.some((e: string) => e.toLowerCase().includes('space name already exists'))) {
+                errorMsg = `Space Name "${mapName}" is already taken. Please rename your map in the sidebar.`;
+            } else {
+                errorMsg = spaceResult.errors.join(', ');
+            }
+        } 
+        // Check string error (fallback)
+        else if (spaceResult.error && typeof spaceResult.error === 'string') {
+             if (spaceResult.error.toLowerCase().includes('space name already exists')) {
+                 errorMsg = `Space Name "${mapName}" is already taken. Please rename your map in the sidebar.`;
+             } else {
+                 errorMsg = spaceResult.error;
+             }
+        }
+        // Check main message field
+        else if (spaceResult.message && spaceResult.message.toLowerCase().includes('unique constraint')) {
+            errorMsg = `Space Name "${mapName}" is already taken. Please rename your map in the sidebar.`;
+        }
+
+        showToast(errorMsg, 'error');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Import error:', error);
-      alert(`Error importing map: ${error}`);
+      showToast(`Error importing map: ${error.message || error}`, 'error');
     } finally {
       setIsImporting(false);
     }
@@ -321,6 +399,8 @@ export default function MapEditor() {
   return (
     <div className="flex h-full w-full bg-slate-50 text-slate-800 overflow-hidden relative">
       
+
+
       {/* SETUP SCREEN MODAL */}
       {isSetupMode && (
          <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-50/50 backdrop-blur-sm">
@@ -520,6 +600,7 @@ export default function MapEditor() {
            <div className="shadow-2xl shadow-slate-300/50 border border-slate-200">
             {mapData && (
              <Canvas
+               ref={canvasRef}
                mapData={mapData}
                tilesets={tilesets}
                showGrid={showGrid}

@@ -130,31 +130,7 @@ export default function LayerPanel({
           );
         })}
 
-        {/* Info Section */}
-        <div className="mt-6 px-2">
-           <button
-            onClick={() => setCollisionExpanded(!collisionExpanded)}
-            className="flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-300 transition-colors uppercase tracking-wider mb-2"
-          >
-            {collisionExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-            Collision Info
-          </button>
-          
-          {collisionExpanded && (
-             <div className="bg-slate-50 rounded p-3 text-xs border border-slate-200 space-y-2">
-                <div className="flex items-start gap-2">
-                   <div className={`w-2 h-2 rounded-full mt-1 shrink-0 ${currentLayerIndex === 0 ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
-                   <div>
-                     <span className="text-slate-700 font-medium block mb-0.5">{layers[currentLayerIndex].name}</span>
-                     <span className="text-slate-500">
-                        {currentLayerIndex === 0 ? "Walkable (No Collision)" : "Obstacle (Blocks Movement)"}
-                     </span>
-                   </div>
-                </div>
-             </div>
-          )}
         </div>
-      </div>
     </div>
   );
 }

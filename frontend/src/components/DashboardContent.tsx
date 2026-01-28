@@ -63,13 +63,15 @@ export function DashboardContent() {
   }, [searchQuery, activeTab, lastVisitedSpaces, createdSpaces]);
 
   const getSpaceImage = (space: Space) => {
+    if (space.mapImageUrl) return space.mapImageUrl;
+    
     const description = space.description?.toLowerCase() || "";
     if (description.includes("conference")) {
       return "/images/space-2.png";
     } else if (description.includes("remote")) {
       return "/images/space-1.png";
     }
-    return space.mapImageUrl || "/images/space-1.png";
+    return "/images/space-1.png";
   };
 
   const handleInviteClick = (space: Space) => {

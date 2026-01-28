@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, ReactNode } from "react";
 import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import { TilesetConfig } from "@/types/MapEditor.types";
 
@@ -16,18 +16,72 @@ export default function TilesetUploader({ mapName, onUpload, onClose }: TilesetU
   const [name, setName] = useState("");
   const [tileSize, setTileSize] = useState(16);
   const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ReactNode | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      setFile(selectedFile);
+      // Create a temp object URL to check dimensions
       const objectUrl = URL.createObjectURL(selectedFile);
-      setPreview(objectUrl);
-      setName(selectedFile.name.split('.')[0]); // Default name from filename
-      setError(null);
+      const img = new Image();
+      img.onload = () => {
+        // Check for dimensions of 16 (Multiples of 16)
+        if (img.width % 16 !== 0 || img.height % 16 !== 0) {
+           setError(
+            <span>
+              Image dimensions must be multiples of 16 (e.g. 16, 32, 48...).
+              <br />
+              Your image is {img.width}x{img.height} px.
+              <br />
+              <span className="text-slate-500 text-[10px] mt-1 block">
+                Tilesets work best with standard grids.
+              </span>
+              Please <a href="https://imageresizer.com/bulk-resize-images" target="_blank" rel="noopener noreferrer" className="underline font-bold text-indigo-600 hover:text-indigo-800">resize it here</a> to a multiple of 16.
+            </span>
+          );
+          URL.revokeObjectURL(objectUrl);
+          setFile(null);
+          setPreview(null);
+          return;
+        }
+
+        // limit 1024x1024 (Increased from 512 as 512 is small for tilesets)
+        if (img.width > 512 || img.height > 512) {
+          setError(
+            <span>
+              Image is too large ({img.width}x{img.height}). Max allowed is 512x512. 
+            </span>
+          );
+          URL.revokeObjectURL(objectUrl);
+          setFile(null);
+          setPreview(null);
+          return;
+        }
+
+        // limit min size
+        if (img.width < 16 || img.height < 16) {
+             setError("Image is too small. Minimum size is 16x16.");
+             URL.revokeObjectURL(objectUrl);
+             setFile(null);
+             setPreview(null);
+             return;
+        }
+
+        // If valid
+        setFile(selectedFile);
+        setPreview(objectUrl);
+        setName(selectedFile.name.split('.')[0]); // Default name from filename
+        setError(null);
+      };
+      
+      img.onerror = () => {
+          setError("Failed to load image.");
+          URL.revokeObjectURL(objectUrl);
+      };
+
+      img.src = objectUrl;
     }
   };
 
@@ -144,21 +198,7 @@ export default function TilesetUploader({ mapName, onUpload, onClose }: TilesetU
               />
             </div>
 
-            <div>
-              <label className="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-1 block">Tile Size (px)</label>
-              <div className="flex items-center gap-2">
-                 <input
-                  type="number"
-                  value={tileSize}
-                  onChange={(e) => setTileSize(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm text-slate-800 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                  min="8"
-                  max="128"
-                  step="8"
-                />
-                <span className="text-xs text-slate-400 whitespace-nowrap">x {tileSize} px</span>
-              </div>
-            </div>
+            
           </div>
           
           {error && (

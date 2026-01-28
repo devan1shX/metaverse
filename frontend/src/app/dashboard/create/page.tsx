@@ -28,6 +28,7 @@ export default function CreateSpacePage() {
   const [creationData, setCreationData] = useState({
     useCase: "",
     map: "",
+    mapImageUrl: "", // Add field
     theme: "",
     size: 25,
     name: "",
@@ -51,8 +52,12 @@ export default function CreateSpacePage() {
     setStep("map-selection");
   };
 
-  const handleMapSelect = (selectedMap: string) => {
-    setCreationData((prev) => ({ ...prev, map: selectedMap }));
+  const handleMapSelect = (selectedMap: string, thumbnailUrl?: string) => {
+    setCreationData((prev) => ({ 
+        ...prev, 
+        map: selectedMap,
+        mapImageUrl: thumbnailUrl || "" // Store thumbnail
+    }));
     setStep("customize-map");
   };
 
@@ -94,6 +99,7 @@ export default function CreateSpacePage() {
       isPublic: true,
       maxUsers: finalData.size,
       mapId: selectedMapId,
+      mapImageUrl: finalData.mapImageUrl, // Include mapImageUrl
     };
 
     console.log("🚀 Creating space with data:", requestData);
@@ -148,6 +154,7 @@ export default function CreateSpacePage() {
         return creationData.map ? (
           <CreateSpaceCustomize
             selectedMapId={creationData.map}
+            thumbnailUrl={creationData.mapImageUrl}
             onBack={() => handleBack("customize-map")}
             onConfirm={handleCustomizeConfirm}
           />

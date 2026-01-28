@@ -67,6 +67,9 @@ export class GameScene extends Phaser.Scene {
 
       this.load.json('mapData', mapJsonPath);
 
+      // Always load the Green background for custom maps
+      this.load.image("Green", "/maps/map1/assets/Green.png");
+
       this.load.on('filecomplete-json-mapData', (key: string, type: string, data: any) => {
         console.log("Map JSON loaded successfully. Loading tilesets...", data);
 
@@ -232,9 +235,11 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-    // Allow camera to see the outside environment (1000px padding)
-    this.cameras.main.setBounds(-1000, -1000, map.widthInPixels + 2000, map.heightInPixels + 2000);
+    // Fix: Expand physics bounds to allow walking outside map
+    const borderSize = 1000;
+    this.physics.world.setBounds(-borderSize, -borderSize, map.widthInPixels + borderSize * 2, map.heightInPixels + borderSize * 2);
+    // Expand camera bounds to match the extended world
+    this.cameras.main.setBounds(-borderSize, -borderSize, map.widthInPixels + borderSize * 2, map.heightInPixels + borderSize * 2);
 
     let spawnPointObject = null;
     const objectLayerNames = ['Objects', 'objects', 'Spawn', 'spawn', 'SpawnPoints'];
@@ -255,13 +260,17 @@ export class GameScene extends Phaser.Scene {
     console.log('Spawn point:', spawnPoint);
 
     // --- ENVIRONMENT GENERATION ---
-    // Create a pleasant background outside the map boundaries
-    const borderSize = 1000; // Size of the extra environment around the map
+    // Create a pleasant background using Green.png
     const bgWidth = map.widthInPixels + (borderSize * 2);
     const bgHeight = map.heightInPixels + (borderSize * 2);
 
     // 1. Grass Background
     // Uses the 'Green' tile texture to create a seamless grass field
+    // Positioned at the center of the real map (which is the center of our extended bounds relative to 0,0)
+    // Actually, tileSprite position is its center. 
+    // The map starts at 0,0. 
+    // The center of the map is w/2, h/2.
+    // The background should be centered there.
     const background = this.add.tileSprite(
       map.widthInPixels / 2,
       map.heightInPixels / 2,

@@ -5,10 +5,11 @@ import Image from "next/image";
 import { ArrowRight, Map } from "lucide-react";
 import { motion } from "framer-motion";
 import { getAuth } from "firebase/auth";
+import { useToast } from "@/contexts/ToastContext";
 
 interface CreateSpaceMapSelectionProps {
   selectedUseCase: string; 
-  onSelect: (map: string) => void;
+  onSelect: (map: string, thumbnailUrl?: string) => void;
 }
 
 interface CustomMap {
@@ -17,6 +18,7 @@ interface CustomMap {
   createdAt: string;
   width: number;
   height: number;
+  thumbnailUrl?: string;
 }
 
 const defaultMaps = [
@@ -43,6 +45,7 @@ export default function CreateSpaceMapSelection({
   const [customMaps, setCustomMaps] = useState<CustomMap[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMapId, setSelectedMapId] = useState<string>('');
+  const { showToast } = useToast();
 
   useEffect(() => {
     fetchCustomMaps();
@@ -76,6 +79,7 @@ export default function CreateSpaceMapSelection({
       }
     } catch (error) {
       console.error('Error fetching custom maps:', error);
+      showToast('Error fetching custom maps', 'error');
     } finally {
       setLoading(false);
     }
@@ -139,7 +143,16 @@ export default function CreateSpaceMapSelection({
                 onClick={() => setSelectedMapId(map.mapId)}
               >
                 <div className="aspect-video w-full rounded-lg overflow-hidden mb-3 relative bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center">
-                  <Map className="w-16 h-16 text-purple-400" />
+                  {map.thumbnailUrl ? (
+                    <Image
+                        src={map.thumbnailUrl}
+                        alt={map.name}
+                        fill
+                        style={{ objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <Map className="w-16 h-16 text-purple-400" />
+                  )}
                 </div>
                 <h3 className="font-bold text-gray-900 mb-1">{map.mapId}</h3>
                 <p className="text-gray-600 text-sm">{map.width}x{map.height} tiles</p>
@@ -161,9 +174,12 @@ export default function CreateSpaceMapSelection({
         <button
           onClick={() => {
             if (selectedMapId) {
-              onSelect(selectedMapId);
+              const selectedCustomMap = customMaps.find(m => m.mapId === selectedMapId);
+              const selectedDefaultMap = defaultMaps.find(m => m.id === selectedMapId);
+              const thumbUrl = selectedCustomMap?.thumbnailUrl || selectedDefaultMap?.image;
+              onSelect(selectedMapId, thumbUrl);
             } else {
-              alert('Please select a map first');
+              showToast('Please select a map first', 'error');
             }
           }}
           disabled={!selectedMapId}

@@ -42,8 +42,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setOrigin(0.5, 1);
 
     if (this.body && this.body instanceof Phaser.Physics.Arcade.Body) {
-      this.body.setSize(this.width * 0.6, this.height * 0.4);
-      this.body.setOffset(this.width * 0.2, this.height * 0.6);
+      // Match map-editor/test settings
+      // this.player.body.setSize(12, 12);
+      // this.player.body.setOffset(18, 34);
+      this.body.setSize(12, 12);
+      this.body.setOffset(18, 34);
     }
 
     // Only create name label if it's NOT the main player ("You")

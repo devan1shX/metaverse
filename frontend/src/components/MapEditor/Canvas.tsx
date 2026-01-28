@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from "react";
 import { MapData, TilesetConfig, TilePosition, SelectedTiles } from "@/types/MapEditor.types";
 
 interface CanvasProps {
@@ -16,7 +16,7 @@ interface CanvasProps {
   onCursorMove: (position: TilePosition | null) => void;
 }
 
-export default function Canvas({
+const Canvas = forwardRef<HTMLCanvasElement, CanvasProps>(({
   mapData,
   tilesets,
   showGrid,
@@ -27,8 +27,11 @@ export default function Canvas({
   scale,
   onCanvasClick,
   onCursorMove,
-}: CanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+}, ref) => {
+  const localCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Expose the canvas ref to parent
+  useImperativeHandle(ref, () => localCanvasRef.current as HTMLCanvasElement);
   const [tilesetImages, setTilesetImages] = useState<Map<string, HTMLImageElement>>(new Map());
   const [hoveredTile, setHoveredTile] = useState<TilePosition | null>(null);
   const [isPainting, setIsPainting] = useState(false);
@@ -66,7 +69,7 @@ export default function Canvas({
 
   // Render canvas
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = localCanvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
@@ -219,7 +222,7 @@ export default function Canvas({
 
   // Handle mouse down - start painting
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
+    const canvas = localCanvasRef.current;
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
@@ -237,7 +240,7 @@ export default function Canvas({
 
   // Handle mouse move - continue painting if mouse is down
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
+    const canvas = localCanvasRef.current;
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
@@ -297,7 +300,7 @@ export default function Canvas({
       }}
     >
       <canvas
-        ref={canvasRef}
+        ref={localCanvasRef}
         width={canvasWidth}
         height={canvasHeight}
         onMouseDown={handleMouseDown}
@@ -312,4 +315,6 @@ export default function Canvas({
       />
     </div>
   );
-}
+});
+
+export default Canvas;
