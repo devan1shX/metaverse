@@ -11,7 +11,14 @@ const userService = new UserService();
  */
 async function createSpace(req, res) {
   try {
-    const { name, description, isPublic, maxUsers, mapId } = req.body;
+    const { 
+      name, 
+      description, 
+      isPublic, 
+      maxUsers,
+      mapId,
+      mapImageUrl 
+    } = req.body;
     const adminUserId = req.user.user_id;
     
     console.log("🔍 CREATE SPACE REQUEST:", {
@@ -20,6 +27,7 @@ async function createSpace(req, res) {
       isPublic,
       maxUsers,
       mapId,
+      mapImageUrl,
       adminUserId
     });
     
@@ -49,6 +57,7 @@ async function createSpace(req, res) {
       isPublic: isPublic !== false, // Default to public
       maxUsers: maxUsers || 50, // Default max users
       mapId: finalMapId, // Use mapId instead of mapType
+      mapImageUrl: mapImageUrl, // Pass the map image URL
       objects: [], // Start with empty objects array
       userIds: [], // Start with empty users array
     }; // Create space using SpaceService

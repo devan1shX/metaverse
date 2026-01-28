@@ -47,6 +47,15 @@ function validateSpaceCreation(req, res, next) {
         }
     }
 
+    // Validate mapImageUrl (optional)
+    if (req.body.mapImageUrl !== undefined) {
+        if (typeof req.body.mapImageUrl !== 'string') {
+            errors.push('mapImageUrl must be a string');
+        } else if (req.body.mapImageUrl.length > 500) {
+           errors.push('mapImageUrl must be less than 500 characters');
+        }
+    }
+
     if (errors.length > 0) {
         logger.warn('Space creation validation failed', { 
             errors, 

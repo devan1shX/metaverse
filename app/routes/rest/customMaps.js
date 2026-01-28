@@ -3,10 +3,30 @@ const { verifyFirebaseToken } = require('../../middleware/firebaseAuth');
 const UserService = require('../../services/UserService');
 const CustomMapService = require('../../services/CustomMapService');
 const { logger } = require('../../utils/logger');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const router = express.Router();
 const userService = new UserService();
 const customMapService = new CustomMapService();
+
+// Configure multer for thumbnails
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadPath = path.join(__dirname, '../../../frontend/public/maps/custom/thumbnails');
+    fs.mkdirSync(uploadPath, { recursive: true });
+    cb(null, uploadPath);
+  },
+  filename: function (req, file, cb) {
+    // Use mapId as filename if provided, generic timestamp otherwise (will retain extension)
+    const mapId = req.body.mapId || `thumb-${Date.now()}`;
+    // Always save as png for consistency, or keep original extension
+    cb(null, `${mapId}.png`);
+  }
+});
+
+const upload = multer({ storage: storage });
 
 /**
  * Helper middleware to get PostgreSQL user from Firebase email
@@ -38,6 +58,38 @@ async function attachDbUser(req, res, next) {
     });
   }
 }
+
+/**
+ * @route   POST /api/custom-maps/thumbnail
+ * @desc    Upload a thumbnail for a custom map
+ * @access  Private
+ */
+router.post('/thumbnail', verifyFirebaseToken, attachDbUser, upload.single('thumbnail'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No thumbnail uploaded' });
+        }
+
+        const mapId = req.body.mapId;
+        if (!mapId) {
+             return res.status(400).json({ success: false, message: 'Map ID is required' });
+        }
+        
+        // Construct public URL
+        const publicUrl = `/maps/custom/thumbnails/${req.file.filename}`;
+
+        logger.info('Thumbnail uploaded', { mapId, filename: req.file.filename });
+
+        return res.json({
+            success: true,
+            thumbnailUrl: publicUrl
+        });
+
+    } catch (error) {
+        logger.error('Thumbnail upload error', { error: error.message });
+        return res.status(500).json({ success: false, message: 'Thumbnail upload failed' });
+    }
+});
 
 /**
  * @route   POST /api/custom-maps

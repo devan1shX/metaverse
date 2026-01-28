@@ -120,16 +120,25 @@ class CustomMapService {
           const content = await fs.readFile(filePath, 'utf8');
           const mapData = JSON.parse(content);
 
-          if (mapData.customMapMetadata?.creatorId === userId) {
+            const thumbnailPath = path.join(this.mapsDirectory, 'thumbnails', `${mapData.customMapMetadata.mapId}.png`);
+            let hasThumbnail = false;
+            try {
+                await fs.access(thumbnailPath);
+                hasThumbnail = true;
+            } catch (e) {
+                // No thumbnail
+            }
+
             userMaps.push({
               mapId: mapData.customMapMetadata.mapId,
-              name: mapData.customMapMetadata.mapId,
+              name: mapData.customMapMetadata.mapId, // Or mapData.customMapMetadata.name if you add it
               createdAt: mapData.customMapMetadata.createdAt,
               width: mapData.width,
-              height: mapData.height
+              height: mapData.height,
+              thumbnailUrl: hasThumbnail ? `/maps/custom/thumbnails/${mapData.customMapMetadata.mapId}.png` : null
             });
           }
-        }
+        
       }
 
       return {
