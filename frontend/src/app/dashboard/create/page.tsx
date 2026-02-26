@@ -26,9 +26,9 @@ export default function CreateSpacePage() {
   const [error, setError] = useState<string | null>(null);
 
   const [creationData, setCreationData] = useState({
-    useCase: "",
+    useCase: "remote-office", // Default value
     map: "",
-    mapImageUrl: "", // Add field
+    mapImageUrl: "", 
     theme: "",
     size: 25,
     name: "",
@@ -41,8 +41,9 @@ export default function CreateSpacePage() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
+    // Skip use-case step
     const timer = setTimeout(() => {
-      setStep("use-case");
+      setStep("map-selection"); 
     }, 1500);
     return () => clearTimeout(timer);
   }, []);
@@ -56,7 +57,7 @@ export default function CreateSpacePage() {
     setCreationData((prev) => ({ 
         ...prev, 
         map: selectedMap,
-        mapImageUrl: thumbnailUrl || "" // Store thumbnail
+        mapImageUrl: thumbnailUrl || "" 
     }));
     setStep("customize-map");
   };
@@ -131,7 +132,8 @@ export default function CreateSpacePage() {
     } else if (currentStep === "customize-map") {
       setStep("map-selection");
     } else if (currentStep === "map-selection") {
-      setStep("use-case");
+      // Go back to dashboard instead of use-case
+      router.push("/dashboard");
     }
   };
 

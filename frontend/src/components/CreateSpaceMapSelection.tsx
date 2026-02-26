@@ -154,7 +154,7 @@ export default function CreateSpaceMapSelection({
                     <Map className="w-16 h-16 text-purple-400" />
                   )}
                 </div>
-                <h3 className="font-bold text-gray-900 mb-1">{map.mapId}</h3>
+                <h3 className="font-bold text-gray-900 mb-1">{map.name}</h3>
                 <p className="text-gray-600 text-sm">{map.width}x{map.height} tiles</p>
                 <p className="text-gray-500 text-xs mt-1">Created: {new Date(map.createdAt).toLocaleDateString()}</p>
               </div>

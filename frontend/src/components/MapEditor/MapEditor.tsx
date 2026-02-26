@@ -7,7 +7,8 @@ import LayerPanel from "@/components/MapEditor/LayerPanel";
 import { useToast } from "@/contexts/ToastContext";
 import { MapData, TilesetConfig, SelectedTiles } from "@/types/MapEditor.types";
 import { downloadMapJSON, saveMapToPublic, exportToTiledJSON } from "@/utils/MapExporter";
-import { ChevronLeft, ChevronRight, Brush, Eraser, Grid, Download, Save, Play, Upload, LayoutDashboard } from "lucide-react";
+import { ChevronLeft, ChevronRight, Brush, Eraser, Grid, Download, Save, Play, Upload, LayoutDashboard, Undo, Redo } from "lucide-react";
+import { useHistory } from "@/hooks/useHistory";
 
 // Map configuration
 const TILE_SIZE = 16;
@@ -109,7 +110,23 @@ export default function MapEditor() {
   // Global Toast Hook
   const { showToast } = useToast();
 
-  const [mapData, setMapData] = useState<MapData | null>(null);
+  // const [mapData, setMapData] = useState<MapData | null>(null);
+  const { 
+    state: mapData,
+    set: setMapDataHistory,
+    setOverwrite: setMapDataOverwrite,
+    reset: resetMapData,
+    undo,
+    redo,
+    canUndo,
+    canRedo
+  } = useHistory<MapData | null>(null);
+  
+  // Helper wrapper to match expected setMapData signature for simple updates (which should add history)
+  // For specialized updates (strokes), we'll call setMapDataOverwrite directly
+  const setMapData = (newData: MapData | null) => {
+      setMapDataHistory(newData);
+  };
 
   // Canvas Ref for Thumbnail Capture
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -168,6 +185,16 @@ export default function MapEditor() {
       layers: initialLayers,
     });
     
+    // Also reset history with initial state
+    resetMapData({
+      width: w,
+      height: h,
+      tilewidth: TILE_SIZE,
+      tileheight: TILE_SIZE,
+      tilesets: TILESETS,
+      layers: initialLayers,
+    });
+    
     setMapWidth(w);
     setMapHeight(h);
     setIsSetupMode(false);
@@ -201,42 +228,92 @@ export default function MapEditor() {
     setSelectedTileId(selection.tiles[0]?.[0]?.tileId || null);
   };
 
-  const handleCanvasClick = (tileX: number, tileY: number) => {
-    if (!mapData) return;
-    const index = tileY * mapData.width + tileX;
-    const newData = [...mapData.layers[currentLayerIndex].data];
-    
-    if (currentTool === 'eraser') {
-      newData[index] = null;
-      const updatedLayers = [...mapData.layers];
-      updatedLayers[currentLayerIndex] = { ...updatedLayers[currentLayerIndex], data: newData };
-      setMapData({ ...mapData, layers: updatedLayers });
-      return;
-    }
 
-    if (!selectedTiles) {
-      if (selectedTileId === null) return;
-      newData[index] = { tileId: selectedTileId, tilesetIndex: selectedTilesetIndex };
-      const updatedLayers = [...mapData.layers];
-      updatedLayers[currentLayerIndex] = { ...updatedLayers[currentLayerIndex], data: newData };
-      setMapData({ ...mapData, layers: updatedLayers });
-    } else {
-      for (let row = 0; row < selectedTiles.height; row++) {
-        for (let col = 0; col < selectedTiles.width; col++) {
-          const canvasX = tileX + col;
-          const canvasY = tileY + row;
-          if (canvasX >= 0 && canvasX < mapData.width && canvasY >= 0 && canvasY < mapData.height) {
-            const stampIndex = canvasY * mapData.width + canvasX;
-            const tile = selectedTiles.tiles[row]?.[col];
-            if (tile) newData[stampIndex] = { tileId: tile.tileId, tilesetIndex: selectedTilesetIndex };
-          }
-        }
-      }
-      const updatedLayers = [...mapData.layers];
-      updatedLayers[currentLayerIndex] = { ...updatedLayers[currentLayerIndex], data: newData };
-      setMapData({ ...mapData, layers: updatedLayers });
-    }
+  
+  const isStrokeActiveRef = useRef(false);
+  const hasPushedStrokeRef = useRef(false);
+
+  const onStrokeStart = () => {
+      isStrokeActiveRef.current = true;
+      // We DON'T prevent the push here. The first click MUST push.
   };
+  
+  const handleCanvasClick = (tileX: number, tileY: number) => {
+     if (!mapData) return;
+     // ... logic to calculate new mapData ...
+     const index = tileY * mapData.width + tileX;
+     const newData = [...mapData.layers[currentLayerIndex].data];
+     
+     // REPLICATING LOGIC TO GET newMapData
+     let newMapData = mapData;
+     
+     if (currentTool === 'eraser') {
+        newData[index] = null;
+        const updatedLayers = [...mapData.layers];
+        updatedLayers[currentLayerIndex] = { ...updatedLayers[currentLayerIndex], data: newData };
+        newMapData = { ...mapData, layers: updatedLayers };
+     } else {
+         if (!selectedTiles) {
+              if (selectedTileId === null) return;
+              newData[index] = { tileId: selectedTileId, tilesetIndex: selectedTilesetIndex };
+              const updatedLayers = [...mapData.layers];
+              updatedLayers[currentLayerIndex] = { ...updatedLayers[currentLayerIndex], data: newData };
+              newMapData = { ...mapData, layers: updatedLayers };
+         } else {
+             // ... stamps ...
+             for (let row = 0; row < selectedTiles.height; row++) {
+                for (let col = 0; col < selectedTiles.width; col++) {
+                  const canvasX = tileX + col;
+                  const canvasY = tileY + row;
+                  if (canvasX >= 0 && canvasX < mapData.width && canvasY >= 0 && canvasY < mapData.height) {
+                    const stampIndex = canvasY * mapData.width + canvasX;
+                    const tile = selectedTiles.tiles[row]?.[col];
+                    if (tile) newData[stampIndex] = { tileId: tile.tileId, tilesetIndex: selectedTilesetIndex };
+                  }
+                }
+              }
+              const updatedLayers = [...mapData.layers];
+              updatedLayers[currentLayerIndex] = { ...updatedLayers[currentLayerIndex], data: newData };
+              newMapData = { ...mapData, layers: updatedLayers };
+         }
+     }
+     
+     // HISTORY DECISION
+     if (isStrokeActiveRef.current) {
+          if (!hasPushedStrokeRef.current) {
+              setMapDataHistory(newMapData);
+              hasPushedStrokeRef.current = true;
+          } else {
+              setMapDataOverwrite(newMapData);
+          }
+     } else {
+         // Single click (should ideally be covered by stroke logic if Canvas implements it well, but if not:)
+         setMapDataHistory(newMapData);
+     }
+  };
+
+  const onStrokeEnd = () => {
+      isStrokeActiveRef.current = false;
+      hasPushedStrokeRef.current = false;
+  };
+
+  // Keyboard Shortcuts for Undo/Redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        // Create custom map keyboard handling
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+            e.preventDefault();
+            undo();
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+            e.preventDefault();
+            redo();
+        }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
 
   const handleTestMap = () => {
     if (!mapData) return;
@@ -331,7 +408,7 @@ export default function MapEditor() {
       const mapResponse = await fetch('http://localhost:3000/metaverse/custom-maps', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ mapData: tiledJSON }),
+        body: JSON.stringify({ mapData: tiledJSON, mapName: mapName }),
       });
       const mapResult = await mapResponse.json();
       if (!mapResult.success) {
@@ -499,6 +576,7 @@ export default function MapEditor() {
                 <Eraser className="w-4 h-4" />
               </button>
               <div className="w-px bg-slate-300 mx-1"></div>
+              
               <button
                 onClick={() => setShowGrid(!showGrid)}
                 className={`p-1.5 rounded transition-all border ${
@@ -510,7 +588,35 @@ export default function MapEditor() {
               >
                 <Grid className="w-4 h-4" />
               </button>
-            </div>
+              </div>
+              
+              <div className="w-px bg-slate-300 mx-1"></div>
+              
+              <button
+                onClick={() => undo()}
+                disabled={!canUndo}
+                className={`p-1.5 rounded transition-all border ${
+                  canUndo
+                    ? 'border-transparent text-slate-500 hover:text-indigo-600 hover:bg-slate-200 cursor-pointer' 
+                    : 'border-transparent text-slate-200 cursor-not-allowed'
+                }`}
+                title="Undo (Ctrl+Z)"
+              >
+                <Undo className="w-4 h-4" />
+              </button>
+              
+              <button
+                onClick={() => redo()}
+                disabled={!canRedo}
+                className={`p-1.5 rounded transition-all border ${
+                  canRedo
+                    ? 'border-transparent text-slate-500 hover:text-indigo-600 hover:bg-slate-200 cursor-pointer' 
+                    : 'border-transparent text-slate-200 cursor-not-allowed'
+                }`}
+                title="Redo (Ctrl+Y)"
+              >
+                <Redo className="w-4 h-4" />
+              </button>
           </div>
 
           <div className="flex-1 w-full min-h-0">
@@ -611,6 +717,8 @@ export default function MapEditor() {
                scale={zoom}
                onCanvasClick={handleCanvasClick}
                onCursorMove={setCursorPosition}
+               onStrokeStart={onStrokeStart}
+               onStrokeEnd={onStrokeEnd}
              />
             )}
            </div>

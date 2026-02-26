@@ -21,6 +21,7 @@ export class GameScene extends Phaser.Scene {
   private chairs: Phaser.Physics.Arcade.StaticGroup | null = null;
   private currentOverlappingChair: any = null;
   private playerVideos: Map<string, Phaser.GameObjects.DOMElement> = new Map();
+  private screenVideos: Map<string, Phaser.GameObjects.DOMElement> = new Map();
 
   constructor() {
     super({ key: 'GameScene' });
@@ -502,6 +503,10 @@ export class GameScene extends Phaser.Scene {
       this.handleStreamsUpdate(streams);
     });
 
+    this.game.events.on('update-screen-streams', (streams: Map<string, MediaStream>) => {
+      this.handleScreenStreamsUpdate(streams);
+    });
+
     console.log('GameScene: Signaling scene is ready for events');
     gameEventEmitter.setSceneReady();
   }
@@ -572,6 +577,135 @@ export class GameScene extends Phaser.Scene {
     if (video) {
       video.destroy();
       this.playerVideos.delete(userId);
+    }
+  }
+
+  handleScreenStreamsUpdate(streams: Map<string, MediaStream>) {
+    console.log(`📺 GameScene: Received screen streams update. Count: ${streams.size}`);
+
+    // 1. Add new screen videos
+    streams.forEach((stream, userId) => {
+      if (!this.screenVideos.has(userId)) {
+        const player = this.otherPlayers.get(userId);
+        if (player) {
+          console.log(`✅ Player found for screen share ${userId}`);
+          this.addScreenVideoForUser(userId, stream);
+        }
+      }
+    });
+
+    // 2. Remove old screen videos
+    this.screenVideos.forEach((_, userId) => {
+      if (!streams.has(userId)) {
+        console.log(`🗑️ Removing screen video for user ${userId}`);
+        this.removeScreenVideoForUser(userId);
+      }
+    });
+  }
+
+  addScreenVideoForUser(userId: string, stream: MediaStream) {
+    console.log(`📺 Adding screen video element for user ${userId}`);
+
+    const container = document.createElement('div');
+    container.style.position = 'relative';
+    container.style.width = '106px';
+    container.style.height = '60px';
+    container.style.backgroundColor = '#000';
+    container.style.borderRadius = '8px';
+    container.style.overflow = 'hidden';
+    container.style.border = '2px solid #6366f1'; // Indigo border
+    container.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+    container.style.pointerEvents = 'auto'; // allow clicks inside Phaser DOM
+
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.muted = true; // Auto-play requirement
+    video.style.width = '100%';
+    video.style.height = '100%';
+    video.style.objectFit = 'contain';
+
+    // Fullscreen button
+    const fsBtn = document.createElement('button');
+    fsBtn.innerHTML = '⛶';
+    fsBtn.style.position = 'absolute';
+    fsBtn.style.bottom = '4px';
+    fsBtn.style.right = '4px';
+    fsBtn.style.padding = '2px 6px';
+    fsBtn.style.backgroundColor = 'rgba(0,0,0,0.7)';
+    fsBtn.style.color = '#fff';
+    fsBtn.style.border = '1px solid rgba(255,255,255,0.2)';
+    fsBtn.style.borderRadius = '4px';
+    fsBtn.style.cursor = 'pointer';
+    fsBtn.style.fontSize = '12px';
+    fsBtn.style.fontWeight = 'bold';
+    fsBtn.style.backdropFilter = 'blur(4px)';
+
+    fsBtn.onmouseover = () => fsBtn.style.backgroundColor = 'rgba(0,0,0,0.9)';
+    fsBtn.onmouseout = () => fsBtn.style.backgroundColor = 'rgba(0,0,0,0.7)';
+
+    fsBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (!document.fullscreenElement) {
+        container.requestFullscreen().catch(err => {
+          console.error(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    };
+
+    container.appendChild(video);
+    container.appendChild(fsBtn);
+
+    // Unmute button if there are audio tracks in the screen share
+    if (stream.getAudioTracks().length > 0) {
+      const unmuteBtn = document.createElement('button');
+      unmuteBtn.innerHTML = '🔇';
+      unmuteBtn.style.position = 'absolute';
+      unmuteBtn.style.bottom = '4px';
+      unmuteBtn.style.left = '4px';
+      unmuteBtn.style.padding = '2px 6px';
+      unmuteBtn.style.backgroundColor = 'rgba(0,0,0,0.7)';
+      unmuteBtn.style.color = '#fff';
+      unmuteBtn.style.border = '1px solid rgba(255,255,255,0.2)';
+      unmuteBtn.style.borderRadius = '4px';
+      unmuteBtn.style.cursor = 'pointer';
+      unmuteBtn.style.fontSize = '12px';
+      unmuteBtn.style.fontWeight = 'bold';
+      unmuteBtn.style.backdropFilter = 'blur(4px)';
+
+      unmuteBtn.onmouseover = () => unmuteBtn.style.backgroundColor = 'rgba(0,0,0,0.9)';
+      unmuteBtn.onmouseout = () => unmuteBtn.style.backgroundColor = 'rgba(0,0,0,0.7)';
+
+      unmuteBtn.onclick = (e) => {
+        e.stopPropagation();
+        video.muted = !video.muted;
+        unmuteBtn.innerHTML = video.muted ? '🔇' : '🔊';
+      };
+      container.appendChild(unmuteBtn);
+    }
+
+    // Force play
+    video.play().catch(err => {
+      console.warn(`⚠️ Screen Video autoplay failed for ${userId}:`, err);
+    });
+
+    const player = this.otherPlayers.get(userId);
+    const startX = player ? player.x : 0;
+    const startY = player ? player.y - 140 : 0; // Float higher than camera video
+
+    const domElement = this.add.dom(startX, startY, container);
+    domElement.setDepth(200); // Ensure screen share is highest priority
+    this.screenVideos.set(userId, domElement);
+  }
+
+  removeScreenVideoForUser(userId: string) {
+    const video = this.screenVideos.get(userId);
+    if (video) {
+      video.destroy();
+      this.screenVideos.delete(userId);
     }
   }
 
@@ -647,6 +781,7 @@ export class GameScene extends Phaser.Scene {
       player.destroy();
       this.otherPlayers.delete(userId);
       this.removeVideoForUser(userId); // Cleanup video if player leaves
+      this.removeScreenVideoForUser(userId); // Cleanup screen if player leaves
     }
   }
 
@@ -683,12 +818,29 @@ export class GameScene extends Phaser.Scene {
 
     this.otherPlayers.forEach((player) => player.update());
 
-    // Update video positions
-    this.playerVideos.forEach((video, userId) => {
-      const player = this.otherPlayers.get(userId);
-      if (player) {
-        video.x = player.x;
-        video.y = player.y - 60; // Position above head
+    // Update video and screen share positions together
+    this.otherPlayers.forEach((player, userId) => {
+      const hasCam = this.playerVideos.has(userId);
+      const hasScreen = this.screenVideos.has(userId);
+
+      if (hasCam && hasScreen) {
+        // Both active: place side-by-side
+        const camVideo = this.playerVideos.get(userId)!;
+        const screenVideo = this.screenVideos.get(userId)!;
+        camVideo.x = player.x - 45;
+        camVideo.y = player.y - 60;
+        screenVideo.x = player.x + 48; // slightly more for 16:9 width
+        screenVideo.y = player.y - 60;
+      } else if (hasCam) {
+        // Only camera
+        const camVideo = this.playerVideos.get(userId)!;
+        camVideo.x = player.x;
+        camVideo.y = player.y - 60;
+      } else if (hasScreen) {
+        // Only screen
+        const screenVideo = this.screenVideos.get(userId)!;
+        screenVideo.x = player.x;
+        screenVideo.y = player.y - 60;
       }
     });
 

@@ -11,6 +11,7 @@ interface PhaserGameWrapperProps {
   spaceId?: string;
   userId?: string;
   streams?: Map<string, MediaStream>;
+  screenStreams?: Map<string, MediaStream>;
 }
 
 export default function PhaserGameWrapper({ 
@@ -18,7 +19,8 @@ export default function PhaserGameWrapper({
   mapId, 
   spaceId, 
   userId,
-  streams
+  streams,
+  screenStreams
 }: PhaserGameWrapperProps) {
   const gameRef = useRef<Phaser.Game | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -116,12 +118,16 @@ export default function PhaserGameWrapper({
   // This update effect is for handling changes *after* the game is loaded
   useEffect(() => {
     if (isGameReady && gameRef.current) {
-        if (streams && streams.size > 0) {
+        if (streams) {
             console.log(`📡 PhaserGameWrapper: Emitting update-streams with ${streams.size} streams`);
             gameRef.current.events.emit('update-streams', streams);
         }
+        if (screenStreams) {
+            console.log(`📡 PhaserGameWrapper: Emitting update-screen-streams with ${screenStreams.size} screen streams`);
+            gameRef.current.events.emit('update-screen-streams', screenStreams);
+        }
     }
-  }, [isGameReady, streams]);
+  }, [isGameReady, streams, screenStreams]);
 
   useEffect(() => {
     if (isGameReady && gameRef.current && gameRef.current.registry) {

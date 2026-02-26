@@ -38,7 +38,7 @@ export default function TilesetUploader({ mapName, onUpload, onClose }: TilesetU
               <span className="text-slate-500 text-[10px] mt-1 block">
                 Tilesets work best with standard grids.
               </span>
-              Please <a href="https://imageresizer.com/bulk-resize-images" target="_blank" rel="noopener noreferrer" className="underline font-bold text-indigo-600 hover:text-indigo-800">resize it here</a> to a multiple of 16.
+              Please resize it to a multiple of 16.
             </span>
           );
           URL.revokeObjectURL(objectUrl);

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import Phaser from "phaser";
 import { ChevronLeft, LayoutDashboard, Keyboard, MousePointer2 } from "lucide-react";
 import Link from "next/link"; // For dashboard link if needed, or simple buttons
+import { Player, PlayerData } from "@/components/Player";
 
 export default function MapTestPage() {
   const gameContainerRef = useRef<HTMLDivElement>(null);
@@ -51,13 +52,8 @@ export default function MapTestPage() {
     // Create test Phaser scene
     class TestMapScene extends Phaser.Scene {
       private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
-      private player?: Phaser.Physics.Arcade.Sprite;
-      private wasd?: {
-        up: Phaser.Input.Keyboard.Key;
-        down: Phaser.Input.Keyboard.Key;
-        left: Phaser.Input.Keyboard.Key;
-        right: Phaser.Input.Keyboard.Key;
-      };
+      private player?: Player; // Changed to Player class
+      private wasd: any; // Changed to any to match Player class expectation (or compatible object)
 
       constructor() {
         super({ key: 'TestMapScene' });
@@ -75,7 +71,9 @@ export default function MapTestPage() {
         });
 
         // Load player sprite
-        this.load.spritesheet('player', '/sprites/avatar-2-spritesheet.png', {
+        // We use a specific key format to trigger the correct avatar logic in Player class
+        // The Player class logic checks for 'avatar-2' in the key to determine frame/animation type
+        this.load.spritesheet('avatar-key-test-avatar-2', '/sprites/avatar-2-spritesheet.png', {
           frameWidth: 48,
           frameHeight: 48,
         });
@@ -122,52 +120,22 @@ export default function MapTestPage() {
         // Set world bounds to match map size
         this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
 
-        // Create player sprite
+        // Create player using the Player class
         const centerX = map.widthInPixels / 2;
         const centerY = map.heightInPixels / 2;
-        this.player = this.physics.add.sprite(centerX, centerY, 'player');
-        this.player.setDepth(10); // Above Ground/Walls, Below Above Objects
-
-        // Precise collision body
-        this.player.setCollideWorldBounds(true);
-        if (this.player.body) {
-           this.player.body.setSize(12, 12);
-           this.player.body.setOffset(18, 34);
-        }
         
-        // Create animations
-        if (!this.anims.exists('walk-down')) {
-          this.anims.create({
-            key: 'walk-down',
-            frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }),
-            frameRate: 10,
-            repeat: -1
-          });
-        }
-        if (!this.anims.exists('walk-left')) {
-          this.anims.create({
-            key: 'walk-left',
-            frames: this.anims.generateFrameNumbers('player', { start: 4, end: 7 }),
-            frameRate: 10,
-            repeat: -1
-          });
-        }
-        if (!this.anims.exists('walk-right')) {
-          this.anims.create({
-            key: 'walk-right',
-            frames: this.anims.generateFrameNumbers('player', { start: 8, end: 11 }),
-            frameRate: 10,
-            repeat: -1
-          });
-        }
-        if (!this.anims.exists('walk-up')) {
-          this.anims.create({
-            key: 'walk-up',
-            frames: this.anims.generateFrameNumbers('player', { start: 12, end: 15 }),
-            frameRate: 10,
-            repeat: -1
-          });
-        }
+        const playerData: PlayerData = {
+            id: 'test-user',
+            user_name: 'Test User',
+            user_avatar_url: '/sprites/avatar-2-spritesheet.png'
+        };
+
+        // Note: The texture key must match what we loaded in preload
+        this.player = new Player(this, centerX, centerY, 'avatar-key-test-avatar-2', playerData);
+        this.player.setDepth(10); // Above Ground/Walls, Below Above Objects
+        
+        // Ensure player collides with world bounds (should be set in Player class already, but good to ensure)
+        this.player.setCollideWorldBounds(true);
 
         // Add collision with layers
         map.layers.forEach((layerData) => {
@@ -178,9 +146,6 @@ export default function MapTestPage() {
         });
 
         // Camera setup
-        // We zoom the CAMERA, not the game size.
-        // Game size = (Map Width * Tile Width * Zoom)
-        // So we need clear view.
         this.cameras.main.startFollow(this.player, true);
         this.cameras.main.setZoom(ZOOM_LEVEL);
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
@@ -188,41 +153,18 @@ export default function MapTestPage() {
         // Input
         if (this.input.keyboard) {
            this.cursors = this.input.keyboard.createCursorKeys();
-           this.wasd = {
-            up: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
-            down: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
-            left: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-            right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-           };
+           this.wasd = this.input.keyboard.addKeys('W,S,A,D');
         }
       }
 
-      update() {
+      update(time: number, delta: number) {
         if (!this.player || !this.cursors || !this.wasd) return;
 
-        const speed = 120; // Adjusted speed
-        this.player.setVelocity(0);
-
-        const left = this.cursors.left.isDown || this.wasd.left.isDown;
-        const right = this.cursors.right.isDown || this.wasd.right.isDown;
-        const up = this.cursors.up.isDown || this.wasd.up.isDown;
-        const down = this.cursors.down.isDown || this.wasd.down.isDown;
-
-        if (left) {
-          this.player.setVelocityX(-speed);
-          this.player.anims.play('walk-left', true);
-        } else if (right) {
-          this.player.setVelocityX(speed);
-          this.player.anims.play('walk-right', true);
-        } else if (up) {
-          this.player.setVelocityY(-speed);
-          this.player.anims.play('walk-up', true);
-        } else if (down) {
-          this.player.setVelocityY(speed);
-           this.player.anims.play('walk-down', true);
-        } else {
-          this.player.anims.stop();
-        }
+        // Use the Player class movement logic
+        this.player.updateMovement(this.cursors, this.wasd);
+        
+        // Also call update on player for any internal logic (like name tag sync)
+        this.player.update();
       }
     }
 

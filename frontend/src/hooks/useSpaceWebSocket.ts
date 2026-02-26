@@ -74,7 +74,7 @@ export interface WebRTCSignal {
 }
 
 export interface MediaStreamEvent {
-  event: 'AUDIO_STREAM_STARTED' | 'AUDIO_STREAM_STOPPED' | 'VIDEO_STREAM_STARTED' | 'VIDEO_STREAM_STOPPED';
+  event: 'AUDIO_STREAM_STARTED' | 'AUDIO_STREAM_STOPPED' | 'VIDEO_STREAM_STARTED' | 'VIDEO_STREAM_STOPPED' | 'SCREEN_STREAM_STARTED' | 'SCREEN_STREAM_STOPPED';
   user_id: string;
   user_name: string;
   space_id: string;
@@ -264,7 +264,9 @@ export function useSpaceWebSocket(spaceId: string | null) {
             message.event === 'AUDIO_STREAM_STARTED' ||
             message.event === 'AUDIO_STREAM_STOPPED' ||
             message.event === 'VIDEO_STREAM_STARTED' ||
-            message.event === 'VIDEO_STREAM_STOPPED'
+            message.event === 'VIDEO_STREAM_STOPPED' ||
+            message.event === 'SCREEN_STREAM_STARTED' ||
+            message.event === 'SCREEN_STREAM_STOPPED'
           ) {
             console.log('📡 WebSocket: Received media event:', message.event, 'from user', message.user_id);
             mediaStreamCallbackRef.current?.(message as MediaStreamEvent);
@@ -437,7 +439,7 @@ export function useSpaceWebSocket(spaceId: string | null) {
     }
   }, [userId, spaceId]);
 
-  const startMediaStream = useCallback((type: 'audio' | 'video', metadata: any = {}) => {
+  const startMediaStream = useCallback((type: 'audio' | 'video' | 'screen', metadata: any = {}) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !isSubscribedRef.current || !userId || !spaceId) {
       return;
     }
@@ -453,7 +455,7 @@ export function useSpaceWebSocket(spaceId: string | null) {
     }
   }, [userId, spaceId]);
 
-  const stopMediaStream = useCallback((type: 'audio' | 'video') => {
+  const stopMediaStream = useCallback((type: 'audio' | 'video' | 'screen') => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !isSubscribedRef.current || !userId || !spaceId) {
       return;
     }

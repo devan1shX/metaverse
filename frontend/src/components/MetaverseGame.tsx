@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { User } from "@/contexts/AuthContext"; 
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -19,6 +19,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Monitor,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -28,6 +29,7 @@ import { useSpaceWebSocket } from "@/hooks/useSpaceWebSocket";
 import { gameEventEmitter } from "@/lib/GameEventEmitter";
 import { useMediaStream } from "@/hooks/useMediaStream";
 import { MediaControls } from "@/components/MediaControls";
+import { ScreenShareSelectModal } from "@/components/ScreenShareSelectModal";
 import { VideoGrid } from "@/components/VideoGrid";
 
 const PhaserGame = dynamic(() => import("./PhaserGameWrapper"), {
@@ -77,8 +79,11 @@ export function MetaverseGame({ spaceId, spaceName, user, logout, mapId, avatarU
     mediaState,
     toggleAudio,
     toggleVideo,
+    startScreenShare,
+    stopScreenShare,
     localStream,
     remoteStreams,
+    remoteScreenStreams,
     handleSignal,
     handleStreamEvent,
     handleInitialState,
@@ -92,6 +97,7 @@ export function MetaverseGame({ spaceId, spaceName, user, logout, mapId, avatarU
   const [actualMapId, setActualMapId] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showScreenShareModal, setShowScreenShareModal] = useState(false);
   const [isOnlineListOpen, setIsOnlineListOpen] = useState(true);
 
   useEffect(() => {
@@ -409,6 +415,7 @@ export function MetaverseGame({ spaceId, spaceName, user, logout, mapId, avatarU
             spaceId={spaceId}
             userId={user?.id}
             streams={remoteStreams}
+            screenStreams={remoteScreenStreams}
           />
 
           {/* Media UI */}
@@ -417,6 +424,8 @@ export function MetaverseGame({ spaceId, spaceName, user, logout, mapId, avatarU
             mediaState={mediaState}
             toggleAudio={toggleAudio}
             toggleVideo={toggleVideo}
+            onOpenScreenShare={() => setShowScreenShareModal(true)}
+            stopScreenShare={stopScreenShare}
             localStream={localStream}
             error={mediaError}
           />
@@ -460,6 +469,14 @@ export function MetaverseGame({ spaceId, spaceName, user, logout, mapId, avatarU
         onClose={() => setShowInviteModal(false)}
         spaceId={spaceId}
         spaceName={spaceName || "Space"}
+      />
+
+      <ScreenShareSelectModal
+        isOpen={showScreenShareModal}
+        onClose={() => setShowScreenShareModal(false)}
+        onlineUsers={onlineUsers}
+        currentUserId={String(user?.id)}
+        onStartShare={startScreenShare}
       />
     </div>
   );

@@ -1,11 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { Mic, MicOff, Video, VideoOff } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Monitor, MonitorOff } from 'lucide-react';
 import { MediaState } from '@/hooks/useMediaStream';
 
 interface MediaControlsProps {
   mediaState: MediaState;
   toggleAudio: () => void;
   toggleVideo: () => void;
+  onOpenScreenShare: () => void;
+  stopScreenShare: () => void;
   localStream: MediaStream | null;
   error?: string | null;
 }
@@ -14,6 +16,8 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
   mediaState,
   toggleAudio,
   toggleVideo,
+  onOpenScreenShare,
+  stopScreenShare,
   localStream,
   error,
 }) => {
@@ -72,7 +76,19 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
           }`}
           title={mediaState.isVideoEnabled ? "Turn Off Camera" : "Turn On Camera"}
         >
-          {mediaState.isVideoEnabled ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
+          {mediaState.isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+        </button>
+
+        <button
+          onClick={mediaState.isScreenSharing ? stopScreenShare : onOpenScreenShare}
+          className={`p-4 rounded-full transition-all duration-200 shadow-md ${
+            mediaState.isScreenSharing
+              ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/30 ring-2 ring-indigo-400'
+              : 'bg-gray-700 hover:bg-gray-600 text-white'
+          }`}
+          title={mediaState.isScreenSharing ? "Stop Sharing" : "Share Screen"}
+        >
+          {mediaState.isScreenSharing ? <MonitorOff className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
         </button>
       </div>
     </div>

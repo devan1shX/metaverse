@@ -14,6 +14,8 @@ interface CanvasProps {
   scale: number;
   onCanvasClick: (tileX: number, tileY: number) => void;
   onCursorMove: (position: TilePosition | null) => void;
+  onStrokeStart?: () => void;
+  onStrokeEnd?: () => void;
 }
 
 const Canvas = forwardRef<HTMLCanvasElement, CanvasProps>(({
@@ -27,6 +29,8 @@ const Canvas = forwardRef<HTMLCanvasElement, CanvasProps>(({
   scale,
   onCanvasClick,
   onCursorMove,
+  onStrokeStart,
+  onStrokeEnd,
 }, ref) => {
   const localCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -234,6 +238,7 @@ const Canvas = forwardRef<HTMLCanvasElement, CanvasProps>(({
     const tileY = Math.floor(y / mapData.tileheight);
 
     setIsPainting(true);
+    if (onStrokeStart) onStrokeStart(); // Start stroke history
     setLastPaintedTile(null);
     paintAtPosition(tileX, tileY);
   };
@@ -267,6 +272,7 @@ const Canvas = forwardRef<HTMLCanvasElement, CanvasProps>(({
   // Handle mouse up - stop painting
   const handleMouseUp = () => {
     setIsPainting(false);
+    if (onStrokeEnd) onStrokeEnd(); // End stroke history
     setLastPaintedTile(null);
   };
 
@@ -274,6 +280,7 @@ const Canvas = forwardRef<HTMLCanvasElement, CanvasProps>(({
   const handleMouseLeave = () => {
     setHoveredTile(null);
     onCursorMove(null);
+    if (isPainting && onStrokeEnd) onStrokeEnd(); // End stroke history if painting
     setIsPainting(false);
     setLastPaintedTile(null);
   };
@@ -281,8 +288,16 @@ const Canvas = forwardRef<HTMLCanvasElement, CanvasProps>(({
   // Add global mouseup listener
   useEffect(() => {
     const handleGlobalMouseUp = () => {
+      // We can't easily check isPainting here due to closure, but checking externally or trusting local state
+      // Ideally we only fire onStrokeEnd if we were actually painting.
+      // Since this is a specialized useEffect, we might miss the latest isPainting state.
+      // However, MapEditor tracks global mouseup too. 
+      // Let's rely on component-level events for now, or use a ref for isPainting if needed.
+      // For now, to keep it simple, we'll update state.
       setIsPainting(false);
       setLastPaintedTile(null);
+      // Note: We don't call onStrokeEnd here because we can't be sure if we were painting inside THIS canvas
+      // But handleMouseLeave usually catches the exit.
     };
 
     document.addEventListener('mouseup', handleGlobalMouseUp);
