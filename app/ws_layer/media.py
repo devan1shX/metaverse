@@ -343,6 +343,94 @@ class MediaManager:
     # WebRTC Signaling
     # ========================================
     
+    # ========================================
+    # Screen Stream Management
+    # ========================================
+    
+    async def start_screen_stream(
+        self,
+        user_id: str,
+        space_id: str,
+        metadata: Optional[Dict] = None
+    ) -> tuple[bool, str]:
+        """Start screen stream for a user in a space"""
+        try:
+            if user_id not in self.ws_manager.users:
+                return False, "User not in space"
+            
+            if space_id in self.active_screen_shares and user_id in self.active_screen_shares[space_id]:
+                return False, "Already streaming screen"
+            
+            stream_id = f"screen_{user_id}_{space_id}_{int(asyncio.get_event_loop().time())}"
+            stream = MediaStream(
+                stream_id=stream_id,
+                user_id=user_id,
+                space_id=space_id,
+                media_type=MediaType.SCREEN_SHARE.value,
+                state=MediaState.ENABLED.value,
+                timestamp=asyncio.get_event_loop().time(),
+                metadata=metadata or {}
+            )
+            
+            if space_id not in self.active_screen_shares:
+                self.active_screen_shares[space_id] = {}
+            self.active_screen_shares[space_id][user_id] = stream
+            
+            self.user_screen_state[user_id] = MediaState.ENABLED.value
+            
+            user = self.ws_manager.users.get(user_id)
+            user_name = user.get('user_name', 'Unknown') if user else 'Unknown'
+            
+            await self.ws_manager.space_updates.put({
+                "event": "SCREEN_STREAM_STARTED",
+                "user_id": user_id,
+                "user_name": user_name,
+                "space_id": space_id,
+                "stream_id": stream_id,
+                "timestamp": stream.timestamp
+            })
+            
+            logger.info(f"Screen stream started: {stream_id} for user {user_id} in space {space_id}")
+            return True, stream_id
+            
+        except Exception as e:
+            logger.error(f"Error starting screen stream: {e}")
+            return False, str(e)
+    
+    async def stop_screen_stream(self, user_id: str, space_id: str) -> tuple[bool, str]:
+        """Stop screen stream"""
+        try:
+            if space_id not in self.active_screen_shares or user_id not in self.active_screen_shares[space_id]:
+                return False, "User not streaming screen"
+            
+            stream = self.active_screen_shares[space_id][user_id]
+            stream_id = stream.stream_id
+            
+            del self.active_screen_shares[space_id][user_id]
+            if not self.active_screen_shares[space_id]:
+                del self.active_screen_shares[space_id]
+            
+            self.user_screen_state[user_id] = MediaState.DISABLED.value
+            
+            user = self.ws_manager.users.get(user_id)
+            user_name = user.get('user_name', 'Unknown') if user else 'Unknown'
+            
+            await self.ws_manager.space_updates.put({
+                "event": "SCREEN_STREAM_STOPPED",
+                "user_id": user_id,
+                "user_name": user_name,
+                "space_id": space_id,
+                "stream_id": stream_id,
+                "timestamp": asyncio.get_event_loop().time()
+            })
+            
+            logger.info(f"Screen stream stopped: {stream_id}")
+            return True, stream_id
+            
+        except Exception as e:
+            logger.error(f"Error stopping screen stream: {e}")
+            return False, str(e)
+    
     async def handle_webrtc_signal(
         self,
         signal_type: str,
@@ -425,17 +513,31 @@ class MediaManager:
                         "timestamp": stream.timestamp
                     })
             
+            screen_streams = []
+            if space_id in self.active_screen_shares:
+                for user_id, stream in self.active_screen_shares[space_id].items():
+                    user = self.ws_manager.users.get(user_id) # Use local state
+                    screen_streams.append({
+                        "stream_id": stream.stream_id,
+                        "user_id": user_id,
+                        "user_name": user.get('user_name', 'Unknown') if user else 'Unknown',
+                        "state": stream.state,
+                        "timestamp": stream.timestamp
+                    })
+            
             return {
                 "space_id": space_id,
                 "audio_streams": audio_streams,
                 "video_streams": video_streams,
+                "screen_streams": screen_streams,
                 "total_audio": len(audio_streams),
-                "total_video": len(video_streams)
+                "total_video": len(video_streams),
+                "total_screen": len(screen_streams)
             }
             
         except Exception as e:
             logger.error(f"Error getting space media info: {e}")
-            return {"space_id": space_id, "audio_streams": [], "video_streams": [], "error": str(e)}
+            return {"space_id": space_id, "audio_streams": [], "video_streams": [], "screen_streams": [], "error": str(e)}
     
     # ========================================
     # Cleanup
@@ -453,6 +555,11 @@ class MediaManager:
             for space_id in list(self.active_video_streams.keys()):
                 if user_id in self.active_video_streams[space_id]:
                     await self.stop_video_stream(user_id, space_id)
+            
+            # Clean up screen streams
+            for space_id in list(self.active_screen_shares.keys()):
+                if user_id in self.active_screen_shares[space_id]:
+                    await self.stop_screen_stream(user_id, space_id)
             
             # Clean up peer connections
             if user_id in self.peer_connections:

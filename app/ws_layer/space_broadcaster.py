@@ -275,6 +275,19 @@ class space_broadcaster:
                         space_id=self.space_id
                     )
                 
+                elif event_lower == "start_screen_stream":
+                    await self.media_manager.start_screen_stream(
+                        user_id=user_id,
+                        space_id=self.space_id,
+                        metadata=message.get("metadata")
+                    )
+                
+                elif event_lower == "stop_screen_stream":
+                    await self.media_manager.stop_screen_stream(
+                        user_id=user_id,
+                        space_id=self.space_id
+                    )
+                
                 # --- Leave Event ---
                 elif event_lower == "left":
                     logger.info(f"User {user_id} is leaving space {self.space_id}")
