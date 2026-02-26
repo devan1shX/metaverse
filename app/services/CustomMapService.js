@@ -28,9 +28,10 @@ class CustomMapService {
    * Save a custom map
    * @param {Object} mapData - Tiled JSON map data
    * @param {string} userId - Creator user ID
+   * @param {string} mapName - Name of the map
    * @returns {Promise<Object>} Result with success status and mapId
    */
-  async saveCustomMap(mapData, userId) {
+  async saveCustomMap(mapData, userId, mapName) {
     try {
       await this.ensureDirectory();
 
@@ -44,7 +45,8 @@ class CustomMapService {
           mapId,
           creatorId: userId,
           createdAt: new Date().toISOString(),
-          version: '1.0'
+          version: '1.0',
+          name: mapName || mapId // Save the name
         }
       };
 
@@ -55,7 +57,8 @@ class CustomMapService {
       logger.info('Custom map saved successfully', {
         mapId,
         userId,
-        filePath
+        filePath,
+        savedName: mapName || mapId
       });
 
       return {
@@ -119,6 +122,10 @@ class CustomMapService {
           const filePath = path.join(this.mapsDirectory, file);
           const content = await fs.readFile(filePath, 'utf8');
           const mapData = JSON.parse(content);
+          
+          logger.info(`Reading map ${file}`, { 
+              name: mapData.customMapMetadata?.name 
+          });
 
             const thumbnailPath = path.join(this.mapsDirectory, 'thumbnails', `${mapData.customMapMetadata.mapId}.png`);
             let hasThumbnail = false;
@@ -131,7 +138,7 @@ class CustomMapService {
 
             userMaps.push({
               mapId: mapData.customMapMetadata.mapId,
-              name: mapData.customMapMetadata.mapId, // Or mapData.customMapMetadata.name if you add it
+              name: mapData.customMapMetadata.name || mapData.customMapMetadata.mapId, // Retrieve name if available
               createdAt: mapData.customMapMetadata.createdAt,
               width: mapData.width,
               height: mapData.height,

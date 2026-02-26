@@ -98,7 +98,7 @@ router.post('/thumbnail', verifyFirebaseToken, attachDbUser, upload.single('thum
  */
 router.post('/', verifyFirebaseToken, attachDbUser, async (req, res) => {
   try {
-    const { mapData } = req.body;
+    const { mapData, mapName } = req.body;
     const userId = req.user.user_id;
 
     if (!mapData) {
@@ -108,9 +108,9 @@ router.post('/', verifyFirebaseToken, attachDbUser, async (req, res) => {
       });
     }
 
-    logger.info('Saving custom map', { userId });
+    logger.info('Saving custom map', { userId, mapName });
 
-    const result = await customMapService.saveCustomMap(mapData, userId);
+    const result = await customMapService.saveCustomMap(mapData, userId, mapName);
 
     if (!result.success) {
       return res.status(500).json({
