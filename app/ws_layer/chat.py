@@ -311,7 +311,13 @@ class MessagePipeline:
                 sender = await get_user_by_id(message.sender_id)
                 if sender:
                     event.payload["user_name"] = sender.get("user_name", "Unknown")
-                await ws_manager.space_updates.put(event.to_dict())
+                if hasattr(ws_manager, "async_enqueue_update"):
+                    await ws_manager.async_enqueue_update(
+                        event.to_dict(),
+                        source_event="send_chat_message",
+                    )
+                else:
+                    await ws_manager.space_updates.put(event.to_dict())
                 logger.info(f"Space message {message.message_id} queued for space {message.space_id}")
             else:
                 event = UserEvent(

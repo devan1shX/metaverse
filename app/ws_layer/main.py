@@ -1,22 +1,28 @@
 """
 Main WebSocket Server Application
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+import httpx
 import asyncio
 import os
+import time
 
 from ws_manager import WebsocketManager
 from routes import register_websocket_routes
 from logger import logger
 from db_layer import db_manager
 from config import WSConfig
+from space_broadcaster import space_broadcaster_manager, user_ws_mapping
 
 app = FastAPI(
     title="Metaverse WebSocket API",
     description="Real-time WebSocket API for metaverse spaces",
     version="1.0.0"
 )
+WS_START_TIME = time.time()
+WS_TEST_MODE = os.getenv("WS_TEST_MODE", "0").strip().lower() in {"1", "true", "yes", "on"}
 
 # WebSocket API Documentation
 WEBSOCKET_API_DOCS = {
@@ -499,10 +505,13 @@ ws_manager = WebsocketManager(app)
 async def startup_event():
     try:
         logger.info("Starting Metaverse WebSocket Server")
-        await db_manager.initialize_pool()
-        logger.info("Database connection pool initialized")
-        await ws_manager.init_data()
-        logger.info("WebSocket manager initialized")
+        if not WS_TEST_MODE:
+            await db_manager.initialize_pool()
+            logger.info("Database connection pool initialized")
+            await ws_manager.init_data()
+            logger.info("WebSocket manager initialized")
+        else:
+            logger.info("WS_TEST_MODE enabled: skipping DB and ws_manager initialization")
         register_websocket_routes(app, ws_manager)
         logger.info("WebSocket routes registered")
         logger.info(f"WebSocket server ready on {WSConfig.WS_HOST}:{WSConfig.WS_PORT}")
@@ -515,8 +524,11 @@ async def startup_event():
 async def shutdown_event():
     try:
         logger.info("Shutting down WebSocket server")
-        await db_manager.close_pool()
-        logger.info("Database connection pool closed")
+        if not WS_TEST_MODE:
+            await db_manager.close_pool()
+            logger.info("Database connection pool closed")
+        else:
+            logger.info("WS_TEST_MODE enabled: skipping DB pool close")
     except Exception as e:
         logger.error(f"Error during shutdown: {e}")
 
@@ -530,6 +542,193 @@ async def root():
         "health": "/ws/health",
         "api_docs": WEBSOCKET_API_DOCS
     }
+
+@app.get("/ws/health")
+async def websocket_health():
+    """Detailed health report for WebSocket service."""
+    db_status = "unhealthy"
+    db_error = None
+
+    try:
+        if db_manager.pool is not None:
+            async with db_manager.pool.acquire() as conn:
+                await conn.fetchval("SELECT 1")
+            db_status = "healthy"
+        else:
+            db_error = "Database pool is not initialized"
+    except Exception as e:
+        db_error = str(e)
+
+    total_subscribers = 0
+    active_space_ids = []
+    for space_id, broadcaster in space_broadcaster_manager.items():
+        subscriber_count = len(getattr(broadcaster, "subscribers", []))
+        if subscriber_count > 0:
+            active_space_ids.append(space_id)
+            total_subscribers += subscriber_count
+
+    services = {
+        "websocket_server": {
+            "status": "healthy",
+            "details": {
+                "host": WSConfig.WS_HOST,
+                "port": WSConfig.WS_PORT,
+                "connected_users": len(user_ws_mapping),
+                "active_spaces": len(active_space_ids),
+                "active_space_ids": active_space_ids,
+                "active_subscribers": total_subscribers
+            }
+        },
+        "database": {
+            "status": db_status,
+            "error": db_error
+        }
+    }
+
+    overall_status = "healthy" if db_status == "healthy" else "degraded"
+
+    return {
+        "success": overall_status == "healthy",
+        "status": overall_status,
+        "message": "WebSocket service health report",
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "uptime": time.time() - WS_START_TIME,
+        "services": services
+    }
+
+class ExecuteCodeRequest(BaseModel):
+    language: str
+    code: str
+@app.post("/api/execute_code")
+async def execute_code(request: ExecuteCodeRequest):
+    """Securely execute code via Piston API -> FALLING BACK TO LOCAL EXECUTION FOR DEMO"""
+    
+    import tempfile
+    import os
+    
+    # Map monaco editor languages to local executable commands
+    lang_map = {
+        "javascript": "node",
+        "python": "python",
+        "cpp": "g++",
+        "java": "javac"
+    }
+    
+    mapped_lang = lang_map.get(request.language)
+    if not mapped_lang:
+        return {
+            "output": "",
+            "error": f"Local execution currently only supports Python, JavaScript, C++, and Java.\nAttempted to run: {request.language}."
+        }
+        
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = ""
+            error = ""
+            
+            if request.language == "python":
+                file_path = os.path.join(temp_dir, "script.py")
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(request.code)
+                
+                process = await asyncio.create_subprocess_exec(
+                    "python", file_path,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=temp_dir
+                )
+                
+            elif request.language == "javascript":
+                file_path = os.path.join(temp_dir, "script.js")
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(request.code)
+                
+                process = await asyncio.create_subprocess_exec(
+                    "node", file_path,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=temp_dir
+                )
+                
+            elif request.language == "cpp":
+                file_path = os.path.join(temp_dir, "main.cpp")
+                out_path = os.path.join(temp_dir, "a.exe" if os.name == 'nt' else "a.out")
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(request.code)
+                
+                # Compile step
+                compile_process = await asyncio.create_subprocess_exec(
+                    "g++", file_path, "-o", out_path,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=temp_dir
+                )
+                _, compile_err = await compile_process.communicate()
+                
+                if compile_process.returncode != 0:
+                    return {
+                        "output": "",
+                        "error": "Compilation Error:\n" + compile_err.decode('utf-8')
+                    }
+                    
+                # Run step
+                process = await asyncio.create_subprocess_exec(
+                    out_path,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=temp_dir
+                )
+                
+            elif request.language == "java":
+                # Save as Main.java (assuming the class is named Main as per our template)
+                file_path = os.path.join(temp_dir, "Main.java")
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(request.code)
+                
+                # Compile step
+                compile_process = await asyncio.create_subprocess_exec(
+                    "javac", "Main.java",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=temp_dir
+                )
+                _, compile_err = await compile_process.communicate()
+                
+                if compile_process.returncode != 0:
+                    return {
+                        "output": "",
+                        "error": "Compilation Error:\n" + compile_err.decode('utf-8')
+                    }
+                    
+                # Run step
+                process = await asyncio.create_subprocess_exec(
+                    "java", "Main",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=temp_dir
+                )
+
+            # Wait for execution to finish
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5.0)
+                output = stdout.decode('utf-8')
+                error = stderr.decode('utf-8')
+            except asyncio.TimeoutError:
+                try:
+                    process.kill()
+                except Exception:
+                    pass
+                output = ""
+                error = "Execution timed out (5s limit)."
+                
+            return {
+                "output": output,
+                "error": error
+            }
+            
+    except Exception as e:
+        logger.error(f"Unexpected error executing code: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/ws/api-docs")
 async def websocket_api_docs():

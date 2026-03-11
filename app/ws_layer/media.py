@@ -86,6 +86,12 @@ class MediaManager:
         }
         
         logger.info("MediaManager initialized")
+
+    async def _queue_space_update(self, payload: Dict[str, Any], source_event: str) -> None:
+        if hasattr(self.ws_manager, "async_enqueue_update"):
+            await self.ws_manager.async_enqueue_update(payload, source_event=source_event)
+            return
+        await self.ws_manager.space_updates.put(payload)
     
     # ========================================
     # Audio Stream Management
@@ -136,14 +142,14 @@ class MediaManager:
             user_name = user.get('user_name', 'Unknown') if user else 'Unknown'
             
             # Broadcast to space via queue
-            await self.ws_manager.space_updates.put({
+            await self._queue_space_update({
                 "event": "AUDIO_STREAM_STARTED",
                 "user_id": user_id,
                 "user_name": user_name,
                 "space_id": space_id,
                 "stream_id": stream_id,
                 "timestamp": stream.timestamp
-            })
+            }, "start_audio_stream")
             
             # Update stats
             self.stats["total_audio_streams"] += 1
@@ -174,14 +180,14 @@ class MediaManager:
             user = self.ws_manager.users.get(user_id)
             user_name = user.get('user_name', 'Unknown') if user else 'Unknown'
             
-            await self.ws_manager.space_updates.put({
+            await self._queue_space_update({
                 "event": "AUDIO_STREAM_STOPPED",
                 "user_id": user_id,
                 "user_name": user_name,
                 "space_id": space_id,
                 "stream_id": stream_id,
                 "timestamp": asyncio.get_event_loop().time()
-            })
+            }, "stop_audio_stream")
             
             self.stats["active_audio"] = sum(len(streams) for streams in self.active_audio_streams.values())
             logger.info(f"Audio stream stopped: {stream_id}")
@@ -204,13 +210,13 @@ class MediaManager:
             user = self.ws_manager.users.get(user_id)
             user_name = user.get('user_name', 'Unknown') if user else 'Unknown'
             
-            await self.ws_manager.space_updates.put({
+            await self._queue_space_update({
                 "event": "AUDIO_MUTED",
                 "user_id": user_id,
                 "user_name": user_name,
                 "space_id": space_id,
                 "timestamp": asyncio.get_event_loop().time()
-            })
+            }, "stop_audio_stream")
             
             logger.info(f"Audio muted for user {user_id} in space {space_id}")
             return True, "Audio muted"
@@ -232,13 +238,13 @@ class MediaManager:
             user = self.ws_manager.users.get(user_id)
             user_name = user.get('user_name', 'Unknown') if user else 'Unknown'
             
-            await self.ws_manager.space_updates.put({
+            await self._queue_space_update({
                 "event": "AUDIO_UNMUTED",
                 "user_id": user_id,
                 "user_name": user_name,
                 "space_id": space_id,
                 "timestamp": asyncio.get_event_loop().time()
-            })
+            }, "start_audio_stream")
             
             logger.info(f"Audio unmuted for user {user_id} in space {space_id}")
             return True, "Audio unmuted"
@@ -285,14 +291,14 @@ class MediaManager:
             user = self.ws_manager.users.get(user_id)
             user_name = user.get('user_name', 'Unknown') if user else 'Unknown'
             
-            await self.ws_manager.space_updates.put({
+            await self._queue_space_update({
                 "event": "VIDEO_STREAM_STARTED",
                 "user_id": user_id,
                 "user_name": user_name,
                 "space_id": space_id,
                 "stream_id": stream_id,
                 "timestamp": stream.timestamp
-            })
+            }, "start_video_stream")
             
             self.stats["total_video_streams"] += 1
             self.stats["active_video"] = sum(len(streams) for streams in self.active_video_streams.values())
@@ -322,14 +328,14 @@ class MediaManager:
             user = self.ws_manager.users.get(user_id)
             user_name = user.get('user_name', 'Unknown') if user else 'Unknown'
             
-            await self.ws_manager.space_updates.put({
+            await self._queue_space_update({
                 "event": "VIDEO_STREAM_STOPPED",
                 "user_id": user_id,
                 "user_name": user_name,
                 "space_id": space_id,
                 "stream_id": stream_id,
                 "timestamp": asyncio.get_event_loop().time()
-            })
+            }, "stop_video_stream")
             
             self.stats["active_video"] = sum(len(streams) for streams in self.active_video_streams.values())
             logger.info(f"Video stream stopped: {stream_id}")
@@ -381,14 +387,14 @@ class MediaManager:
             user = self.ws_manager.users.get(user_id)
             user_name = user.get('user_name', 'Unknown') if user else 'Unknown'
             
-            await self.ws_manager.space_updates.put({
+            await self._queue_space_update({
                 "event": "SCREEN_STREAM_STARTED",
                 "user_id": user_id,
                 "user_name": user_name,
                 "space_id": space_id,
                 "stream_id": stream_id,
                 "timestamp": stream.timestamp
-            })
+            }, "start_screen_stream")
             
             logger.info(f"Screen stream started: {stream_id} for user {user_id} in space {space_id}")
             return True, stream_id
@@ -415,14 +421,14 @@ class MediaManager:
             user = self.ws_manager.users.get(user_id)
             user_name = user.get('user_name', 'Unknown') if user else 'Unknown'
             
-            await self.ws_manager.space_updates.put({
+            await self._queue_space_update({
                 "event": "SCREEN_STREAM_STOPPED",
                 "user_id": user_id,
                 "user_name": user_name,
                 "space_id": space_id,
                 "stream_id": stream_id,
                 "timestamp": asyncio.get_event_loop().time()
-            })
+            }, "stop_screen_stream")
             
             logger.info(f"Screen stream stopped: {stream_id}")
             return True, stream_id

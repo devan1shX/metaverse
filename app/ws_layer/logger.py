@@ -75,8 +75,15 @@ def setup_logger(
     # Remove existing handlers to avoid duplicates
     logger.handlers.clear()
     
-    # Format for logs - include filename and function if requested
-    log_format_parts = ['%(asctime)s', '%(levelname)s', '%(name)s']
+    # Format for logs - include filename, function and line number if requested
+    # We always add a plain "pathname:lineno" segment first so editors/IDEs can
+    # detect and make it clickable, even though we colorize filename/funcName.
+    log_format_parts = [
+        '%(asctime)s',
+        '%(levelname)s',
+        '%(name)s',
+        '%(filename)s:%(lineno)d',
+    ]
     
     if include_filename and include_function:
         log_format_parts.append('%(filename)s%(funcName)s')

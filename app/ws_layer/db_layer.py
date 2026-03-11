@@ -4,8 +4,10 @@ import os
 import asyncio
 import asyncpg
 import logging
+from functools import wraps
 from typing import Optional, List, Dict, Any
 import json
+from latency import elapsed_ms, perf_now, record_duration
 
 dotenv.load_dotenv()
 
@@ -20,7 +22,7 @@ class DatabaseManager:
         try:
             self.pool = await asyncpg.create_pool(
                 host=os.getenv('DB_HOST', 'localhost'),
-                port=int(os.getenv('DB_PORT', 5433)),
+                port=int(os.getenv('DB_PORT', 5432)),
                 user=os.getenv('DB_USER', 'postgres'),
                 password=os.getenv('DB_PASSWORD', 'aahan123'),
                 database=os.getenv('DATABASE', 'postgres'),
@@ -48,6 +50,19 @@ class DatabaseManager:
 # Global database manager instance
 db_manager = DatabaseManager()
 
+
+def profile_db_call(operation_name: str):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            start = perf_now()
+            try:
+                return await func(*args, **kwargs)
+            finally:
+                record_duration("db", f"db_{operation_name}", elapsed_ms(start))
+        return wrapper
+    return decorator
+
 async def get_async_db():
     """Legacy function for backward compatibility"""
     return await db_manager.get_connection()
@@ -60,6 +75,7 @@ def get_db_pool():
 # ## Space-related database functions
 # ###################################
 
+@profile_db_call("get_space_by_id")
 async def get_space_by_id(space_id: str) -> Optional[Dict[str, Any]]:
     """Get complete space information by ID"""
     try:
@@ -113,6 +129,7 @@ async def get_space_by_id(space_id: str) -> Optional[Dict[str, Any]]:
         logger.error(f"Error getting space by ID {space_id}: {e}")
         return None
 
+@profile_db_call("get_user_by_id")
 async def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
     """Get user information by ID"""
     try:
@@ -126,6 +143,7 @@ async def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
         logger.error(f"Error getting user by ID {user_id}: {e}")
         return None
 
+@profile_db_call("add_user_to_space")
 async def add_user_to_space(user_id: str, space_id: str) -> bool:
     """Add user to space in database"""
     try:
@@ -166,6 +184,7 @@ async def add_user_to_space(user_id: str, space_id: str) -> bool:
         logger.error(f"Error adding user {user_id} to space {space_id}: {e}")
         return False
 
+@profile_db_call("remove_user_from_space")
 async def remove_user_from_space(user_id: str, space_id: str) -> bool:
     """Remove user from space in database"""
     try:
@@ -197,6 +216,7 @@ async def remove_user_from_space(user_id: str, space_id: str) -> bool:
         logger.error(f"Error removing user {user_id} from space {space_id}: {e}")
         return False
 
+@profile_db_call("get_users_in_space")
 async def get_users_in_space(space_id: str) -> List[Dict[str, Any]]:
     """Get all users currently in a space"""
     try:
@@ -221,6 +241,7 @@ async def get_users_in_space(space_id: str) -> List[Dict[str, Any]]:
         logger.error(f"Error getting users in space {space_id}: {e}")
         return []
 
+@profile_db_call("get_user_spaces")
 async def get_user_spaces(user_id: str) -> List[Dict[str, Any]]:
     """Get all spaces a user is part of"""
     try:
@@ -243,6 +264,7 @@ async def get_user_spaces(user_id: str) -> List[Dict[str, Any]]:
         logger.error(f"Error getting spaces for user {user_id}: {e}")
         return []
 
+@profile_db_call("verify_user_access_to_space")
 async def verify_user_access_to_space(user_id: str, space_id: str) -> bool:
     """Verify if user has access to a space"""
     try:
@@ -265,6 +287,7 @@ async def verify_user_access_to_space(user_id: str, space_id: str) -> bool:
         return False
 
 # Legacy functions for backward compatibility
+@profile_db_call("get_all_spaces")
 async def get_all_spaces():
     """Get all space IDs"""
     try:
@@ -275,6 +298,7 @@ async def get_all_spaces():
         logger.error(f"Error getting all spaces: {e}")
         return []
 
+@profile_db_call("get_all_users")
 async def get_all_users():
     """Get all user IDs"""
     try:
@@ -284,3 +308,39 @@ async def get_all_users():
     except Exception as e:
         logger.error(f"Error getting all users: {e}")
         return []
+
+
+# ###################################
+# ## Whiteboard-related database functions
+# ###################################
+
+@profile_db_call("get_whiteboard_state")
+async def get_whiteboard_state(space_id: str) -> str:
+    """Get the persisted whiteboard state (JSON string) for a space"""
+    try:
+        async with db_manager.pool.acquire() as conn:
+            result = await conn.fetchrow(
+                "SELECT whiteboard_state FROM spaces WHERE id = $1",
+                space_id
+            )
+            if result and result['whiteboard_state']:
+                return result['whiteboard_state']
+            return '[]'
+    except Exception as e:
+        logger.error(f"Error getting whiteboard state for space {space_id}: {e}")
+        return '[]'
+
+
+@profile_db_call("save_whiteboard_state")
+async def save_whiteboard_state(space_id: str, state_json: str) -> bool:
+    """Persist the whiteboard state (JSON string) for a space"""
+    try:
+        async with db_manager.pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE spaces SET whiteboard_state = $1 WHERE id = $2",
+                state_json, space_id
+            )
+            return True
+    except Exception as e:
+        logger.error(f"Error saving whiteboard state for space {space_id}: {e}")
+        return False

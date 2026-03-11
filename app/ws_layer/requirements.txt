@@ -12,3 +12,4 @@ websockets
 uvicorn
 redis
 aioredis
+httpx
