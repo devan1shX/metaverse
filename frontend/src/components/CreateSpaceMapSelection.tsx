@@ -36,6 +36,13 @@ const defaultMaps = [
     image: '/images/space-2.png',
     useCase: "conference",
   },
+  {
+    id: "dynamic-office",
+    title: "Generate Custom Office",
+    description: "Tell us your team size and we will perfectly scale the office specifically for you.",
+    image: "/images/space-3.png", 
+    useCase: "remote-office",
+  }
 ];
 
 export default function CreateSpaceMapSelection({
@@ -89,23 +96,26 @@ export default function CreateSpaceMapSelection({
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.5, ease: "easeInOut" }}
+      transition={{ type: "spring", stiffness: 240, damping: 28 }}
       className="w-full max-w-4xl"
     >
       <div className="text-center mb-8">
-        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Choose a Map</h1>
-        <p className="text-gray-600">Select a default map or use your custom map.</p>
+        <p className="surface-label mb-3">Map Selection</p>
+        <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] mb-2">Choose a Map</h1>
+        <p className="text-[var(--text-muted)]">Select a default map or use your custom map.</p>
       </div>
 
       {/* Default Maps Section */}
       <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Default Maps</h2>
+        <h2 className="mb-4 font-display text-2xl font-semibold tracking-[-0.04em] text-[var(--text-primary)]">Default Maps</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {defaultMaps.map((map) => (
             <div 
               key={map.id}
-              className={`card p-4 cursor-pointer transition-all hover:shadow-lg ${
-                selectedMapId === map.id ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+              className={`card card-hover cursor-pointer p-4 ${
+                selectedMapId === map.id
+                  ? "border-[rgba(239,188,130,0.28)] bg-[rgba(215,163,102,0.08)]"
+                  : ""
               }`}
               onClick={() => setSelectedMapId(map.id)}
             >
@@ -117,8 +127,8 @@ export default function CreateSpaceMapSelection({
                   style={{ objectFit: 'cover' }}
                 />
               </div>
-              <h3 className="font-bold text-gray-900 mb-1">{map.title}</h3>
-              <p className="text-gray-600 text-sm">{map.description}</p>
+              <h3 className="mb-1 font-display text-xl font-semibold tracking-[-0.03em] text-[var(--text-primary)]">{map.title}</h3>
+              <p className="text-sm text-[var(--text-muted)]">{map.description}</p>
             </div>
           ))}
         </div>
@@ -127,22 +137,24 @@ export default function CreateSpaceMapSelection({
       {/* Custom Maps Section */}
       {loading ? (
         <div className="text-center py-8">
-          <div className="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-600 mt-2">Loading custom maps...</p>
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-[var(--accent)] border-t-transparent"></div>
+          <p className="mt-2 text-[var(--text-muted)]">Loading custom maps...</p>
         </div>
       ) : customMaps.length > 0 ? (
         <div className="mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Your Custom Maps</h2>
+          <h2 className="mb-4 font-display text-2xl font-semibold tracking-[-0.04em] text-[var(--text-primary)]">Your Custom Maps</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {customMaps.map((map) => (
               <div 
                 key={map.mapId}
-                className={`card p-4 cursor-pointer transition-all hover:shadow-lg ${
-                  selectedMapId === map.mapId ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+                className={`card card-hover cursor-pointer p-4 ${
+                  selectedMapId === map.mapId
+                    ? "border-[rgba(239,188,130,0.28)] bg-[rgba(215,163,102,0.08)]"
+                    : ""
                 }`}
                 onClick={() => setSelectedMapId(map.mapId)}
               >
-                <div className="aspect-video w-full rounded-lg overflow-hidden mb-3 relative bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center">
+                <div className="relative mb-3 aspect-video w-full overflow-hidden rounded-lg border border-white/8 bg-[rgba(255,255,255,0.03)] flex items-center justify-center">
                   {map.thumbnailUrl ? (
                     <Image
                         src={map.thumbnailUrl}
@@ -151,21 +163,21 @@ export default function CreateSpaceMapSelection({
                         style={{ objectFit: 'cover' }}
                     />
                   ) : (
-                    <Map className="w-16 h-16 text-purple-400" />
+                    <Map className="h-14 w-14 text-[var(--accent)]" />
                   )}
                 </div>
-                <h3 className="font-bold text-gray-900 mb-1">{map.name}</h3>
-                <p className="text-gray-600 text-sm">{map.width}x{map.height} tiles</p>
-                <p className="text-gray-500 text-xs mt-1">Created: {new Date(map.createdAt).toLocaleDateString()}</p>
+                <h3 className="mb-1 font-display text-xl font-semibold tracking-[-0.03em] text-[var(--text-primary)]">{map.name}</h3>
+                <p className="text-sm text-[var(--text-muted)]">{map.width}x{map.height} tiles</p>
+                <p className="mt-1 text-xs text-[var(--text-soft)]">Created: {new Date(map.createdAt).toLocaleDateString()}</p>
               </div>
             ))}
           </div>
         </div>
       ) : (
-        <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-          <Map className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-600 font-medium">No custom maps yet</p>
-          <p className="text-gray-500 text-sm mt-1">Create maps in the Map Editor to see them here!</p>
+        <div className="rounded-[24px] border border-dashed border-white/12 bg-white/[0.03] py-8 text-center">
+          <Map className="mx-auto mb-3 h-12 w-12 text-[var(--text-soft)]" />
+          <p className="font-medium text-[var(--text-secondary)]">No custom maps yet</p>
+          <p className="mt-1 text-sm text-[var(--text-soft)]">Create maps in the Map Editor to see them here.</p>
         </div>
       )}
 

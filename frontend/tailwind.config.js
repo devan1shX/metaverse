@@ -40,7 +40,8 @@ module.exports = {
         }
       },
       fontFamily: {
-        'sans': ['Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', '"Noto Sans"', 'sans-serif'],
+        sans: ['var(--font-body)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'var(--font-body)', 'sans-serif'],
       },
       boxShadow: {
         'soft-light': '0px 8px 40px rgba(0, 0, 0, 0.05)',

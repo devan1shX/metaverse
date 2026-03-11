@@ -22,9 +22,9 @@ export default function MapEditorPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      {/* Header removed for full-screen editor experience */}
-      <div className="flex-1 overflow-hidden">
+    <div className="page-shell h-screen overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(215,163,102,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.06),transparent_24%)]" />
+      <div className="relative flex h-full flex-col overflow-hidden">
         <MapEditor />
       </div>
     </div>

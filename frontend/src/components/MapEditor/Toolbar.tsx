@@ -7,29 +7,29 @@ interface ToolbarProps {
 
 export default function Toolbar({ currentTool, onToolChange }: ToolbarProps) {
   return (
-    <div className="bg-white border-t border-gray-200 p-3 shadow-sm">
+    <div className="glass-bar rounded-[24px] p-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-600 font-semibold">Tools:</span>
+          <span className="surface-label">Tools</span>
           <button
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${
               currentTool === "brush"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                ? "border-[rgba(239,188,130,0.28)] bg-[rgba(215,163,102,0.16)] text-[var(--accent-strong)]"
+                : "border-[var(--border-default)] bg-white/5 text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
             }`}
             onClick={() => onToolChange("brush")}
           >
-            🖌️ Brush
+            Brush
           </button>
           <button
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${
               currentTool === "eraser"
-                ? "bg-red-600 text-white shadow-sm"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                ? "border-[rgba(239,124,120,0.24)] bg-[var(--danger-soft)] text-[var(--danger)]"
+                : "border-[var(--border-default)] bg-white/5 text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
             }`}
             onClick={() => onToolChange("eraser")}
           >
-            🧹 Eraser
+            Eraser
           </button>
         </div>
       </div>

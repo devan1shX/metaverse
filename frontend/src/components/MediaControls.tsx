@@ -30,19 +30,26 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
   }, [localStream, mediaState.isVideoEnabled]);
 
   return (
-    <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-2 z-50">
+    <div className="fixed bottom-8 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2">
       {/* Error Message */}
       {error && (
-        <div className="bg-red-500/90 backdrop-blur-sm text-white text-sm px-4 py-2 rounded-lg shadow-lg mb-2 max-w-xs text-center animate-fade-in">
+        <div
+          className="max-w-xs rounded-full px-4 py-2 text-center text-sm shadow-lg"
+          style={{
+            background: "rgba(20, 27, 38, 0.92)",
+            border: "1px solid rgba(239, 124, 120, 0.22)",
+            color: "var(--danger)",
+          }}
+        >
           {error}
         </div>
       )}
       
-      <div className="flex items-center gap-4 bg-black/50 backdrop-blur-md p-4 rounded-full shadow-lg transition-all duration-300">
+      <div className="glass-bar flex items-center gap-3 rounded-full p-3 transition-all duration-300">
       {/* Local Video Preview - Shows when video is on */}
       <div 
-        className={`relative bg-gray-900 rounded-lg overflow-hidden transition-all duration-300 ease-in-out
-          ${mediaState.isVideoEnabled ? 'w-32 h-24 opacity-100 mr-2' : 'w-0 h-0 opacity-0 mr-0'}`}
+        className={`relative overflow-hidden rounded-2xl border border-white/8 bg-black/40 transition-all duration-300 ease-in-out
+          ${mediaState.isVideoEnabled ? 'mr-2 h-24 w-32 opacity-100' : 'mr-0 h-0 w-0 opacity-0'}`}
       >
         <video
           ref={videoRef}
@@ -54,13 +61,13 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
       </div>
 
       {/* Controls */}
-      <div className="flex gap-4">
+      <div className="flex gap-3">
         <button
           onClick={toggleAudio}
-          className={`p-4 rounded-full transition-all duration-200 shadow-md ${
+          className={`floating-control ${
             mediaState.isAudioEnabled
-              ? 'bg-gray-700 hover:bg-gray-600 text-white'
-              : 'bg-red-500 hover:bg-red-600 text-white ring-2 ring-red-400/50'
+              ? ''
+              : 'border-[rgba(239,124,120,0.24)] bg-[rgba(239,124,120,0.16)] text-[var(--danger)]'
           }`}
           title={mediaState.isAudioEnabled ? "Mute Microphone" : "Unmute Microphone"}
         >
@@ -69,10 +76,10 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
 
         <button
           onClick={toggleVideo}
-          className={`p-4 rounded-full transition-all duration-200 shadow-md ${
+          className={`floating-control ${
             mediaState.isVideoEnabled
-              ? 'bg-gray-700 hover:bg-gray-600 text-white'
-              : 'bg-red-500 hover:bg-red-600 text-white ring-2 ring-red-400/50'
+              ? ''
+              : 'border-[rgba(239,124,120,0.24)] bg-[rgba(239,124,120,0.16)] text-[var(--danger)]'
           }`}
           title={mediaState.isVideoEnabled ? "Turn Off Camera" : "Turn On Camera"}
         >
@@ -81,10 +88,10 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
 
         <button
           onClick={mediaState.isScreenSharing ? stopScreenShare : onOpenScreenShare}
-          className={`p-4 rounded-full transition-all duration-200 shadow-md ${
+          className={`floating-control ${
             mediaState.isScreenSharing
-              ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/30 ring-2 ring-indigo-400'
-              : 'bg-gray-700 hover:bg-gray-600 text-white'
+              ? 'floating-control-active'
+              : ''
           }`}
           title={mediaState.isScreenSharing ? "Stop Sharing" : "Share Screen"}
         >
@@ -95,4 +102,3 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
     </div>
   );
 };
-

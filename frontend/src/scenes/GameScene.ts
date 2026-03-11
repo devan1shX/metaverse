@@ -22,6 +22,12 @@ export class GameScene extends Phaser.Scene {
   private currentOverlappingChair: any = null;
   private playerVideos: Map<string, Phaser.GameObjects.DOMElement> = new Map();
   private screenVideos: Map<string, Phaser.GameObjects.DOMElement> = new Map();
+  private isInputDisabled: boolean = false;
+
+  // Interactive Zones mapping
+  private interactiveZones: { type: 'CodeEditor' | 'WhiteBoard'; x: number; y: number }[] = [];
+  private nearestZone: { type: 'CodeEditor' | 'WhiteBoard'; x: number; y: number } | null = null;
+  private lastNearestZoneType: 'CodeEditor' | 'WhiteBoard' | null = null;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -36,7 +42,10 @@ export class GameScene extends Phaser.Scene {
     let spritesheetUrl = '/sprites/avatar-2-spritesheet.png';
     let avatarType = 'avatar-2';
 
-    if (baseAvatarUrl.includes('avatar-1')) {
+    if (baseAvatarUrl.includes('custom')) {
+      spritesheetUrl = baseAvatarUrl;
+      avatarType = 'custom';
+    } else if (baseAvatarUrl.includes('avatar-1')) {
       spritesheetUrl = '/sprites/avatar-1-spritesheet.png';
       avatarType = 'avatar-1';
     } else if (baseAvatarUrl.includes('avatar-2')) {
@@ -61,9 +70,11 @@ export class GameScene extends Phaser.Scene {
     // Check if this is a custom map
     const isCustomMap = this.mapId.startsWith('custom-');
 
-    if (isCustomMap) {
-      // --- CUSTOM DYNAMIC LOADING ---
+    if (isCustomMap || this.mapId.startsWith('dynamic-')) {
+      // --- CUSTOM / DYNAMIC LOADING ---
       const mapJsonPath = `/maps/custom/${this.mapId}.json`;
+      // In case we don't have a static file for this dynamic id, we might need an API call.
+      // Assuming for now the backend provides the map json via this path.
       console.log(`Loading custom map JSON: ${mapJsonPath}`);
 
       this.load.json('mapData', mapJsonPath);
@@ -115,6 +126,46 @@ export class GameScene extends Phaser.Scene {
         this.load.image("Idle (32x32)", "/maps/map1/assets/Idle (32x32).png");
         this.load.tilemapTiledJSON("map", "/maps/map1/office-01.json");
 
+      } else if (this.mapId === 'interview-room') {
+        console.log("Loading map: interview-room (map3)");
+        this.load.image("m3_VictorianWallConsolidationGreytop", "/maps/map3/assets/VictorianWallConsolidationGreytop.png");
+        this.load.image("m3_Little_Bits_Office_Floors", "/maps/map3/assets/Little_Bits_Office_Floors.png");
+        this.load.image("m3_table_fancy_3x3_mediumwood", "/maps/map3/assets/table_fancy_3x3_mediumwood.png");
+        this.load.image("m3_EamesChair", "/maps/map3/assets/EamesChair.png");
+        this.load.image("m3_Chair_set", "/maps/map3/assets/Chair_set.png");
+        this.load.image("m3_chair_neonoir", "/maps/map3/assets/chair_neonoir.png");
+        this.load.image("m3_laptop", "/maps/map3/assets/laptop.png");
+        this.load.image("m3_papers", "/maps/map3/assets/papers.png");
+        this.load.image("m3_water_bottle", "/maps/map3/assets/water_bottle.png");
+        this.load.image("m3_solo_cup", "/maps/map3/assets/solo cup.png");
+        this.load.image("m3_office_filecabinets", "/maps/map3/assets/office_filecabinets.png");
+        this.load.image("m3_cat-tail_willow_red", "/maps/map3/assets/cat-tail_willow_red.png");
+        this.load.image("m3_table_coffee", "/maps/map3/assets/table_coffee.png");
+        this.load.image("m3_books_stack", "/maps/map3/assets/books stack [1x2].png");
+        this.load.image("m3_book", "/maps/map3/assets/book [1x1].png");
+        this.load.image("m3_document_sepia", "/maps/map3/assets/document sepia [1x1].png");
+        this.load.image("m3_succulent_blue", "/maps/map3/assets/succulent_blue [1x1].png");
+        this.load.image("m3_water_cooler", "/maps/map3/assets/water_cooler.png");
+        this.load.image("m3_trashcan_w_lid", "/maps/map3/assets/trashcan_w_lid.png");
+        this.load.image("m3_wallclock_white", "/maps/map3/assets/wallclock_white.png");
+        this.load.image("m3_globe_blue_0", "/maps/map3/assets/globe_blue_0.png");
+        this.load.image("m3_poster_7", "/maps/map3/assets/poster_7 [3x2].png");
+        this.load.image("m3_dresser_wood_left", "/maps/map3/assets/dresser_wood_left [1x2].png");
+        this.load.image("m3_plant_spiky", "/maps/map3/assets/plant_spiky [1x2].png");
+        this.load.image("m3_file_pdf", "/maps/map3/assets/file pdf [1x1].png");
+        this.load.image("m3_quill", "/maps/map3/assets/quill.png");
+        this.load.image("m3_shelf_ikea_v2", "/maps/map3/assets/shelf_ikea_v2.png");
+        this.load.image("m3_cabinet_corner_darkwood_left", "/maps/map3/assets/cabinet_corner_darkwood_left.png");
+        this.load.image("m3_whiteboard", "/maps/map3/assets/whiteboard.png");
+        this.load.image("m3_dresser_2x2_black_right", "/maps/map3/assets/dresser_2x2_black_right.png");
+        this.load.image("m3_cyberpunk", "/maps/map3/assets/cyberpunk.png");
+        this.load.image("m3_welcome_mat", "/maps/map3/assets/welcome mat [4ishx2].png");
+        this.load.image("m3_Rugs", "/maps/map3/assets/Rugs[5x5].png");
+        this.load.image("m3_banner_ox", "/maps/map3/assets/banner_ox [1x2].png");
+        // Also load Green for background (same grass tile as map1/map2)
+        this.load.image("Green", "/maps/map1/assets/Green.png");
+        this.load.tilemapTiledJSON("interview-room", "/maps/map3/interview-room.json");
+
       } else {
         console.log("Loading legacy map: office-02 (or default)");
         this.load.image("cabinet", "/maps/map2/assets/cabinet.png");
@@ -151,10 +202,23 @@ export class GameScene extends Phaser.Scene {
       frameHeight: 48,
     });
 
+    // Custom Layered Avatars
+    this.load.spritesheet('metro-base', '/avatars/MetroCity/CharacterModel/Character Model.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('metro-hair', '/avatars/MetroCity/Hair/Hairs.png', { frameWidth: 32, frameHeight: 32 });
+    for (let i = 1; i <= 6; i++) {
+        this.load.spritesheet(`metro-outfit-${i}`, `/avatars/MetroCity/Outfits/Outfit${i}.png`, { frameWidth: 32, frameHeight: 32 });
+    }
+
     if (this.mainPlayerAvatarKey !== 'avatar-default' && this.mainPlayerAvatarUrl) {
       if (!this.textures.exists(this.mainPlayerAvatarKey)) {
         let frameWidth = 48;
         let frameHeight = 48;
+
+        if (this.mainPlayerAvatarUrl.includes('custom')) {
+            // It's a custom avatar URL, we don't load a monolithic spritesheet here 
+            // because the individual layers are preloaded above.
+            return;
+        }
 
         if (this.mainPlayerAvatarUrl.includes('avatar-4')) {
           frameWidth = 32;
@@ -179,7 +243,51 @@ export class GameScene extends Phaser.Scene {
       allowGravity: false,
     });
 
-    const map = this.make.tilemap({ key: 'map' });
+    // Determine tilemap key (interview-room uses its own key; others including custom maps use 'map')
+    let tilemapKey = 'map';
+    if (this.mapId === 'interview-room') tilemapKey = 'interview-room';
+    
+    // For custom maps, the preload function loads the JSON as 'map' key in `load.tilemapTiledJSON('map', data)`
+    const map = this.make.tilemap({ key: tilemapKey });
+
+    // For interview-room, Tiled tileset names differ from Phaser cache keys (m3_ prefix)
+    // Build a lookup: tilesetName -> cacheKey
+    const m3TilesetKeyMap: Record<string, string> = {
+      'VictorianWallConsolidationGreytop': 'm3_VictorianWallConsolidationGreytop',
+      'Little_Bits_Office_Floors': 'm3_Little_Bits_Office_Floors',
+      'table_fancy_3x3_mediumwood': 'm3_table_fancy_3x3_mediumwood',
+      'EamesChair': 'm3_EamesChair',
+      'Chair_set': 'm3_Chair_set',
+      'chair_neonoir': 'm3_chair_neonoir',
+      'laptop': 'm3_laptop',
+      'papers': 'm3_papers',
+      'water_bottle': 'm3_water_bottle',
+      'solo cup': 'm3_solo_cup',
+      'office_filecabinets': 'm3_office_filecabinets',
+      'cat-tail_willow_red': 'm3_cat-tail_willow_red',
+      'table_coffee': 'm3_table_coffee',
+      'books stack [1x2]': 'm3_books_stack',
+      'book [1x1]': 'm3_book',
+      'document sepia [1x1]': 'm3_document_sepia',
+      'succulent_blue [1x1]': 'm3_succulent_blue',
+      'water_cooler': 'm3_water_cooler',
+      'trashcan_w_lid': 'm3_trashcan_w_lid',
+      'wallclock_white': 'm3_wallclock_white',
+      'globe_blue_0': 'm3_globe_blue_0',
+      'poster_7 [3x2]': 'm3_poster_7',
+      'dresser_wood_left [1x2]': 'm3_dresser_wood_left',
+      'plant_spiky [1x2]': 'm3_plant_spiky',
+      'file pdf [1x1]': 'm3_file_pdf',
+      'quill': 'm3_quill',
+      'shelf_ikea_v2': 'm3_shelf_ikea_v2',
+      'cabinet_corner_darkwood_left': 'm3_cabinet_corner_darkwood_left',
+      'whiteboard': 'm3_whiteboard',
+      'dresser_2x2_black_right': 'm3_dresser_2x2_black_right',
+      'cyberpunk': 'm3_cyberpunk',
+      'welcome mat [4ishx2]': 'm3_welcome_mat',
+      'Rugs[5x5]': 'm3_Rugs',
+      'banner_ox [1x2]': 'm3_banner_ox',
+    };
 
     if (!map) {
       console.error('No map data found for key "map"');
@@ -194,13 +302,17 @@ export class GameScene extends Phaser.Scene {
 
     map.tilesets.forEach((tilesetData) => {
       const tilesetName = tilesetData.name;
-      const tileset = map.addTilesetImage(tilesetName, tilesetName);
+      // For interview-room, use m3_ prefixed cache keys; otherwise use name directly
+      const cacheKey = this.mapId === 'interview-room'
+        ? (m3TilesetKeyMap[tilesetName] || tilesetName)
+        : tilesetName;
+      const tileset = map.addTilesetImage(tilesetName, cacheKey);
 
       if (tileset) {
-        console.log(`Successfully loaded tileset: ${tilesetName}`);
+        console.log(`Successfully loaded tileset: ${tilesetName} (key: ${cacheKey})`);
         tilesets.push(tileset);
       } else {
-        console.warn(`Failed to load tileset: ${tilesetName}`);
+        console.warn(`Failed to load tileset: ${tilesetName} (key: ${cacheKey})`);
       }
     });
 
@@ -243,7 +355,11 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(-borderSize, -borderSize, map.widthInPixels + borderSize * 2, map.heightInPixels + borderSize * 2);
 
     let spawnPointObject = null;
-    const objectLayerNames = ['Objects', 'objects', 'Spawn', 'spawn', 'SpawnPoints'];
+    // For interview-room, the Spawn Point is in the 'Interactive Objects' layer.
+    // For map1/map2, keep the original list unchanged.
+    const objectLayerNames = this.mapId === 'interview-room'
+      ? ['Interactive Objects', 'Objects', 'objects', 'Spawn', 'spawn', 'SpawnPoints']
+      : ['Objects', 'objects', 'Spawn', 'spawn', 'SpawnPoints'];
 
     for (const layerName of objectLayerNames) {
       if (map.getObjectLayer(layerName)) {
@@ -362,8 +478,21 @@ export class GameScene extends Phaser.Scene {
           console.log(`Chair created at (${centerX}, ${centerY})`);
         }
       });
-
       console.log(`Total chairs created: ${chairObjects.length}`);
+
+      // Also extract CodeEditor and WhiteBoard objects
+      const interactionObjects = interactiveLayer.objects.filter(
+        (obj) => obj.name === 'CodeEditor' || obj.name === 'WhiteBoard'
+      );
+
+      this.interactiveZones = interactionObjects.map(obj => ({
+        type: obj.name as 'CodeEditor' | 'WhiteBoard',
+        x: (obj.x || 0) + (obj.width || 0) / 2,
+        y: (obj.y || 0) + (obj.height || 0) / 2,
+      }));
+
+      console.log(`Found ${this.interactiveZones.length} interactive zones (CodeEditor/WhiteBoard)`);
+
     } else {
       console.warn('No Interactive Objects layer found in map');
     }
@@ -408,11 +537,25 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.input.keyboard) {
+      // Create cursor keys but tell Phaser NOT to prevent the default browser events (so we can type in Monaco!)
       this.cursors = this.input.keyboard.createCursorKeys();
-      this.wasd = this.input.keyboard.addKeys('W,S,A,D');
+      this.input.keyboard.removeCapture('W,S,A,D,F,SPACE,UP,DOWN,LEFT,RIGHT');
 
-      const fKey = this.input.keyboard.addKey('F');
+      // False = do not enable event capture
+      this.wasd = this.input.keyboard.addKeys('W,S,A,D', false);
+
+      const fKey = this.input.keyboard.addKey('F', false);
       fKey.on('down', () => {
+        // Prevent trigger if typing in code editor modal
+        if (this.isInputDisabled) return;
+
+        // If we are near an interactive zone, trigger it instead of fullscreen
+        if (this.nearestZone) {
+          console.log(`Triggering interaction: ${this.nearestZone.type}`);
+          gameEventEmitter.emit('open-interactive', this.nearestZone.type);
+          return;
+        }
+
         if (this.scale.isFullscreen) {
           this.scale.stopFullscreen();
         } else {
@@ -505,6 +648,13 @@ export class GameScene extends Phaser.Scene {
 
     this.game.events.on('update-screen-streams', (streams: Map<string, MediaStream>) => {
       this.handleScreenStreamsUpdate(streams);
+    });
+
+    gameEventEmitter.on('toggle-input', (isDisabled: boolean) => {
+      this.isInputDisabled = isDisabled;
+      if (isDisabled && this.mainPlayer && this.mainPlayer.body) {
+        this.mainPlayer.setVelocity(0);
+      }
     });
 
     console.log('GameScene: Signaling scene is ready for events');
@@ -809,7 +959,15 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.mainPlayer.updateMovement(this.cursors, this.wasd);
+    if (!this.isInputDisabled) {
+      this.mainPlayer.updateMovement(this.cursors, this.wasd);
+    } else {
+      this.mainPlayer.setVelocity(0);
+      // We still need to emit idle state so they don't look frozen mid-walk
+      if (this.mainPlayer.anims) {
+        this.mainPlayer.anims.stop();
+      }
+    }
 
     // Update sit timer
     this.mainPlayer.updateSitTimer(delta);
@@ -857,6 +1015,34 @@ export class GameScene extends Phaser.Scene {
         this.mainPlayer.setNearChair(false);
         this.currentOverlappingChair = null;
       }
+    }
+
+    // Interactive Zones Proximity Check
+    if (this.interactiveZones.length > 0 && !this.isInputDisabled) {
+      let closestZone = null;
+      let minDistance = 60; // Activation radius in pixels
+
+      for (const zone of this.interactiveZones) {
+        const dist = Phaser.Math.Distance.Between(this.mainPlayer.x, this.mainPlayer.y, zone.x, zone.y);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestZone = zone;
+        }
+      }
+
+      this.nearestZone = closestZone;
+    } else {
+      this.nearestZone = null;
+    }
+
+    // Emit event when the nearest interactive zone changes
+    const currentZoneType = this.nearestZone ? this.nearestZone.type : null;
+    if (currentZoneType !== this.lastNearestZoneType) {
+      this.lastNearestZoneType = currentZoneType;
+      gameEventEmitter.emit('interaction-prompt', {
+        show: !!this.nearestZone,
+        type: currentZoneType
+      });
     }
 
     // Always broadcast position and animation state

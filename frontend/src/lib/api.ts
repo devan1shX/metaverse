@@ -22,10 +22,16 @@ export const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // Add Firebase auth token if available
-    const token = localStorage.getItem('firebase_token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    // Add auth token if available
+    const firebaseToken = typeof window !== 'undefined' ? localStorage.getItem('firebase_token') : null;
+    const jwtToken = typeof window !== 'undefined' ? localStorage.getItem('metaverse_token') : null;
+
+    if (firebaseToken) {
+      // Firebase session (used for Google sign-in)
+      config.headers.Authorization = `Bearer ${firebaseToken}`;
+    } else if (jwtToken) {
+      // Traditional JWT session (email/password auth)
+      config.headers.Authorization = `Bearer ${jwtToken}`;
     }
 
     // Debug: Log the full URL being requested
@@ -149,6 +155,20 @@ export const authAPI = {
   syncFirebaseUser: (firebaseToken: string, userLevel: string = 'participant') =>
     api.post('/metaverse/auth/firebase-sync', { firebaseToken, user_level: userLevel }),
 
+  loginWithPassword: (email: string, password: string, userLevel: string) =>
+    api.post('/metaverse/login', {
+      user_level: userLevel,
+      email,
+      password,
+    }),
+
+  signupWithPassword: (userName: string, email: string, password: string) =>
+    api.post('/metaverse/signup', {
+      user_name: userName,
+      email,
+      password,
+    }),
+
   logout: () =>
     api.post('/metaverse/logout'),
 }
@@ -202,7 +222,12 @@ export const internalAPI = {
     api.get('/int/api/stats'),
 
   healthCheck: () =>
-    api.get('/int/api/health'),
+    axios.get(`${API_BASE_URL}/int/api/health`, {
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }),
 }
 
 // Space Management APIs

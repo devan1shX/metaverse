@@ -139,24 +139,24 @@ export default function TilesetUploader({ mapName, onUpload, onClose }: TilesetU
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-96 max-w-full overflow-hidden border border-slate-200">
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-          <h3 className="font-bold text-slate-800 flex items-center gap-2">
-            <Upload className="w-4 h-4 text-indigo-600" />
+    <div className="overlay-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="modal-shell w-96 max-w-full overflow-hidden">
+        <div className="modal-header flex items-center justify-between px-5 py-4">
+          <h3 className="flex items-center gap-2 font-semibold text-[var(--text-primary)]">
+            <Upload className="h-4 w-4 text-[var(--accent-strong)]" />
             Upload Custom Tileset
           </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="modal-close">
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="space-y-4 p-6">
           {/* File Input */}
           <div 
             onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all ${
-              preview ? 'border-indigo-200 bg-indigo-50/50' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+            className={`flex cursor-pointer flex-col items-center justify-center rounded-[22px] border border-dashed p-6 transition-all ${
+              preview ? "border-[rgba(239,188,130,0.22)] bg-[rgba(215,163,102,0.08)]" : "border-[var(--border-default)] bg-white/[0.03] hover:border-[var(--border-strong)] hover:bg-white/[0.05]"
             }`}
           >
             <input 
@@ -171,29 +171,29 @@ export default function TilesetUploader({ mapName, onUpload, onClose }: TilesetU
               <div className="relative w-full aspect-video flex items-center justify-center">
                  {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={preview} alt="Preview" className="max-w-full max-h-32 object-contain rounded shadow-sm" />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/10 transition-colors group">
-                   <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-slate-700 text-xs px-2 py-1 rounded shadow-sm">Change Image</span>
+                <div className="group absolute inset-0 flex items-center justify-center bg-black/0 transition-colors hover:bg-black/10">
+                   <span className="rounded-full bg-[rgba(14,19,28,0.85)] px-3 py-1 text-xs text-[var(--text-primary)] opacity-0 shadow-sm transition-opacity group-hover:opacity-100">Change Image</span>
                 </div>
               </div>
             ) : (
               <div className="text-center">
-                <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <ImageIcon className="w-6 h-6" />
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(215,163,102,0.14)] text-[var(--accent-strong)]">
+                  <ImageIcon className="h-6 w-6" />
                 </div>
-                <p className="text-sm font-medium text-slate-700">Click to upload image</p>
-                <p className="text-xs text-slate-400 mt-1">PNG or JPG recommended</p>
+                <p className="text-sm font-medium text-[var(--text-primary)]">Click to upload image</p>
+                <p className="mt-1 text-xs text-[var(--text-soft)]">PNG or JPG recommended</p>
               </div>
             )}
           </div>
 
           <div className="space-y-3">
             <div>
-              <label className="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-1 block">Tileset Name</label>
+              <label className="surface-label mb-1 block">Tileset Name</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm text-slate-800 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                className="input-field rounded-[18px] px-4 py-3 text-sm"
                 placeholder="e.g. My Dungeon Walls"
               />
             </div>
@@ -202,7 +202,7 @@ export default function TilesetUploader({ mapName, onUpload, onClose }: TilesetU
           </div>
           
           {error && (
-            <div className="text-xs text-rose-600 bg-rose-50 p-2 rounded border border-rose-100">
+            <div className="rounded-[18px] border border-[rgba(239,124,120,0.22)] bg-[var(--danger-soft)] p-3 text-xs text-[var(--danger)]">
               {error}
             </div>
           )}
@@ -210,7 +210,7 @@ export default function TilesetUploader({ mapName, onUpload, onClose }: TilesetU
           <button
             onClick={handleUpload}
             disabled={isUploading || !file}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-lg shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2"
+            className="btn-primary w-full rounded-full"
           >
             {isUploading ? (
               <>

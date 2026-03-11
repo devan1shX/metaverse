@@ -11,6 +11,8 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@excalidraw/excalidraw": "^0.18.0",
+    "@monaco-editor/react": "^4.7.0",
     "axios": "^1.6.0",
     "clsx": "^2.0.0",
     "firebase": "^12.7.0",

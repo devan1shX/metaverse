@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Eye, EyeOff, Trash2, Lock, Unlock } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, Trash2 } from "lucide-react";
 
 interface LayerPanelProps {
   layers: { id: number; name: string; visible: boolean; opacity: number }[];
@@ -37,12 +37,13 @@ export default function LayerPanel({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      <div className="p-4 border-b border-slate-200 bg-white sticky top-0 z-10">
-        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Map Layers</h3>
+    <div className="flex h-full flex-col">
+      <div className="sticky top-0 z-10 border-b border-[var(--border-default)] bg-[rgba(14,19,27,0.88)] px-4 py-4 backdrop-blur-xl">
+        <h3 className="surface-label">Map Layers</h3>
+        <p className="mt-2 text-sm text-[var(--text-muted)]">Stack depth without blocking the map.</p>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+      <div className="flex-1 space-y-2 overflow-y-auto p-3">
         {layers.slice().reverse().map((layer, reverseIndex) => {
           // Calculate actual index since we're mapping reversed array for display order (Top layer first)
           const index = layers.length - 1 - reverseIndex;
@@ -52,15 +53,15 @@ export default function LayerPanel({
           return (
             <div
               key={layer.id}
-              className={`rounded border transition-all duration-200 group ${
+              className={`group rounded-[22px] border transition-all duration-200 ${
                 isActive 
-                  ? 'bg-slate-50 border-indigo-500/50 shadow-sm' 
-                  : 'bg-transparent border-transparent hover:bg-slate-50 hover:border-slate-200'
+                  ? "border-[rgba(239,188,130,0.24)] bg-[rgba(215,163,102,0.12)] shadow-[0_16px_34px_rgba(2,6,12,0.22)]"
+                  : "border-[var(--border-default)] bg-white/[0.03] hover:border-[var(--border-strong)] hover:bg-white/[0.05]"
               }`}
             >
               {/* Layer Row */}
               <div 
-                className="flex items-center p-2 cursor-pointer"
+                className="flex cursor-pointer items-center gap-2 p-3"
                 onClick={() => onLayerSelect(index)}
               >
                 {/* Visibility Toggle */}
@@ -69,23 +70,28 @@ export default function LayerPanel({
                     e.stopPropagation();
                     onLayerToggle(index);
                   }}
-                  className={`p-1 rounded hover:bg-slate-200 mr-2 transition-colors ${layer.visible ? 'text-slate-500 hover:text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
+                  className={`mr-1 rounded-full border p-2 transition-colors ${layer.visible ? "border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]" : "border-transparent text-[var(--text-soft)] hover:bg-white/5 hover:text-[var(--text-secondary)]"}`}
                   title={layer.visible ? "Hide Layer" : "Show Layer"}
                 >
                   {layer.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                 </button>
 
                 {/* Layer Name */}
-                <span className={`text-sm font-medium truncate flex-1 ${isActive ? 'text-indigo-700' : 'text-slate-700'}`}>
-                  {layer.name}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <span className={`block truncate text-sm font-semibold ${isActive ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}`}>
+                    {layer.name}
+                  </span>
+                  <span className="mt-1 block text-[11px] text-[var(--text-soft)]">
+                    {Math.round(layer.opacity * 100)}% opacity
+                  </span>
+                </div>
 
                 {/* Ops Wrapper */}
-                <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                <div className="ml-2 flex items-center opacity-0 transition-opacity group-hover:opacity-100">
                    {/* Settings Toggle */}
                    <button
                     onClick={(e) => toggleDetails(index, e)}
-                    className={`p-1 rounded hover:bg-slate-200 transition-colors ${isDetailsOpen ? 'bg-slate-200 text-slate-800' : 'text-slate-400'}`}
+                    className={`rounded-full border p-2 transition-colors ${isDetailsOpen ? "border-[rgba(239,188,130,0.22)] bg-[rgba(215,163,102,0.12)] text-[var(--accent-strong)]" : "border-transparent text-[var(--text-soft)] hover:border-[var(--border-default)] hover:bg-white/5 hover:text-[var(--text-primary)]"}`}
                   >
                     {isDetailsOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                   </button>
@@ -94,10 +100,10 @@ export default function LayerPanel({
               
               {/* Layer Details (Expanded) */}
               {isDetailsOpen && (
-                <div className="px-3 pb-3 pt-1 border-t border-slate-200 bg-slate-50/50">
+                <div className="border-t border-[var(--border-default)] bg-black/10 px-4 pb-4 pt-3">
                   {/* Opacity Slider */}
                   <div className="mb-3">
-                    <div className="flex justify-between text-[10px] text-slate-500 mb-1 uppercase tracking-wider font-semibold">
+                    <div className="mb-2 flex justify-between text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
                       <span>Opacity</span>
                       <span>{Math.round(layer.opacity * 100)}%</span>
                     </div>
@@ -107,7 +113,7 @@ export default function LayerPanel({
                       max="100"
                       value={layer.opacity * 100}
                       onChange={(e) => onLayerOpacityChange(index, parseInt(e.target.value) / 100)}
-                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                      className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-white/10 accent-[var(--accent)]"
                     />
                   </div>
                   
@@ -119,7 +125,7 @@ export default function LayerPanel({
                           onLayerClear(index);
                         }
                       }}
-                      className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 py-1 rounded transition-colors"
+                      className="flex items-center gap-1.5 rounded-full border border-[rgba(239,124,120,0.2)] px-3 py-1.5 text-xs font-semibold text-[var(--danger)] transition-colors hover:bg-[var(--danger-soft)]"
                     >
                       <Trash2 className="w-3 h-3" /> Clear Content
                     </button>

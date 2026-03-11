@@ -31,7 +31,22 @@ export function AdminDashboard() {
     return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
   };
 
-  if (statsLoading) {
+  const getStatusColor = (status?: 'healthy' | 'degraded' | 'unhealthy') => {
+    if (status === 'healthy') return 'text-green-400';
+    if (status === 'degraded') return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  const getStatusDotColor = (status?: 'healthy' | 'degraded' | 'unhealthy') => {
+    if (status === 'healthy') return 'bg-green-400';
+    if (status === 'degraded') return 'bg-yellow-400';
+    return 'bg-red-400';
+  };
+
+  const healthStatus = health?.status || 'unhealthy';
+  const serviceEntries = Object.entries(health?.services || {});
+
+  if (statsLoading || healthLoading) {
     return (
       <div className="bg-[#35354e] rounded-lg p-6 border border-gray-700/50">
         <div className="flex items-center justify-center h-32">
@@ -63,9 +78,9 @@ export function AdminDashboard() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">Admin Dashboard</h2>
         <div className="flex items-center gap-2">
-          <div className={`w-3 h-3 rounded-full ${health?.success ? 'bg-green-400' : 'bg-red-400'}`}></div>
+          <div className={`w-3 h-3 rounded-full ${getStatusDotColor(healthStatus)}`}></div>
           <span className="text-sm text-gray-400">
-            {health?.success ? 'System Healthy' : 'System Issues'}
+            {healthStatus === 'healthy' ? 'System Healthy' : healthStatus === 'degraded' ? 'System Degraded' : 'System Issues'}
           </span>
         </div>
       </div>
@@ -156,7 +171,7 @@ export function AdminDashboard() {
               <Server className="w-6 h-6 text-purple-400" />
             </div>
             <span className="text-sm font-bold text-white">
-              {health && formatUptime(health.uptime)}
+              {health?.uptime ? formatUptime(health.uptime) : 'N/A'}
             </span>
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">System</h3>
@@ -175,6 +190,31 @@ export function AdminDashboard() {
               </span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Consolidated Health Details */}
+      <div className="bg-[#35354e] rounded-lg p-6 border border-gray-700/50">
+        <h3 className="text-lg font-semibold text-white mb-4">Consolidated Service Health</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {serviceEntries.map(([serviceName, service]) => (
+            <div key={serviceName} className="bg-[#2b2b41] rounded-md p-4 border border-gray-700/50">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm text-gray-300 font-medium">{serviceName}</p>
+                <span className={`text-xs font-semibold uppercase ${getStatusColor(service.status)}`}>
+                  {service.status}
+                </span>
+              </div>
+              <div className="space-y-1 text-xs text-gray-400">
+                <p>Latency: {service.latency_ms ?? 0}ms</p>
+                {service.details?.http_status && <p>HTTP: {service.details.http_status}</p>}
+                {service.error && <p className="text-red-400">Error: {service.error}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 text-sm text-gray-400">
+          Healthy: {health?.summary?.healthy ?? 0} | Degraded: {health?.summary?.degraded ?? 0} | Unhealthy: {health?.summary?.unhealthy ?? 0}
         </div>
       </div>
 

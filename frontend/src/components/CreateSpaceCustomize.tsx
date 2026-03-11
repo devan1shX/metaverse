@@ -79,14 +79,15 @@ export default function CreateSpaceCustomize({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: "easeInOut" }}
+      transition={{ type: "spring", stiffness: 260, damping: 28 }}
       className="w-full max-w-4xl"
     >
       <div className="text-center mb-8">
-        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
+        <p className="surface-label mb-3">Customize</p>
+        <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] mb-2">
           Customize Your Space
         </h1>
-        <p className="text-gray-600">
+        <p className="text-[var(--text-muted)]">
           Select the size and theme of your office. You can change this later!
         </p>
       </div>
@@ -94,7 +95,7 @@ export default function CreateSpaceCustomize({
       <form onSubmit={handleSubmit} className="card p-6">
         <div className="grid md:grid-cols-2 gap-8 items-start">
           {/* Map Preview */}
-          <div className="aspect-video w-full rounded-lg overflow-hidden relative border-2 border-gray-200">
+          <div className="relative aspect-video w-full overflow-hidden rounded-[20px] border border-white/10">
             <Image
               src={mapInfo.image}
               alt={mapInfo.title}
@@ -108,8 +109,8 @@ export default function CreateSpaceCustomize({
             {/* Map Size Slider */}
             <div>
               <div className="flex justify-between items-center mb-3">
-                <label className="font-semibold text-gray-900">Map Size</label>
-                <span className="flex items-center gap-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
+                <label className="font-semibold text-[var(--text-primary)]">Map Size</label>
+                <span className="badge badge-info">
                   <Users className="w-4 h-4" />
                   {getPeopleRange(size)} people
                 </span>
@@ -121,13 +122,13 @@ export default function CreateSpaceCustomize({
                 step="1"
                 value={size}
                 onChange={(e) => setSize(parseInt(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-white/10 accent-[var(--accent)]"
               />
             </div>
 
             {/* Map Theme Selection */}
             <div>
-              <label className="font-semibold text-gray-900 mb-3 block">Map Theme</label>
+              <label className="mb-3 block font-semibold text-[var(--text-primary)]">Map Theme</label>
               <div className="grid grid-cols-2 gap-3">
                 {themes.map((theme) => {
                   const Icon = theme.icon;
@@ -137,19 +138,19 @@ export default function CreateSpaceCustomize({
                       type="button"
                       key={theme.id}
                       onClick={() => setSelectedTheme(theme.id)}
-                      className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-all duration-200 ${
+                      className={`flex items-center gap-2 rounded-2xl border p-3 transition-all duration-200 ${
                         isActive
-                          ? "bg-indigo-50 border-indigo-500"
-                          : "bg-white border-gray-200 hover:border-gray-300"
+                          ? "border-[rgba(239,188,130,0.24)] bg-[rgba(215,163,102,0.12)]"
+                          : "border-white/10 bg-white/[0.03] hover:border-white/15"
                       }`}
                     >
                       <Icon
                         className={`w-5 h-5 ${
-                          isActive ? "text-indigo-600" : "text-gray-400"
+                          isActive ? "text-[var(--accent-strong)]" : "text-[var(--text-soft)]"
                         }`}
                       />
                       <span className={`text-sm font-medium ${
-                        isActive ? "text-indigo-900" : "text-gray-700"
+                        isActive ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
                       }`}>
                         {theme.name}
                       </span>
@@ -162,7 +163,7 @@ export default function CreateSpaceCustomize({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
+        <div className="mt-8 flex items-center justify-between border-t border-white/10 pt-6">
           <button
             type="button"
             onClick={onBack}

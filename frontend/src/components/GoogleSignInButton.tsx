@@ -29,7 +29,7 @@ export default function GoogleSignInButton({
       type="button"
       onClick={handleClick}
       disabled={loading}
-      className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      className="flex w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-[var(--text-secondary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-white/15 hover:bg-white/[0.07] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
     >
       <svg
         className="w-5 h-5"
@@ -53,7 +53,7 @@ export default function GoogleSignInButton({
           fill="#EA4335"
         />
       </svg>
-      <span className="text-gray-700 font-medium">
+      <span className="font-medium">
         {loading ? "Signing in..." : text}
       </span>
     </button>

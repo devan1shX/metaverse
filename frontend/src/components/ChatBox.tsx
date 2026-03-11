@@ -73,13 +73,13 @@ export function ChatBox({ spaceId }: { spaceId: string }) {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <h4 className="text-sm font-semibold text-gray-900 mb-3 px-1">
+    <div className="glass-panel flex h-full flex-col rounded-[24px] p-3">
+      <h4 className="mb-3 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
         Space Chat
       </h4>
       
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto mb-3 space-y-3 px-1">
+      <div className="mb-3 flex-1 space-y-3 overflow-y-auto px-1">
         <AnimatePresence>
           {messages.map((msg) => {
             const isOwn = msg.user_id === user?.id;
@@ -89,16 +89,16 @@ export function ChatBox({ spaceId }: { spaceId: string }) {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2 }}
-                className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
               >
-                <div className={`max-w-[80%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
-                  <span className="text-xs font-medium text-gray-600 mb-1 px-1">
-                    {isOwn ? 'You' : (msg.user_name || 'Anonymous')}
+                <div className={`flex max-w-[82%] flex-col ${isOwn ? "items-end" : "items-start"}`}>
+                  <span className="mb-1 px-1 text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--text-soft)]">
+                    {isOwn ? "You" : (msg.user_name || "Anonymous")}
                   </span>
-                  <div className={`rounded-lg px-3 py-2 ${
+                  <div className={`rounded-2xl px-3 py-2.5 ${
                     isOwn 
-                      ? 'bg-indigo-600 text-white' 
-                      : 'bg-gray-100 text-gray-900'
+                      ? "bg-[rgba(215,163,102,0.16)] text-[var(--text-primary)] border border-[rgba(239,188,130,0.18)]"
+                      : "bg-white/[0.05] text-[var(--text-secondary)] border border-white/8"
                   }`}>
                     <p className="text-sm break-words">{msg.message}</p>
                   </div>
@@ -116,15 +116,15 @@ export function ChatBox({ spaceId }: { spaceId: string }) {
           type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          placeholder={isSubscribed ? 'Type a message...' : 'Connecting...'}
+          placeholder={isSubscribed ? "Type a message..." : "Connecting..."}
           disabled={!isSubscribed}
-          className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-50"
+          className="input-field flex-1 rounded-full px-4 py-3 text-sm"
           onKeyDown={(e) => e.stopPropagation()}
         />
         <button 
           type="submit" 
           disabled={!isSubscribed || !newMessage.trim()} 
-          className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="btn-success h-11 w-11 rounded-full p-0 disabled:cursor-not-allowed"
         >
           <Send className="w-4 h-4" />
         </button>

@@ -3,19 +3,39 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, LayoutGrid, Menu, X, Bell, User, ChevronDown, LogOut, Edit3 } from "lucide-react";
+import {
+  Plus,
+  LayoutGrid,
+  Menu,
+  X,
+  User,
+  ChevronDown,
+  LogOut,
+  Edit3,
+  PencilLine,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { NotificationDropdown } from "./NotificationDropdown";
 
-export function DashboardHeader({ avatarUrl, onEditAvatar }: { avatarUrl?: string; onEditAvatar?: () => void }) {
+const navItems = [
+  { href: "/discover", label: "Discover" },
+  { href: "/dashboard", label: "My Spaces" },
+  { href: "/map-editor", label: "Map Editor" },
+];
+
+export function DashboardHeader({
+  avatarUrl,
+  onEditAvatar,
+}: {
+  avatarUrl?: string;
+  onEditAvatar?: () => void;
+}) {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUsername } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-
-  /* Edit Username State */
-  const { updateUsername } = useAuth();
   const [isEditUsernameOpen, setIsEditUsernameOpen] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [editUsernameError, setEditUsernameError] = useState("");
@@ -44,22 +64,29 @@ export function DashboardHeader({ avatarUrl, onEditAvatar }: { avatarUrl?: strin
     setIsProfileOpen(false);
   };
 
-  const AvatarDisplay = () => {
+  const AvatarDisplay = ({ size = 9 }: { size?: number }) => {
+    const dimensionPx = `${size * 4}px`;
     if (avatarUrl) {
       return (
-        <div className="relative h-8 w-8 rounded-full overflow-hidden ring-2 ring-gray-200">
-          <Image 
+        <div
+          className="relative overflow-hidden rounded-full border border-white/10 bg-white/5 shadow-[0_10px_30px_rgba(2,6,12,0.22)]"
+          style={{ width: dimensionPx, height: dimensionPx }}
+        >
+          <Image
             src={avatarUrl}
             alt="User Avatar"
             fill
-            style={{ objectFit: 'cover' }}
-            className="bg-gray-100"
+            style={{ objectFit: "cover" }}
+            className="bg-[var(--bg-muted)]"
           />
         </div>
       );
     }
-    return (
-      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white text-sm shadow-sm">
+      return (
+      <div
+        className="flex items-center justify-center rounded-full border border-[rgba(239,188,130,0.24)] bg-[rgba(215,163,102,0.12)] text-sm font-bold text-[var(--accent-strong)] shadow-[0_10px_30px_rgba(215,163,102,0.16)]"
+        style={{ width: dimensionPx, height: dimensionPx }}
+      >
         {user?.user_name?.charAt(0).toUpperCase()}
       </div>
     );
@@ -67,264 +94,267 @@ export function DashboardHeader({ avatarUrl, onEditAvatar }: { avatarUrl?: strin
 
   return (
     <>
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            {/* Left Section: Logo & Desktop Nav */}
-            <div className="flex items-center gap-8">
-              <Link
-                href="/dashboard"
-                className="flex items-center gap-2 group"
-              >
-                <div className="p-1.5 bg-indigo-600 rounded-lg group-hover:bg-indigo-700 transition-colors">
-                  <LayoutGrid className="w-5 h-5 text-white" />
+      <header className="sticky top-0 z-50 px-3 pt-3 sm:px-4">
+        <div className="container-main">
+          <div className="glass-panel flex h-16 items-center justify-between rounded-[28px] px-4 sm:px-5">
+            <div className="flex items-center gap-6">
+              <Link href="/dashboard" className="group flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(239,188,130,0.2)] bg-[rgba(215,163,102,0.12)] text-[var(--accent-strong)]">
+                  <LayoutGrid className="h-4 w-4" />
                 </div>
-                <span className="text-gray-900 font-bold text-lg">Spaces</span>
+                <div className="hidden sm:block">
+                  <p className="font-display text-lg font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
+                    Spaces
+                  </p>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-soft)]">
+                    Shared world
+                  </p>
+                </div>
               </Link>
 
-              {/* Desktop Navigation */}
               <nav aria-label="Global" className="hidden md:block">
-                <ul className="flex items-center gap-1">
-                  <li>
-                    <Link
-                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                        pathname === '/discover'
-                          ? 'text-gray-900 bg-gray-100'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
-                      href="/discover"
-                    >
-                      Discover
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                        pathname === '/dashboard'
-                          ? 'text-gray-900 bg-gray-100'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
-                      href="/dashboard"
-                    >
-                      My Spaces
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                        pathname === '/map-editor'
-                          ? 'text-gray-900 bg-gray-100'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
-                      href="/map-editor"
-                    >
-                      Map Editor
-                    </Link>
-                  </li>
+                <ul className="segmented-control">
+                  {navItems.map((item) => (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className="segmented-option"
+                        data-active={
+                          pathname === item.href ||
+                          (item.href === "/dashboard" &&
+                            pathname.startsWith("/dashboard"))
+                        }
+                      >
+                        {item.label}
+                      </Link>
+                    </li>
+                  ))}
                 </ul>
               </nav>
             </div>
 
-            {/* Right Section: Actions & Profile (Desktop) */}
-            <div className="hidden md:flex items-center gap-3">
-              <Link href="/dashboard/create">
-                <button className="flex items-center gap-2 btn-success text-sm">
-                  <Plus className="w-4 h-4" />
-                  <span>Create Space</span>
-                </button>
+            <div className="hidden items-center gap-3 md:flex">
+              <Link href="/dashboard/create" className="btn-success">
+                <Plus className="h-4 w-4" />
+                <span>Create Space</span>
               </Link>
 
-              <div className="h-6 w-px bg-gray-200"></div>
+              <div className="h-7 w-px bg-white/8" />
 
               <NotificationDropdown />
-              
+
               <div className="relative">
-                <button 
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
-                  className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                <button
+                  onClick={() => setIsProfileOpen((prev) => !prev)}
+                  className="glass-panel flex items-center gap-3 rounded-full px-2.5 py-1.5"
                 >
                   <AvatarDisplay />
-                  <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate">{user?.user_name}</span>
-                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
+                  <div className="text-left">
+                    <p className="max-w-[120px] truncate text-sm font-semibold text-[var(--text-primary)]">
+                      {user?.user_name}
+                    </p>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                      Explorer
+                    </p>
+                  </div>
+                  <ChevronDown
+                    className={`h-4 w-4 text-[var(--text-soft)] transition-transform ${
+                      isProfileOpen ? "rotate-180" : ""
+                    }`}
+                  />
                 </button>
 
-                {isProfileOpen && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setIsProfileOpen(false)}></div>
-                    <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-xl bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none border border-gray-200 z-20">
-                      <div className="px-4 py-3 border-b border-gray-100">
-                        <p className="text-xs text-gray-500 mb-1">Signed in as</p>
-                        <p className="text-sm font-semibold text-gray-900 truncate">{user?.user_name}</p>
-                        {user?.email && (
-                          <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                        )}
-                      </div>
-                      
-                      {/* Edit Username Button */}
-                       <button
-                        onClick={openEditUsername}
-                        className="flex items-center gap-2 w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                        <span>Edit Username</span>
-                      </button>
-
-                      {onEditAvatar && (
-                        <button
-                          onClick={() => {
-                            onEditAvatar();
-                            setIsProfileOpen(false);
-                          }}
-                          className="flex items-center gap-2 w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          <User className="w-4 h-4" />
-                          <span>Edit Avatar</span>
-                        </button>
-                      )}
-                      <div className="border-t border-gray-100 mt-1 mb-1"></div>
+                <AnimatePresence>
+                  {isProfileOpen && (
+                    <>
                       <button
-                        onClick={() => {
-                          logout();
-                          setIsProfileOpen(false);
-                        }}
-                        className="flex items-center gap-2 w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        className="fixed inset-0 z-10 cursor-default"
+                        aria-label="Close profile menu"
+                        onClick={() => setIsProfileOpen(false)}
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                        transition={{ type: "spring", stiffness: 320, damping: 28 }}
+                        className="modal-shell absolute right-0 z-20 mt-3 w-64 p-2"
                       >
-                        <LogOut className="w-4 h-4" />
-                        <span>Sign out</span>
-                      </button>
-                    </div>
-                  </>
-                )}
+                        <div className="rounded-[20px] border border-white/6 bg-white/[0.02] px-4 py-3">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                            Signed in as
+                          </p>
+                          <p className="mt-2 truncate text-sm font-semibold text-[var(--text-primary)]">
+                            {user?.user_name}
+                          </p>
+                          {user?.email && (
+                            <p className="truncate text-xs text-[var(--text-muted)]">
+                              {user.email}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="mt-2 space-y-1">
+                          <button
+                            onClick={openEditUsername}
+                            className="btn-ghost flex w-full justify-start rounded-2xl px-4 py-3 text-sm"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                            Edit Username
+                          </button>
+
+                          {onEditAvatar && (
+                            <button
+                              onClick={() => {
+                                onEditAvatar();
+                                setIsProfileOpen(false);
+                              }}
+                              className="btn-ghost flex w-full justify-start rounded-2xl px-4 py-3 text-sm"
+                            >
+                              <User className="h-4 w-4" />
+                              Edit Avatar
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => {
+                              logout();
+                              setIsProfileOpen(false);
+                            }}
+                            className="btn-danger flex w-full justify-start rounded-2xl px-4 py-3 text-sm"
+                          >
+                            <LogOut className="h-4 w-4" />
+                            Sign Out
+                          </button>
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 
-            {/* Mobile Menu Button */}
-            <div className="md:hidden flex items-center gap-2">
+            <div className="flex items-center gap-2 md:hidden">
               <NotificationDropdown />
               <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={() => setIsMenuOpen((prev) => !prev)}
+                className="floating-control h-11 w-11"
               >
                 <span className="sr-only">Toggle Menu</span>
-                {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                {isMenuOpen ? <X size={18} /> : <Menu size={18} />}
               </button>
             </div>
           </div>
-        </div>
 
-        {/* Mobile Menu */}
-        {isMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 bg-white">
-            <div className="px-4 py-3 border-b border-gray-100">
-              <div className="flex items-center gap-3">
-                <AvatarDisplay />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{user?.user_name}</p>
-                  {user?.email && (
-                    <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                  )}
+          <AnimatePresence>
+            {isMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ type: "spring", stiffness: 320, damping: 30 }}
+                className="glass-panel mt-3 rounded-[28px] p-3 md:hidden"
+              >
+                <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
+                  <div className="flex items-center gap-3">
+                    <AvatarDisplay size={10} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
+                        {user?.user_name}
+                      </p>
+                      {user?.email && (
+                        <p className="truncate text-xs text-[var(--text-muted)]">
+                          {user.email}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <nav className="p-2">
-              <ul className="space-y-1">
-                <li>
-                  <Link
-                    className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                      pathname === '/discover'
-                        ? 'text-gray-900 bg-gray-100'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                    href="/discover"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Discover
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                      pathname === '/dashboard'
-                        ? 'text-gray-900 bg-gray-100'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                    href="/dashboard"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    My Spaces
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                      pathname === '/map-editor'
-                        ? 'text-gray-900 bg-gray-100'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                    href="/map-editor"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Map Editor
-                  </Link>
-                </li>
-                 <li className="my-2 border-t border-gray-100"></li>
-                 <li>
-                   <button
+
+                <nav className="mt-3 space-y-2">
+                  {navItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setIsMenuOpen(false)}
+                      className="btn-ghost flex w-full justify-start rounded-2xl px-4 py-3 text-sm"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+
+                  <button
                     onClick={() => {
                       openEditUsername();
                       setIsMenuOpen(false);
                     }}
-                    className="flex items-center gap-2 w-full px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                    className="btn-ghost flex w-full justify-start rounded-2xl px-4 py-3 text-sm"
                   >
-                    <Edit3 className="w-4 h-4" />
-                    <span>Edit Username</span>
+                    <PencilLine className="h-4 w-4" />
+                    Edit Username
                   </button>
-                 </li>
-                <li className="my-2 border-t border-gray-100"></li>
-                <li>
-                  <Link href="/dashboard/create" onClick={() => setIsMenuOpen(false)}>
-                    <button className="w-full flex items-center justify-center gap-2 btn-success text-sm">
-                      <Plus className="w-4 h-4" />
-                      <span>Create Space</span>
-                    </button>
+
+                  <Link
+                    href="/dashboard/create"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="btn-success w-full"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create Space
                   </Link>
-                </li>
-                <li>
+
                   <button
                     onClick={() => {
                       logout();
                       setIsMenuOpen(false);
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="btn-danger flex w-full justify-start rounded-2xl px-4 py-3 text-sm"
                   >
-                    <LogOut className="w-4 h-4" />
-                    <span>Sign out</span>
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
                   </button>
-                </li>
-              </ul>
-            </nav>
-          </div>
-        )}
+                </nav>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </header>
 
-      {/* Edit Username Modal */}
-      {isEditUsernameOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-gray-900">Edit Username</h3>
-                <button 
+      <AnimatePresence>
+        {isEditUsernameOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <button
+              className="overlay-backdrop"
+              aria-label="Close username editor"
+              onClick={() => setIsEditUsernameOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 280, damping: 28 }}
+              className="modal-shell relative z-10 max-w-md p-6"
+            >
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <p className="surface-label">Profile</p>
+                  <h3 className="mt-2 font-display text-2xl font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
+                    Edit Username
+                  </h3>
+                </div>
+                <button
                   onClick={() => setIsEditUsernameOpen(false)}
-                  className="text-gray-400 hover:text-gray-500 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                  className="modal-close"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
 
               <form onSubmit={handleEditUsername}>
                 <div className="mb-6">
-                  <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label
+                    htmlFor="username"
+                    className="mb-2 block text-sm font-medium text-[var(--text-secondary)]"
+                  >
                     New Username
                   </label>
                   <input
@@ -332,17 +362,24 @@ export function DashboardHeader({ avatarUrl, onEditAvatar }: { avatarUrl?: strin
                     id="username"
                     value={newUsername}
                     onChange={(e) => setNewUsername(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    className="input-field"
                     placeholder="Enter new username"
                     minLength={3}
                     maxLength={32}
                     required
                   />
-                   <p className="mt-2 text-xs text-gray-500">
-                    3-32 characters, letters, numbers, hyphens, and underscores only.
+                  <p className="mt-2 text-xs text-[var(--text-soft)]">
+                    3-32 characters. Letters, numbers, hyphens, and underscores only.
                   </p>
                   {editUsernameError && (
-                    <p className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded-lg border border-red-100">
+                    <p
+                      className="mt-3 rounded-2xl border px-3 py-2 text-sm"
+                      style={{
+                        background: "var(--danger-soft)",
+                        borderColor: "rgba(239, 124, 120, 0.2)",
+                        color: "var(--danger)",
+                      }}
+                    >
                       {editUsernameError}
                     </p>
                   )}
@@ -352,30 +389,30 @@ export function DashboardHeader({ avatarUrl, onEditAvatar }: { avatarUrl?: strin
                   <button
                     type="button"
                     onClick={() => setIsEditUsernameOpen(false)}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                    className="btn-secondary"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isUpdatingUsername}
-                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="btn-success"
                   >
                     {isUpdatingUsername ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>Saving...</span>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        Saving...
                       </>
                     ) : (
-                      <span>Save Changes</span>
+                      "Save Changes"
                     )}
                   </button>
                 </div>
               </form>
-            </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </>
   );
 }

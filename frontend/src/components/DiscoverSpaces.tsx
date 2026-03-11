@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Users, Calendar, MapPin, Plus } from "lucide-react";
+import { Search, Users, Calendar, MapPin, Plus, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,50 +10,38 @@ import { Space } from "@/lib/api";
 
 export function DiscoverSpaces() {
   const { user } = useAuth();
-  const { 
-    allSpaces, 
-    loadingAllSpaces, 
-    errorAllSpaces,
-    joinSpace,
-    mySpaces 
-  } = useSpaces();
+  const { allSpaces, loadingAllSpaces, errorAllSpaces, joinSpace, mySpaces } =
+    useSpaces();
   const [searchQuery, setSearchQuery] = useState("");
   const [isJoining, setIsJoining] = useState<string | null>(null);
 
-  // Filter spaces based on search query
   const filteredSpaces = useMemo(() => {
     if (!allSpaces) return [];
-    
+
     let spaces = allSpaces;
-    
-    // Filter by search query
+
     if (searchQuery.trim()) {
-      spaces = spaces.filter(space => 
-        space.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        space.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      spaces = spaces.filter(
+        (space) =>
+          space.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          space.description?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
+
     return spaces;
   }, [allSpaces, searchQuery]);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
-  };
 
   const handleJoinSpace = async (spaceId: string) => {
     setIsJoining(spaceId);
     try {
-      const success = await joinSpace(spaceId);
-      if (success) {
-        console.log("Successfully joined space!");
-      } else {
-        console.error("Failed to join space");
-      }
+      await joinSpace(spaceId);
     } catch (error) {
       console.error("Error joining space:", error);
     } finally {
@@ -62,82 +50,93 @@ export function DiscoverSpaces() {
   };
 
   const renderSpaceCard = (space: Space) => {
-    const isUserInSpace = user?.id && (
-      space.adminUserId === user.id || 
-      mySpaces.some(s => s.id === space.id)
-    );
-    
+    const isUserInSpace =
+      user?.id &&
+      (space.adminUserId === user.id || mySpaces.some((s) => s.id === space.id));
+
     return (
-      <div key={space.id} className="card card-hover p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">{space.name}</h3>
+      <div key={space.id} className="card card-hover p-5">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="badge badge-info">
+                {space.isPublic ? "Public" : "Private"}
+              </span>
+            </div>
+            <h3 className="font-display text-2xl font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
+              {space.name}
+            </h3>
             {space.description && (
-              <p className="text-gray-600 text-sm mb-3 line-clamp-2">{space.description}</p>
+              <p className="mt-2 line-clamp-2 text-sm leading-7 text-[var(--text-muted)]">
+                {space.description}
+              </p>
             )}
           </div>
           {space.mapImageUrl && (
-            <div className="w-16 h-16 rounded-lg overflow-hidden ml-4 flex-shrink-0">
+            <div className="relative h-20 w-20 overflow-hidden rounded-2xl border border-white/8">
               <Image
                 src={space.mapImageUrl}
                 alt={space.name}
-                width={64}
-                height={64}
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
               />
             </div>
           )}
         </div>
-        
-        <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
-          <div className="flex items-center gap-1.5">
-            <Users className="w-4 h-4" />
-            <span>{space.currentUsers}/{space.maxUsers}</span>
+
+        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+            <p className="surface-label">People</p>
+            <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+              <Users className="h-4 w-4 text-[var(--accent)]" />
+              {space.currentUsers}/{space.maxUsers}
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Calendar className="w-4 h-4" />
-            <span>{formatDate(space.createdAt)}</span>
+          <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+            <p className="surface-label">Created</p>
+            <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+              <Calendar className="h-4 w-4 text-[var(--accent)]" />
+              {formatDate(space.createdAt)}
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <MapPin className="w-4 h-4" />
-            <span className={`badge ${
-              space.isPublic ? 'badge-success' : 'badge-warning'
-            }`}>
-              {space.isPublic ? 'Public' : 'Private'}
-            </span>
+          <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+            <p className="surface-label">Access</p>
+            <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+              <MapPin className="h-4 w-4 text-[var(--accent)]" />
+              {space.isPublic ? "Open world" : "Invite only"}
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           {isUserInSpace ? (
-            <Link
-              href={`/space/${space.id}`}
-              className="btn-primary text-sm"
-            >
+            <Link href={`/space/${space.id}`} className="btn-success">
               Enter Space
             </Link>
           ) : (
             <button
               onClick={() => handleJoinSpace(space.id)}
               disabled={isJoining === space.id || space.currentUsers >= space.maxUsers}
-              className="btn-success text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-success"
             >
               {isJoining === space.id ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Joining...
                 </>
               ) : (
                 <>
-                  <Plus className="w-4 h-4" />
+                  <Plus className="h-4 w-4" />
                   Join Space
                 </>
               )}
             </button>
           )}
-          
+
           {space.currentUsers >= space.maxUsers && !isUserInSpace && (
-            <span className="text-xs text-red-500">Space Full</span>
+            <span style={{ color: "var(--danger)" }} className="text-xs font-medium">
+              Space full
+            </span>
           )}
         </div>
       </div>
@@ -147,10 +146,12 @@ export function DiscoverSpaces() {
   if (loadingAllSpaces) {
     return (
       <div className="container-main py-8">
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-10 w-10 border-3 border-gray-200 border-t-indigo-600"></div>
-            <p className="mt-3 text-gray-600 text-sm">Loading spaces...</p>
+        <div className="flex h-96 items-center justify-center">
+          <div className="glass-panel rounded-[28px] px-8 py-8 text-center">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-[var(--accent)]" />
+            <p className="mt-4 text-sm text-[var(--text-muted)]">
+              Loading spaces...
+            </p>
           </div>
         </div>
       </div>
@@ -160,69 +161,72 @@ export function DiscoverSpaces() {
   if (errorAllSpaces) {
     return (
       <div className="container-main py-8">
-        <div className="card max-w-md mx-auto p-6 text-center">
-          <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-red-50 flex items-center justify-center">
-            <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+        <div className="card mx-auto max-w-md p-8 text-center">
+          <div
+            className="mx-auto flex h-12 w-12 items-center justify-center rounded-full"
+            style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
+          >
+            <span className="text-xl">!</span>
           </div>
-          <h3 className="text-base font-semibold text-gray-900 mb-1">Error Loading Spaces</h3>
-          <p className="text-sm text-gray-600">{errorAllSpaces}</p>
+          <h3 className="mt-4 font-display text-2xl font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
+            Error loading spaces
+          </h3>
+          <p className="mt-2 text-sm text-[var(--text-muted)]">{errorAllSpaces}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container-main py-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Discover Spaces</h1>
-        <p className="text-sm text-gray-600">Explore and join public spaces in the metaverse</p>
+    <div className="container-main py-8">
+      <div className="mb-8">
+        <p className="surface-label">Discover</p>
+        <h1 className="surface-title mt-3 font-display">Explore shared rooms</h1>
+        <p className="surface-subtitle mt-3 max-w-2xl">
+          Browse public spaces, join ongoing sessions, and move through the world
+          without switching into a heavy dashboard mindset.
+        </p>
       </div>
 
-      {/* Search Bar */}
-      <div className="relative w-full max-w-md mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-        <input
-          type="search"
-          placeholder="Search spaces..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-        />
+      <div className="card mb-6 p-4 sm:p-5">
+        <div className="relative w-full max-w-md">
+          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-soft)]" />
+          <input
+            type="search"
+            placeholder="Search spaces..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input-field pl-11"
+          />
+        </div>
       </div>
 
-      {/* Spaces Grid */}
       {filteredSpaces.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
           {filteredSpaces.map(renderSpaceCard)}
         </div>
       ) : (
-        /* Empty State */
         <div className="card p-12 text-center">
-          <div className="w-20 h-20 mx-auto mb-4 relative rounded-full overflow-hidden ring-4 ring-gray-100">
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-white/8 bg-white/[0.03]">
             <Image
               src="/images/avatar.png"
               alt="Avatar"
-              width={80}
-              height={80}
-              className="object-cover"
+              width={56}
+              height={56}
+              className="rounded-full object-cover"
             />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            {searchQuery ? "No Spaces Found" : "No Spaces Available"}
+          <h3 className="font-display text-3xl font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
+            {searchQuery ? "No spaces found" : "No spaces available"}
           </h3>
-          <p className="text-sm text-gray-600 mb-6">
+          <p className="mt-3 text-sm text-[var(--text-muted)]">
             {searchQuery
-              ? "Try adjusting your search"
-              : "No public spaces available at the moment"}
+              ? "Try adjusting your search."
+              : "No public spaces are available right now."}
           </p>
-          <Link href="/dashboard/create">
-            <button className="btn-success text-sm flex items-center gap-2 mx-auto">
-              <Plus className="w-4 h-4" />
-              Create a Space
-            </button>
+          <Link href="/dashboard/create" className="btn-success mx-auto mt-6">
+            <Plus className="h-4 w-4" />
+            Create a Space
           </Link>
         </div>
       )}

@@ -22,9 +22,9 @@ export default function DiscoverPage() {
   }
 
   return (
-    <>
+    <div className="page-shell min-h-screen">
       <DashboardHeader avatarUrl={user.user_avatar_url} />
       <DiscoverSpaces />
-    </>
+    </div>
   );
 }

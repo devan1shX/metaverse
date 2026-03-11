@@ -15,8 +15,13 @@ type Step =
   | "loading"
   | "use-case"
   | "map-selection"
+  | "generate-dynamic"
   | "customize-map"
   | "name-space";
+
+import { getAuth } from "firebase/auth";
+import CreateSpaceDynamic from "@/components/CreateSpaceDynamic";
+import { generateOfficeMap } from "@/lib/mapGenerator";
 
 export default function CreateSpacePage() {
   const { user, loading: authLoading } = useAuth();
@@ -24,6 +29,7 @@ export default function CreateSpacePage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("loading");
   const [error, setError] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const [creationData, setCreationData] = useState({
     useCase: "remote-office", // Default value
@@ -54,12 +60,60 @@ export default function CreateSpacePage() {
   };
 
   const handleMapSelect = (selectedMap: string, thumbnailUrl?: string) => {
-    setCreationData((prev) => ({ 
-        ...prev, 
-        map: selectedMap,
-        mapImageUrl: thumbnailUrl || "" 
-    }));
-    setStep("customize-map");
+    if (selectedMap === "dynamic-office") {
+      setStep("generate-dynamic");
+    } else {
+      setCreationData((prev) => ({ 
+          ...prev, 
+          map: selectedMap,
+          mapImageUrl: thumbnailUrl || "" 
+      }));
+      setStep("customize-map");
+    }
+  };
+
+  const handleDynamicGenerate = async (employees: number, includeMeetingRoom: boolean = false, includeLounge: boolean = false) => {
+    setIsGenerating(true);
+    try {
+      // 1. Generate map logic
+      const mapJSON = await generateOfficeMap(employees, includeMeetingRoom, includeLounge);
+      
+      // 2. Save it to the backend custom maps
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("Not authenticated");
+      
+      const token = await currentUser.getIdToken();
+      const mapName = `Dynamic Office (${employees} Team)`;
+      
+      const mapResponse = await fetch('http://localhost:3000/metaverse/custom-maps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ mapData: mapJSON, mapName: mapName }),
+      });
+      
+      const mapResult = await mapResponse.json();
+      if (!mapResult.success) {
+         throw new Error(mapResult.message || "Failed to save generated map");
+      }
+      
+      const customMapId = mapResult.mapId;
+      
+      // 3. Set creation data and skip customization
+      setCreationData((prev) => ({ 
+          ...prev, 
+          map: customMapId,
+          size: Math.max(25, employees), // Ensure minimum size
+          mapImageUrl: "" 
+      }));
+      setStep("name-space");
+      
+    } catch (err: any) {
+      console.error("Failed to generate dynamic map:", err);
+      setError(err.message || "Failed to generate dynamic map");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleCustomizeConfirm = (customization: {
@@ -128,8 +182,9 @@ export default function CreateSpacePage() {
 
   const handleBack = (currentStep: Step) => {
     if (currentStep === "name-space") {
-      setStep("customize-map");
-    } else if (currentStep === "customize-map") {
+      // If we came from dynamic, we skip customize-map
+      setStep("map-selection");
+    } else if (currentStep === "customize-map" || currentStep === "generate-dynamic") {
       setStep("map-selection");
     } else if (currentStep === "map-selection") {
       // Go back to dashboard instead of use-case
@@ -152,6 +207,14 @@ export default function CreateSpacePage() {
             onSelect={handleMapSelect}
           />
         ) : null;
+      case "generate-dynamic":
+        return (
+          <CreateSpaceDynamic
+            onBack={() => handleBack("generate-dynamic")}
+            onConfirm={handleDynamicGenerate}
+            isGenerating={isGenerating}
+          />
+        );
       case "customize-map":
         return creationData.map ? (
           <CreateSpaceCustomize
@@ -170,8 +233,17 @@ export default function CreateSpacePage() {
             />
             {error && (
               <div className="max-w-lg mx-auto mt-4">
-                <div className="card p-4 bg-red-50 border-red-200">
-                  <p className="text-sm text-red-600 text-center">{error}</p>
+                <div className="card p-4">
+                  <p
+                    className="rounded-2xl border px-4 py-3 text-center text-sm"
+                    style={{
+                      background: "var(--danger-soft)",
+                      borderColor: "rgba(239, 124, 120, 0.18)",
+                      color: "var(--danger)",
+                    }}
+                  >
+                    {error}
+                  </p>
                 </div>
               </div>
             )}
@@ -183,11 +255,11 @@ export default function CreateSpacePage() {
   };
 
   return (
-    <>
+    <div className="page-shell min-h-screen">
       <DashboardHeader avatarUrl={user?.user_avatar_url} />
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
+      <div className="flex min-h-[calc(100vh-5rem)] flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
         {renderStep()}
       </div>
-    </>
+    </div>
   );
 }

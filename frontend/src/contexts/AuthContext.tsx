@@ -10,8 +10,6 @@ import {
 import { useRouter } from "next/navigation";
 import { authAPI, userAPI } from "@/lib/api";
 import {
-  signUpWithEmail,
-  signInWithEmail,
   signInWithGoogle,
   signOutUser,
   onAuthChange,
@@ -67,6 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Store Firebase token for API calls
       localStorage.setItem("firebase_token", token);
+      localStorage.setItem("auth_provider", "firebase");
+      localStorage.removeItem("metaverse_token");
 
       // Sync with backend - this will create user in PostgreSQL if not exists
       const response = await authAPI.syncFirebaseUser(token, userLevel);
@@ -109,12 +109,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Listen to Firebase auth state changes
   useEffect(() => {
     const unsubscribe = onAuthChange(async (firebaseUser) => {
+      const authProvider = localStorage.getItem("auth_provider");
+
+      // For traditional JWT sessions (email/password), we don't rely on Firebase auth
+      if (!firebaseUser && authProvider === "jwt") {
+        const storedUser = localStorage.getItem("metaverse_user");
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
+        return;
+      }
+
       if (firebaseUser) {
-        // User is signed in with Firebase
+        // User is signed in with Firebase (Google login/signup)
         try {
           // Get fresh token
           const token = await firebaseUser.getIdToken(true);
           localStorage.setItem("firebase_token", token);
+          localStorage.setItem("auth_provider", "firebase");
           
           // Check if we have user data in localStorage
           const storedUser = localStorage.getItem("metaverse_user");
@@ -128,10 +143,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error("Error handling auth state change:", error);
         }
       } else {
-        // User is signed out
-        setUser(null);
-        localStorage.removeItem("metaverse_user");
+        // Firebase user is signed out; clear only Firebase-related state
         localStorage.removeItem("firebase_token");
+
+        // If current session was Firebase-based, also clear app user data
+        if (authProvider === "firebase") {
+          setUser(null);
+          localStorage.removeItem("metaverse_user");
+          localStorage.removeItem("auth_provider");
+        }
       }
       setLoading(false);
     });
@@ -172,15 +192,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userLevel: string
   ): Promise<boolean> => {
     try {
-      // Sign in with Firebase
-      const userCredential = await signInWithEmail(email, password);
-      
-      // Sync with backend
-      await syncUserWithBackend(userCredential.user, userLevel);
-      
-      return true;
+      // Traditional email/password login via backend (JWT)
+      const response = await authAPI.loginWithPassword(email, password, userLevel);
+
+      if (response.data?.success && response.data.user && response.data.token) {
+        const backendUser = response.data.user;
+
+        const userData: User = {
+          id: backendUser.id,
+          user_name: backendUser.username,
+          email: backendUser.email,
+          role: backendUser.role,
+          user_avatar_url:
+            backendUser.avatarUrl &&
+            !backendUser.avatarUrl.includes("placeholder.com")
+              ? backendUser.avatarUrl
+              : DEFAULT_AVATAR,
+        };
+
+        // Store JWT-based auth
+        localStorage.setItem("metaverse_user", JSON.stringify(userData));
+        localStorage.setItem("metaverse_token", response.data.token);
+        localStorage.setItem("auth_provider", "jwt");
+
+        // Clear any Firebase-specific tokens/session
+        localStorage.removeItem("firebase_token");
+        try {
+          await signOutUser();
+        } catch (signOutError) {
+          console.error("Error signing out from Firebase during traditional login:", signOutError);
+        }
+
+        setUser(userData);
+        return true;
+      }
+
+      throw new Error(response.data?.message || "Login failed");
     } catch (error: any) {
-      throw error; // Firebase error messages are already user-friendly
+      const message =
+        error.response?.data?.message ||
+        (error.response?.data?.errors && Array.isArray(error.response.data.errors)
+          ? error.response.data.errors.join(", ")
+          : error.message || "Login failed");
+      throw new Error(message);
     }
   };
 
@@ -206,15 +260,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string
   ): Promise<boolean> => {
     try {
-      // Create user in Firebase
-      const userCredential = await signUpWithEmail(email, password);
-      
-      // Sync with backend (will create user in PostgreSQL with default role)
-      await syncUserWithBackend(userCredential.user, "participant");
-      
-      return true;
+      // Traditional email/password signup via backend (JWT)
+      const response = await authAPI.signupWithPassword(userName, email, password);
+
+      if (response.data?.success && response.data.user && response.data.token) {
+        const backendUser = response.data.user;
+
+        const userData: User = {
+          id: backendUser.id,
+          user_name: backendUser.username,
+          email: backendUser.email,
+          role: backendUser.role,
+          user_avatar_url:
+            backendUser.avatarUrl &&
+            !backendUser.avatarUrl.includes("placeholder.com")
+              ? backendUser.avatarUrl
+              : DEFAULT_AVATAR,
+        };
+
+        // Store JWT-based auth
+        localStorage.setItem("metaverse_user", JSON.stringify(userData));
+        localStorage.setItem("metaverse_token", response.data.token);
+        localStorage.setItem("auth_provider", "jwt");
+
+        // Ensure Firebase-specific tokens are cleared
+        localStorage.removeItem("firebase_token");
+        try {
+          await signOutUser();
+        } catch (signOutError) {
+          console.error("Error signing out from Firebase during traditional signup:", signOutError);
+        }
+
+        setUser(userData);
+        return true;
+      }
+
+      const backendErrors = response.data?.errors;
+      if (backendErrors && Array.isArray(backendErrors) && backendErrors.length > 0) {
+        throw new Error(backendErrors.join(", "));
+      }
+
+      throw new Error(response.data?.message || "Could not create account.");
     } catch (error: any) {
-      throw error;
+      const message =
+        error.response?.data?.message ||
+        (error.response?.data?.errors && Array.isArray(error.response.data.errors)
+          ? error.response.data.errors.join(", ")
+          : error.message || "Signup failed");
+      throw new Error(message);
     }
   };
 
@@ -324,6 +417,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     localStorage.removeItem("metaverse_user");
     localStorage.removeItem("firebase_token");
+     localStorage.removeItem("metaverse_token");
+     localStorage.removeItem("auth_provider");
     router.push("/login");
   };
 

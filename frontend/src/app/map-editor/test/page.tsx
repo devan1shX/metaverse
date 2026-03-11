@@ -1,17 +1,15 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import Phaser from "phaser";
 import { ChevronLeft, LayoutDashboard, Keyboard, MousePointer2 } from "lucide-react";
 import Link from "next/link"; // For dashboard link if needed, or simple buttons
-import { Player, PlayerData } from "@/components/Player";
 
 export default function MapTestPage() {
   const gameContainerRef = useRef<HTMLDivElement>(null);
+  const gameInstanceRef = useRef<any>(null);
   const [mapData, setMapData] = useState<any>(null);
   const [mapName, setMapName] = useState<string>("test_map");
   const [error, setError] = useState<string>("");
-  const [gameInstance, setGameInstance] = useState<Phaser.Game | null>(null);
 
   // Zoom level for the test view - using 2x to make pixel art visible
   const ZOOM_LEVEL = 2;
@@ -38,159 +36,155 @@ export default function MapTestPage() {
   useEffect(() => {
     if (!mapData || !gameContainerRef.current) return;
 
-    // cleanup previous game if exists (react strict mode double invoke)
-    if (gameInstance) {
-      gameInstance.destroy(true);
-      setGameInstance(null);
-    }
+    let isMounted = true;
 
-    // Calculate exact canvas dimensions
-    // The map width in pixels * zoom level
-    const width = mapData.width * mapData.tilewidth * ZOOM_LEVEL;
-    const height = mapData.height * mapData.tileheight * ZOOM_LEVEL;
+    const loadGame = async () => {
+      const Phaser = (await import("phaser")).default;
+      const { Player } = await import("@/components/Player");
 
-    // Create test Phaser scene
-    class TestMapScene extends Phaser.Scene {
-      private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
-      private player?: Player; // Changed to Player class
-      private wasd: any; // Changed to any to match Player class expectation (or compatible object)
+      if (!isMounted || !gameContainerRef.current) return;
 
-      constructor() {
-        super({ key: 'TestMapScene' });
+      if (gameInstanceRef.current) {
+        gameInstanceRef.current.destroy(true);
+        gameInstanceRef.current = null;
       }
 
-      preload() {
-        console.log("Loading Map Data into Phaser:", JSON.stringify(mapData, null, 2));
+      const width = mapData.width * mapData.tilewidth * ZOOM_LEVEL;
+      const height = mapData.height * mapData.tileheight * ZOOM_LEVEL;
 
-        // Load map data directly
-        this.cache.tilemap.add('testMap', { format: 1, data: mapData });
+      class TestMapScene extends Phaser.Scene {
+        private cursors?: any;
+        private player?: any;
+        private wasd: any;
 
-        // Load tilesets
-        mapData.tilesets.forEach((tileset: any) => {
-          this.load.image(tileset.name, tileset.image);
-        });
+        constructor() {
+          super({ key: "TestMapScene" });
+        }
 
-        // Load player sprite
-        // We use a specific key format to trigger the correct avatar logic in Player class
-        // The Player class logic checks for 'avatar-2' in the key to determine frame/animation type
-        this.load.spritesheet('avatar-key-test-avatar-2', '/sprites/avatar-2-spritesheet.png', {
-          frameWidth: 48,
-          frameHeight: 48,
-        });
-      }
+        preload() {
+          console.log("Loading Map Data into Phaser:", JSON.stringify(mapData, null, 2));
 
-      create() {
-        const map = this.make.tilemap({ key: 'testMap' });
+          this.cache.tilemap.add("testMap", { format: 1, data: mapData });
 
-        // Add tilesets
-        const tilesets: Phaser.Tilemaps.Tileset[] = [];
-        mapData.tilesets.forEach((tilesetData: any) => {
-          const tileset = map.addTilesetImage(tilesetData.name, tilesetData.name);
-          if (tileset) {
-            tilesets.push(tileset);
-          }
-        });
+          mapData.tilesets.forEach((tileset: any) => {
+            this.load.image(tileset.name, tileset.image);
+          });
 
-        // Create layers with layer-based collision and depth
-        map.layers.forEach((layerData, index) => {
-          const layer = map.createLayer(layerData.name, tilesets, 0, 0);
-          if (layer) {
-            // Check collision
-            const hasCollision = layerData.properties?.some(
-              (prop: any) => prop.name === 'collides' && prop.value === true
-            );
-            
-            if (hasCollision) {
-              layer.setCollisionByExclusion([-1]);
+          this.load.spritesheet("avatar-key-test-avatar-2", "/sprites/avatar-2-spritesheet.png", {
+            frameWidth: 48,
+            frameHeight: 48,
+          });
+        }
+
+        create() {
+          const map = this.make.tilemap({ key: "testMap" });
+          const tilesets: any[] = [];
+
+          mapData.tilesets.forEach((tilesetData: any) => {
+            const tileset = map.addTilesetImage(tilesetData.name, tilesetData.name);
+            if (tileset) {
+              tilesets.push(tileset);
             }
-            
-            // Set Layer Depth
-            // Ground (0), Walls (1), Objects (2) -> Below Player
-            // Above Objects -> Above Player
-            if (layerData.name === "Above Objects") {
-              layer.setDepth(20); // High depth to cover player
-            } else {
-              layer.setDepth(index); // 0, 1, 2...
+          });
+
+          map.layers.forEach((layerData: any, index: number) => {
+            const layer = map.createLayer(layerData.name, tilesets, 0, 0);
+            if (layer) {
+              const hasCollision = layerData.properties?.some(
+                (prop: any) => prop.name === "collides" && prop.value === true
+              );
+
+              if (hasCollision) {
+                layer.setCollisionByExclusion([-1]);
+              }
+
+              if (layerData.name === "Above Objects") {
+                layer.setDepth(20);
+              } else {
+                layer.setDepth(index);
+              }
+
+              layer.setScale(1);
             }
-            
-            layer.setScale(1);
+          });
+
+          this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+
+          const centerX = map.widthInPixels / 2;
+          const centerY = map.heightInPixels / 2;
+
+          const playerData = {
+            id: "test-user",
+            user_name: "Test User",
+            user_avatar_url: "/sprites/avatar-2-spritesheet.png",
+          };
+
+          this.player = new Player(
+            this,
+            centerX,
+            centerY,
+            "avatar-key-test-avatar-2",
+            playerData
+          );
+          this.player.setDepth(10);
+          this.player.setCollideWorldBounds(true);
+
+          map.layers.forEach((layerData: any) => {
+            const layer = map.getLayer(layerData.name);
+            if (layer && this.player) {
+              this.physics.add.collider(this.player, layer.tilemapLayer);
+            }
+          });
+
+          this.cameras.main.startFollow(this.player, true);
+          this.cameras.main.setZoom(ZOOM_LEVEL);
+          this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+
+          if (this.input.keyboard) {
+            this.cursors = this.input.keyboard.createCursorKeys();
+            this.wasd = this.input.keyboard.addKeys("W,S,A,D");
           }
-        });
+        }
 
-        // Set world bounds to match map size
-        this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+        update() {
+          if (!this.player || !this.cursors || !this.wasd) return;
 
-        // Create player using the Player class
-        const centerX = map.widthInPixels / 2;
-        const centerY = map.heightInPixels / 2;
-        
-        const playerData: PlayerData = {
-            id: 'test-user',
-            user_name: 'Test User',
-            user_avatar_url: '/sprites/avatar-2-spritesheet.png'
-        };
-
-        // Note: The texture key must match what we loaded in preload
-        this.player = new Player(this, centerX, centerY, 'avatar-key-test-avatar-2', playerData);
-        this.player.setDepth(10); // Above Ground/Walls, Below Above Objects
-        
-        // Ensure player collides with world bounds (should be set in Player class already, but good to ensure)
-        this.player.setCollideWorldBounds(true);
-
-        // Add collision with layers
-        map.layers.forEach((layerData) => {
-          const layer = map.getLayer(layerData.name);
-          if (layer && this.player) {
-            this.physics.add.collider(this.player, layer.tilemapLayer);
-          }
-        });
-
-        // Camera setup
-        this.cameras.main.startFollow(this.player, true);
-        this.cameras.main.setZoom(ZOOM_LEVEL);
-        this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-
-        // Input
-        if (this.input.keyboard) {
-           this.cursors = this.input.keyboard.createCursorKeys();
-           this.wasd = this.input.keyboard.addKeys('W,S,A,D');
+          this.player.updateMovement(this.cursors, this.wasd);
+          this.player.update();
         }
       }
 
-      update(time: number, delta: number) {
-        if (!this.player || !this.cursors || !this.wasd) return;
+      const config: any = {
+        type: Phaser.AUTO,
+        width,
+        height,
+        parent: gameContainerRef.current,
+        pixelArt: true,
+        physics: {
+          default: "arcade",
+          arcade: {
+            gravity: { x: 0, y: 0 },
+            debug: false,
+          },
+        },
+        scene: TestMapScene,
+        backgroundColor: "#0f1520",
+      };
 
-        // Use the Player class movement logic
-        this.player.updateMovement(this.cursors, this.wasd);
-        
-        // Also call update on player for any internal logic (like name tag sync)
-        this.player.update();
+      const game = new Phaser.Game(config);
+      if (isMounted) {
+        gameInstanceRef.current = game;
       }
-    }
-
-    // Create Phaser game
-    const config: Phaser.Types.Core.GameConfig = {
-      type: Phaser.AUTO,
-      width: width,
-      height: height,
-      parent: gameContainerRef.current,
-      pixelArt: true, // Critical for crisp scaling
-      physics: {
-        default: 'arcade',
-        arcade: {
-          gravity: { x: 0, y: 0 },
-          debug: false
-        }
-      },
-      scene: TestMapScene,
-      backgroundColor: '#f8fafc', // Match slate-50
     };
 
-    const game = new Phaser.Game(config);
-    setGameInstance(game);
+    loadGame();
 
     return () => {
-      game.destroy(true);
+      isMounted = false;
+      if (gameInstanceRef.current) {
+        gameInstanceRef.current.destroy(true);
+        gameInstanceRef.current = null;
+      }
     };
   }, [mapData]);
 

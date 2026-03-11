@@ -71,11 +71,11 @@ export function NotificationDropdown() {
       {/* Notification Bell */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-gray-900 transition-colors"
+        className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/8 bg-white/[0.03] text-[var(--text-muted)] transition-colors hover:border-white/14 hover:bg-white/[0.06] hover:text-[var(--text-primary)]"
       >
         <Bell className="w-6 h-6" />
         {summary && summary.unread_count > 0 && (
-          <span className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center font-medium px-1">
+          <span className="absolute right-0 top-0 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-xs font-medium text-[#230f0d]" style={{ background: "var(--danger)" }}>
             {summary.unread_count > 99 ? '99+' : summary.unread_count}
           </span>
         )}
@@ -83,22 +83,22 @@ export function NotificationDropdown() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-xl z-50">
+        <div className="modal-shell absolute right-0 z-50 mt-3 w-80">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-100">
-            <h3 className="text-base font-semibold text-gray-900">Notifications</h3>
+          <div className="modal-header flex items-center justify-between p-4">
+            <h3 className="font-display text-lg font-semibold tracking-[-0.03em] text-[var(--text-primary)]">Notifications</h3>
             <div className="flex items-center gap-2">
               {summary && summary.unread_count > 0 && (
                 <button
                   onClick={handleMarkAllRead}
-                  className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                  className="text-xs font-medium text-[var(--accent-strong)] hover:text-[var(--text-primary)]"
                 >
                   Mark all read
                 </button>
               )}
               <button
                 onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-1"
+                className="modal-close h-8 w-8"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -109,48 +109,48 @@ export function NotificationDropdown() {
           <div className="max-h-96 overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-indigo-600"></div>
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[var(--accent)]"></div>
               </div>
             ) : error ? (
               <div className="p-6 text-center">
-                <p className="text-sm text-red-600 mb-2">{error}</p>
+                <p className="mb-2 text-sm" style={{ color: "var(--danger)" }}>{error}</p>
                 <button 
                   onClick={() => refetch()}
-                  className="text-sm text-indigo-600 hover:text-indigo-700"
+                  className="text-sm text-[var(--accent-strong)] hover:text-[var(--text-primary)]"
                 >
                   Try again
                 </button>
               </div>
             ) : notifications.length === 0 ? (
               <div className="p-8 text-center">
-                <Inbox className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm text-gray-600">No notifications</p>
+                <Inbox className="mx-auto mb-3 h-12 w-12 text-[var(--text-soft)]" />
+                <p className="text-sm text-[var(--text-muted)]">No notifications</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-white/8">
                 {notifications.map((notification) => (
                   <div
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
-                    className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
-                      notification.status === 'unread' ? 'bg-indigo-50/30' : ''
+                    className={`cursor-pointer p-4 transition-colors hover:bg-white/[0.04] ${
+                      notification.status === 'unread' ? 'bg-[rgba(215,163,102,0.08)]' : ''
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <h4 className={`text-sm font-medium ${
-                        notification.status === 'unread' ? 'text-gray-900' : 'text-gray-600'
+                        notification.status === 'unread' ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'
                       }`}>
                         {notification.title}
                       </h4>
                       {notification.status === 'unread' && (
-                        <div className="w-2 h-2 bg-indigo-600 rounded-full flex-shrink-0 mt-1.5"></div>
+                        <div className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-[var(--accent)]"></div>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                    <p className="mb-2 line-clamp-2 text-sm text-[var(--text-muted)]">
                       {notification.message}
                     </p>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500">
+                      <span className="text-[var(--text-soft)]">
                         {formatTimeAgo(notification.createdAt)}
                       </span>
                       {notification.status === 'unread' && (
@@ -159,7 +159,7 @@ export function NotificationDropdown() {
                             e.stopPropagation();
                             markAsRead(notification.id);
                           }}
-                          className="text-indigo-600 hover:text-indigo-700"
+                          className="text-[var(--accent-strong)] hover:text-[var(--text-primary)]"
                         >
                           Mark read
                         </button>

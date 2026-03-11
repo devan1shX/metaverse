@@ -164,8 +164,8 @@ export default function TilesetPalette({
             onMouseEnter={() => handleMouseEnter(row, col)}
             className={`
               relative cursor-pointer select-none
-              ${isSelected ? "z-10 ring-2 ring-indigo-500 ring-offset-1 ring-offset-white" : "hover:ring-1 hover:ring-slate-400 hover:z-10"}
-              ${isInCurrentSelection ? "after:absolute after:inset-0 after:bg-indigo-500/30" : ""}
+              ${isSelected ? "z-10 ring-2 ring-[var(--accent)] ring-offset-1 ring-offset-[#0d131d]" : "hover:z-10 hover:ring-1 hover:ring-white/40"}
+              ${isInCurrentSelection ? "after:absolute after:inset-0 after:bg-[rgba(215,163,102,0.24)]" : ""}
             `}
             style={{
               width: `${currentTileset.tileWidth * 2}px`,
@@ -185,7 +185,7 @@ export default function TilesetPalette({
                 }}
               />
             )}
-            <div className={`absolute bottom-0 right-0 text-[8px] px-1 pointer-events-none transition-opacity ${isSelected || isInCurrentSelection ? "opacity-100 bg-indigo-600 text-white" : "opacity-70 bg-black/60 text-slate-300"}`}>
+            <div className={`pointer-events-none absolute bottom-0 right-0 px-1 text-[8px] transition-opacity ${isSelected || isInCurrentSelection ? "bg-[var(--accent)] text-[var(--accent-contrast)] opacity-100" : "bg-black/60 text-[var(--text-secondary)] opacity-70"}`}>
               {tileId}
             </div>
           </div>
@@ -198,7 +198,7 @@ export default function TilesetPalette({
 
   return (
     <div 
-      className="p-4 flex flex-col h-full" 
+      className="flex h-full flex-col p-4" 
       onMouseLeave={() => {
         if (isSelecting) {
           handleMouseUp();
@@ -207,11 +207,11 @@ export default function TilesetPalette({
     >
       <div className="mb-4 relative" ref={dropdownRef}>
         <div className="flex items-center gap-2">
-            <label className="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-2 block flex-1">Active Tileset</label>
+            <label className="surface-label mb-2 block flex-1">Active Tileset</label>
             {onTilesetAdd && (
                 <button 
                   onClick={() => setShowUploader(true)}
-                  className="mb-2 p-1 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded transition-colors" 
+                  className="mb-2 rounded-full border border-[var(--border-default)] bg-white/5 p-2 text-[var(--text-secondary)] transition-colors hover:border-[rgba(239,188,130,0.22)] hover:bg-[rgba(215,163,102,0.1)] hover:text-[var(--accent-strong)]" 
                   title="Add Custom Tileset"
                 >
                     <Plus className="w-3 h-3" />
@@ -222,17 +222,17 @@ export default function TilesetPalette({
         {/* Custom Dropdown Trigger */}
         <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className={`w-full flex items-center justify-between bg-white text-slate-800 border rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
-            isDropdownOpen ? 'border-indigo-500 ring-1 ring-indigo-500/50' : 'border-slate-200 hover:border-slate-300'
+          className={`flex w-full items-center justify-between rounded-[18px] border px-4 py-3 text-sm font-medium transition-all ${
+            isDropdownOpen ? "border-[rgba(239,188,130,0.26)] bg-[rgba(215,163,102,0.08)] text-[var(--text-primary)] shadow-[0_0_0_4px_rgba(215,163,102,0.08)]" : "border-[var(--border-default)] bg-white/5 text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
           }`}
         >
           <span>{currentTileset ? currentTileset.name : 'Select Tileset'}</span>
-          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`h-4 w-4 text-[var(--text-soft)] transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
         </button>
 
         {/* Custom Dropdown Menu */}
         {isDropdownOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden text-sm">
+          <div className="glass-panel absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-[20px] text-sm">
             {tilesets.map((tileset) => (
               <button
                 key={tileset.id}
@@ -240,8 +240,8 @@ export default function TilesetPalette({
                   onTilesetChange(tileset.id);
                   setIsDropdownOpen(false);
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-slate-50 transition-colors ${
-                  selectedTileset === tileset.id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600'
+                className={`flex w-full items-center justify-between px-4 py-3 text-left transition-colors ${
+                  selectedTileset === tileset.id ? "bg-[rgba(215,163,102,0.12)] text-[var(--accent-strong)]" : "text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]"
                 }`}
               >
                 <span>{tileset.name}</span>
@@ -252,7 +252,7 @@ export default function TilesetPalette({
         )}
       </div>
 
-      <div className="flex-1 overflow-hidden bg-slate-50 rounded-lg border border-slate-200 relative">
+      <div className="relative flex-1 overflow-hidden rounded-[22px] border border-[var(--border-default)] bg-[rgba(7,10,16,0.42)]">
         <div className="absolute inset-0 overflow-auto custom-scrollbar p-2">
          {/* ... (existing styles) ... */}
          <style jsx>{`
@@ -261,24 +261,24 @@ export default function TilesetPalette({
               height: 8px;
             }
             .custom-scrollbar::-webkit-scrollbar-track {
-              background: #f8fafc;
+              background: rgba(255, 255, 255, 0.03);
             }
             .custom-scrollbar::-webkit-scrollbar-thumb {
-              background-color: #cbd5e1;
+              background-color: rgba(255, 255, 255, 0.14);
               border-radius: 4px;
-              border: 2px solid #f8fafc;
+              border: 2px solid rgba(10, 14, 22, 0.4);
             }
             .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-              background-color: #94a3b8;
+              background-color: rgba(255, 255, 255, 0.22);
             }
             .custom-scrollbar::-webkit-scrollbar-corner {
-               background: #f8fafc;
+               background: transparent;
             }
          `}</style>
          
          {/* Tileset Grid Container - Forces width based on columns */}
          <div
-          className="grid gap-px content-start bg-slate-200"
+          className="grid content-start gap-px bg-white/10"
           style={{
             gridTemplateColumns: `repeat(${currentTileset?.columns || 8}, ${currentTileset?.tileWidth ? currentTileset.tileWidth * 2 : 32}px)`,
             width: 'max-content', // Forces container to grow horizontally
@@ -292,7 +292,7 @@ export default function TilesetPalette({
       </div>
 
        {currentTileset && (
-        <div className="mt-3 flex items-center justify-between text-[10px] text-slate-500 uppercase tracking-wider font-medium shrink-0">
+        <div className="mt-3 flex shrink-0 items-center justify-between text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
           <span>{currentTileset.name}</span>
           <span>{currentTileset.tileCount} Tiles</span>
         </div>

@@ -35,6 +35,7 @@ export interface UserJoinedEvent {
     id: string;
     user_name: string;
     user_avatar_url: string;
+    in_code_session?: boolean;
   };
   x: number;
   y: number;
@@ -62,6 +63,118 @@ export interface SpaceState {
     audio_streams: Array<{ user_id: string; stream_id: string }>;
     video_streams: Array<{ user_id: string; stream_id: string }>;
   };
+  code_session?: {
+    code: string;
+    language: string;
+  };
+  whiteboard_state?: string; // JSON string of Excalidraw elements
+}
+
+export interface CodeUpdateEvent {
+  event: 'code_update';
+  code: string;
+  language: string;
+  user_id: string;
+  target_user_ids?: string[];
+}
+
+export interface CodeInviteEvent {
+  event: 'receive_code_invite';
+  host_id: string;
+  host_name: string;
+}
+
+export interface CodeInviteResponseEvent {
+  event: 'receive_code_invite_response';
+  responder_id: string;
+  responder_name: string;
+  accepted: boolean;
+  reason?: string;
+}
+
+export interface UserStatusUpdateEvent {
+  event: 'user_status_update';
+  user_id: string;
+  in_code_session: boolean;
+}
+
+export interface WhiteboardUpdateEvent {
+  event: 'whiteboard_update';
+  elements: string; // JSON string of Excalidraw elements
+  files?: Record<string, any>; // Excalidraw BinaryFiles map (base64 dataURLs)
+  user_id: string;
+}
+
+export interface WhiteboardInviteEvent {
+  event: 'receive_whiteboard_invite';
+  host_id: string;
+  host_name: string;
+}
+
+export interface WhiteboardInviteResponseEvent {
+  event: 'receive_whiteboard_invite_response';
+  responder_id: string;
+  responder_name: string;
+  accepted: boolean;
+  reason?: string;
+}
+
+export interface WhiteboardStatusUpdateEvent {
+  event: 'whiteboard_status_update';
+  user_id: string;
+  in_whiteboard_session: boolean;
+}
+
+// ──────────────────────────────────────────
+// Interview Room Types
+// ──────────────────────────────────────────
+export interface WaitingRoomStatusEvent {
+  event: 'waiting_room_status';
+  status: 'waiting' | 'admitted' | 'rejected';
+  message: string;
+}
+
+export interface CandidateWaitingEvent {
+  event: 'candidate_waiting';
+  user_id: string;
+  user_name: string;
+  user_avatar_url: string;
+  waiting_count: number;
+}
+
+export interface InterviewTimerEvent {
+  event: 'INTERVIEW_TIMER_STARTED' | 'INTERVIEW_TIMER_PAUSED' | 'INTERVIEW_TIMER_EXTENDED';
+  duration_seconds?: number;
+  started_at?: number;
+  remaining_seconds?: number;
+  extra_seconds?: number;
+  new_duration_seconds?: number;
+}
+
+export interface InterviewSessionEndedEvent {
+  event: 'INTERVIEW_SESSION_ENDED';
+  ended_by: string;
+}
+
+export interface TabSwitchDetectedEvent {
+  event: 'TAB_SWITCH_DETECTED';
+  candidate_id: string;
+  candidate_name: string;
+  switch_type: 'tab_switch' | 'blur';
+  timestamp: number;
+}
+
+export interface WebcamSnapshotEvent {
+  event: 'WEBCAM_SNAPSHOT';
+  candidate_id: string;
+  candidate_name: string;
+  image: string; // base64 data URL
+  timestamp: number;
+}
+
+export interface YouWereKickedEvent {
+  event: 'YOU_WERE_KICKED';
+  reason: string;
 }
 
 export interface WebRTCSignal {
@@ -106,6 +219,26 @@ export function useSpaceWebSocket(spaceId: string | null) {
   const spaceStateCallbackRef = useRef<((state: SpaceState) => void) | null>(null);
   const webrtcSignalCallbackRef = useRef<((signal: WebRTCSignal) => void) | null>(null);
   const mediaStreamCallbackRef = useRef<((event: MediaStreamEvent) => void) | null>(null);
+  const codeUpdateCallbackRef = useRef<((event: CodeUpdateEvent) => void) | null>(null);
+  const codeExecutionCallbackRef = useRef<((result: { output: string, error: string, isRunning: boolean }) => void) | null>(null);
+  const codeInviteCallbackRef = useRef<((event: CodeInviteEvent) => void) | null>(null);
+  const codeInviteResponseCallbackRef = useRef<((event: CodeInviteResponseEvent) => void) | null>(null);
+  const userStatusUpdateCallbackRef = useRef<((event: UserStatusUpdateEvent) => void) | null>(null);
+  // Whiteboard callbacks
+  const whiteboardUpdateCallbackRef = useRef<((event: WhiteboardUpdateEvent) => void) | null>(null);
+  const whiteboardClearCallbackRef = useRef<(() => void) | null>(null);
+  const whiteboardInviteCallbackRef = useRef<((event: WhiteboardInviteEvent) => void) | null>(null);
+  const whiteboardInviteResponseCallbackRef = useRef<((event: WhiteboardInviteResponseEvent) => void) | null>(null);
+  const whiteboardStatusUpdateCallbackRef = useRef<((event: WhiteboardStatusUpdateEvent) => void) | null>(null);
+
+  // ── Interview Room Callbacks ───────────────────────────────
+  const waitingRoomStatusCallbackRef = useRef<((event: WaitingRoomStatusEvent) => void) | null>(null);
+  const candidateWaitingCallbackRef = useRef<((event: CandidateWaitingEvent) => void) | null>(null);
+  const interviewTimerCallbackRef = useRef<((event: InterviewTimerEvent) => void) | null>(null);
+  const interviewSessionEndedCallbackRef = useRef<((event: InterviewSessionEndedEvent) => void) | null>(null);
+  const tabSwitchDetectedCallbackRef = useRef<((event: TabSwitchDetectedEvent) => void) | null>(null);
+  const webcamSnapshotCallbackRef = useRef<((event: WebcamSnapshotEvent) => void) | null>(null);
+  const youWereKickedCallbackRef = useRef<((event: YouWereKickedEvent) => void) | null>(null);
 
   // Update ref when state changes
   useEffect(() => {
@@ -230,16 +363,16 @@ export function useSpaceWebSocket(spaceId: string | null) {
                 const storageKey = `chat-history-${spaceId}`;
                 const storedMessages = localStorage.getItem(storageKey);
                 let messages: ChatMessage[] = [];
-                
+
                 if (storedMessages) {
                   messages = JSON.parse(storedMessages);
                 }
-                
+
                 // Add new message if it doesn't already exist (prevent duplicates)
                 const isDuplicate = messages.some(
                   (msg) => msg.timestamp === message.timestamp && msg.user_id === message.user_id
                 );
-                
+
                 if (!isDuplicate) {
                   messages.push(message as ChatMessage);
                   localStorage.setItem(storageKey, JSON.stringify(messages));
@@ -249,9 +382,39 @@ export function useSpaceWebSocket(spaceId: string | null) {
                 console.error('Error saving chat message to localStorage:', storageErr);
               }
             }
-            
+
             // Also call the callback if ChatBox is mounted and listening
             chatCallbackRef.current?.(message as ChatMessage);
+          }
+          else if (message.event === 'code_update') {
+            codeUpdateCallbackRef.current?.(message as CodeUpdateEvent);
+          }
+          else if (message.event === 'code_execution_result') {
+            codeExecutionCallbackRef.current?.({ output: message.output, error: message.error, isRunning: false });
+          }
+          else if (message.event === 'receive_code_invite') {
+            codeInviteCallbackRef.current?.(message as CodeInviteEvent);
+          }
+          else if (message.event === 'receive_code_invite_response') {
+            codeInviteResponseCallbackRef.current?.(message as CodeInviteResponseEvent);
+          }
+          else if (message.event === 'user_status_update') {
+            userStatusUpdateCallbackRef.current?.(message as UserStatusUpdateEvent);
+          }
+          else if (message.event === 'whiteboard_update') {
+            whiteboardUpdateCallbackRef.current?.(message as WhiteboardUpdateEvent);
+          }
+          else if (message.event === 'whiteboard_clear') {
+            whiteboardClearCallbackRef.current?.();
+          }
+          else if (message.event === 'receive_whiteboard_invite') {
+            whiteboardInviteCallbackRef.current?.(message as WhiteboardInviteEvent);
+          }
+          else if (message.event === 'receive_whiteboard_invite_response') {
+            whiteboardInviteResponseCallbackRef.current?.(message as WhiteboardInviteResponseEvent);
+          }
+          else if (message.event === 'whiteboard_status_update') {
+            whiteboardStatusUpdateCallbackRef.current?.(message as WhiteboardStatusUpdateEvent);
           }
           else if (message.event === 'position_move_ack') {
             // Acknowledged
@@ -274,6 +437,32 @@ export function useSpaceWebSocket(spaceId: string | null) {
           else if (message.event === 'error') {
             console.error('WebSocket server error:', message.message);
             setError(message.message);
+          }
+          // ── Interview Room Events ───────────────────────────────
+          else if (message.event === 'waiting_room_status') {
+            waitingRoomStatusCallbackRef.current?.(message as WaitingRoomStatusEvent);
+          }
+          else if (message.event === 'candidate_waiting') {
+            candidateWaitingCallbackRef.current?.(message as CandidateWaitingEvent);
+          }
+          else if (
+            message.event === 'INTERVIEW_TIMER_STARTED' ||
+            message.event === 'INTERVIEW_TIMER_PAUSED' ||
+            message.event === 'INTERVIEW_TIMER_EXTENDED'
+          ) {
+            interviewTimerCallbackRef.current?.(message as InterviewTimerEvent);
+          }
+          else if (message.event === 'INTERVIEW_SESSION_ENDED') {
+            interviewSessionEndedCallbackRef.current?.(message as InterviewSessionEndedEvent);
+          }
+          else if (message.event === 'TAB_SWITCH_DETECTED') {
+            tabSwitchDetectedCallbackRef.current?.(message as TabSwitchDetectedEvent);
+          }
+          else if (message.event === 'WEBCAM_SNAPSHOT') {
+            webcamSnapshotCallbackRef.current?.(message as WebcamSnapshotEvent);
+          }
+          else if (message.event === 'YOU_WERE_KICKED') {
+            youWereKickedCallbackRef.current?.(message as YouWereKickedEvent);
           }
         } catch (err) {
           console.error('Error parsing WebSocket message:', err);
@@ -400,7 +589,216 @@ export function useSpaceWebSocket(spaceId: string | null) {
     }
   }, [userId, spaceId]);
 
-  // Set callbacks
+  // Send Code Update
+  const sendCodeUpdate = useCallback((code: string, language: string, targetUserIds: string[]) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          event: 'code_update',
+          code,
+          language,
+          target_user_ids: targetUserIds
+        }));
+      } catch (err) {
+        console.error('Error sending code update:', err);
+      }
+    }
+  }, []);
+
+  // Sync execution results across users
+  const sendCodeExecutionResult = useCallback((output: string, error: string, targetUserIds: string[]) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          event: 'code_execution_result',
+          output,
+          error,
+          target_user_ids: targetUserIds
+        }));
+      } catch (err) {
+        console.error('Error sending code execution info:', err);
+      }
+    }
+  }, []);
+
+  const sendCodeInvite = useCallback((targetUserIds: string[], hostName: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        event: 'send_code_invite',
+        target_user_ids: targetUserIds,
+        host_name: hostName
+      }));
+    }
+  }, []);
+
+  const sendCodeInviteResponse = useCallback((hostId: string, accepted: boolean, responderName: string, reason?: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        event: 'code_invite_response',
+        host_id: hostId,
+        accepted,
+        responder_name: responderName,
+        reason
+      }));
+    }
+  }, []);
+
+  const sendCodeSessionStatus = useCallback((inSession: boolean) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN && userId && spaceId) {
+      wsRef.current.send(JSON.stringify({
+        event: 'code_session_status',
+        user_id: userId,
+        space_id: spaceId,
+        in_session: inSession
+      }));
+    }
+  }, [userId, spaceId]);
+
+  // ─── Whiteboard Send Functions ───────────────────────────────────────────────
+
+  const sendWhiteboardUpdate = useCallback((elementsJson: string, targetUserIds: string[], files: Record<string, any> = {}) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        event: 'whiteboard_update',
+        elements: elementsJson,
+        target_user_ids: targetUserIds,
+        files: files,
+      }));
+    }
+  }, []);
+
+  const sendWhiteboardClear = useCallback((targetUserIds: string[]) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        event: 'whiteboard_clear',
+        target_user_ids: targetUserIds,
+      }));
+    }
+  }, []);
+
+  const sendWhiteboardInvite = useCallback((targetUserIds: string[], hostName: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        event: 'send_whiteboard_invite',
+        target_user_ids: targetUserIds,
+        host_name: hostName,
+      }));
+    }
+  }, []);
+
+  const sendWhiteboardInviteResponse = useCallback((hostId: string, accepted: boolean, responderName: string, reason?: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        event: 'whiteboard_invite_response',
+        host_id: hostId,
+        accepted,
+        responder_name: responderName,
+        reason,
+      }));
+    }
+  }, []);
+
+  const sendWhiteboardSessionStatus = useCallback((inSession: boolean) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN && userId && spaceId) {
+      wsRef.current.send(JSON.stringify({
+        event: 'whiteboard_session_status',
+        user_id: userId,
+        space_id: spaceId,
+        in_session: inSession,
+      }));
+    }
+  }, [userId, spaceId]);
+
+  // ── Interview Room Send Functions ────────────────────────────
+  const sendAdmitCandidate = useCallback((candidateId: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ event: 'admit_candidate', candidate_id: candidateId }));
+    }
+  }, []);
+
+  const sendRejectCandidate = useCallback((candidateId: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ event: 'reject_candidate', candidate_id: candidateId }));
+    }
+  }, []);
+
+  const sendInterviewTimerStart = useCallback((durationSeconds: number) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ event: 'interview_timer_start', duration_seconds: durationSeconds }));
+    }
+  }, []);
+
+  const sendInterviewTimerPause = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ event: 'interview_timer_pause' }));
+    }
+  }, []);
+
+  const sendInterviewTimerExtend = useCallback((extraSeconds: number) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ event: 'interview_timer_extend', extra_seconds: extraSeconds }));
+    }
+  }, []);
+
+  const sendInterviewSessionEnd = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ event: 'interview_session_end' }));
+    }
+  }, []);
+
+  const sendTabSwitchEvent = useCallback((switchType: 'tab_switch' | 'blur') => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ event: 'tab_switch_event', switch_type: switchType }));
+    }
+  }, []);
+
+  const sendWebcamSnapshot = useCallback((imageDataUrl: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ event: 'webcam_snapshot', image: imageDataUrl }));
+    }
+  }, []);
+
+  const sendKickUser = useCallback((targetUserId: string, reason?: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ event: 'kick_user', target_user_id: targetUserId, reason: reason || 'Removed by interviewer' }));
+    }
+  }, []);
+
+  // ── Interview Room Callback Setters ────────────────────────
+  const onWaitingRoomStatus = useCallback((cb: (event: WaitingRoomStatusEvent) => void) => {
+    waitingRoomStatusCallbackRef.current = cb;
+  }, []);
+
+  const onCandidateWaiting = useCallback((cb: (event: CandidateWaitingEvent) => void) => {
+    candidateWaitingCallbackRef.current = cb;
+  }, []);
+
+  const onInterviewTimer = useCallback((cb: (event: InterviewTimerEvent) => void) => {
+    interviewTimerCallbackRef.current = cb;
+  }, []);
+
+  const onInterviewSessionEnded = useCallback((cb: (event: InterviewSessionEndedEvent) => void) => {
+    interviewSessionEndedCallbackRef.current = cb;
+  }, []);
+
+  const onTabSwitchDetected = useCallback((cb: (event: TabSwitchDetectedEvent) => void) => {
+    tabSwitchDetectedCallbackRef.current = cb;
+  }, []);
+
+  const onWebcamSnapshot = useCallback((cb: (event: WebcamSnapshotEvent) => void) => {
+    webcamSnapshotCallbackRef.current = cb;
+  }, []);
+
+  const onYouWereKicked = useCallback((cb: (event: YouWereKickedEvent) => void) => {
+    youWereKickedCallbackRef.current = cb;
+  }, []);
+
+  // Set callbacks – existing whiteboard
+  const onWhiteboardSessionStatus = useCallback((cb: (event: WhiteboardStatusUpdateEvent) => void) => {
+    whiteboardStatusUpdateCallbackRef.current = cb;
+  }, []);
+
+
   const onPositionUpdate = useCallback((callback: (update: PositionUpdate) => void) => {
     positionUpdateCallbackRef.current = callback;
   }, []);
@@ -419,6 +817,10 @@ export function useSpaceWebSocket(spaceId: string | null) {
 
   const onSpaceState = useCallback((callback: (state: SpaceState) => void) => {
     spaceStateCallbackRef.current = callback;
+  }, []);
+
+  const onUserStatusUpdate = useCallback((callback: (event: UserStatusUpdateEvent) => void) => {
+    userStatusUpdateCallbackRef.current = callback;
   }, []);
 
   const sendMediaSignal = useCallback((signalType: string, toUserId: string, data: any) => {
@@ -478,6 +880,44 @@ export function useSpaceWebSocket(spaceId: string | null) {
     mediaStreamCallbackRef.current = callback;
   }, []);
 
+  const onCodeUpdate = useCallback((callback: (event: CodeUpdateEvent) => void) => {
+    codeUpdateCallbackRef.current = callback;
+  }, []);
+
+  const onCodeExecutionResult = useCallback((callback: (result: { output: string, error: string, isRunning: boolean }) => void) => {
+    codeExecutionCallbackRef.current = callback;
+  }, []);
+
+  const onCodeInvite = useCallback((callback: (event: CodeInviteEvent) => void) => {
+    codeInviteCallbackRef.current = callback;
+  }, []);
+
+  const onCodeInviteResponse = useCallback((callback: (event: CodeInviteResponseEvent) => void) => {
+    codeInviteResponseCallbackRef.current = callback;
+  }, []);
+
+  // ─── Whiteboard Callbacks ────────────────────────────────────────────────────
+
+  const onWhiteboardUpdate = useCallback((callback: (event: WhiteboardUpdateEvent) => void) => {
+    whiteboardUpdateCallbackRef.current = callback;
+  }, []);
+
+  const onWhiteboardClear = useCallback((callback: () => void) => {
+    whiteboardClearCallbackRef.current = callback;
+  }, []);
+
+  const onWhiteboardInvite = useCallback((callback: (event: WhiteboardInviteEvent) => void) => {
+    whiteboardInviteCallbackRef.current = callback;
+  }, []);
+
+  const onWhiteboardInviteResponse = useCallback((callback: (event: WhiteboardInviteResponseEvent) => void) => {
+    whiteboardInviteResponseCallbackRef.current = callback;
+  }, []);
+
+  const onWhiteboardStatusUpdate = useCallback((callback: (event: WhiteboardStatusUpdateEvent) => void) => {
+    whiteboardStatusUpdateCallbackRef.current = callback;
+  }, []);
+
   // Connect on mount
   useEffect(() => {
     isMountedRef.current = true;
@@ -520,5 +960,43 @@ export function useSpaceWebSocket(spaceId: string | null) {
     stopMediaStream,
     onWebRTCSignal,
     onMediaStreamEvent,
+    sendCodeUpdate,
+    onCodeUpdate,
+    sendCodeExecutionResult,
+    onCodeExecutionResult,
+    sendCodeInvite,
+    onCodeInvite,
+    sendCodeInviteResponse,
+    onCodeInviteResponse,
+    sendCodeSessionStatus,
+    onUserStatusUpdate,
+    // Whiteboard
+    sendWhiteboardUpdate,
+    sendWhiteboardClear,
+    sendWhiteboardInvite,
+    sendWhiteboardInviteResponse,
+    sendWhiteboardSessionStatus,
+    onWhiteboardUpdate,
+    onWhiteboardClear,
+    onWhiteboardInvite,
+    onWhiteboardInviteResponse,
+    onWhiteboardStatusUpdate,
+    // ── Interview Rooms
+    sendAdmitCandidate,
+    sendRejectCandidate,
+    sendInterviewTimerStart,
+    sendInterviewTimerPause,
+    sendInterviewTimerExtend,
+    sendInterviewSessionEnd,
+    sendTabSwitchEvent,
+    sendWebcamSnapshot,
+    sendKickUser,
+    onWaitingRoomStatus,
+    onCandidateWaiting,
+    onInterviewTimer,
+    onInterviewSessionEnded,
+    onTabSwitchDetected,
+    onWebcamSnapshot,
+    onYouWereKicked,
   };
 }

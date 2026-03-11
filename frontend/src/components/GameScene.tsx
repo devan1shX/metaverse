@@ -90,6 +90,43 @@ export class GameScene extends Phaser.Scene {
     this.load.image("worker1", "/maps/map2/assets/worker1.png");
     this.load.image("Yellow", "/maps/map2/assets/Yellow.png");
     this.load.tilemapTiledJSON("office-02", "/maps/map2/office-02.json");
+
+    // Map 3 Assets (Interview Room)
+    this.load.image("m3_VictorianWallConsolidationGreytop", "/maps/map3/assets/VictorianWallConsolidationGreytop.png");
+    this.load.image("m3_Little_Bits_Office_Floors",          "/maps/map3/assets/Little_Bits_Office_Floors.png");
+    this.load.image("m3_table_fancy_3x3_mediumwood",         "/maps/map3/assets/table_fancy_3x3_mediumwood.png");
+    this.load.image("m3_EamesChair",                         "/maps/map3/assets/EamesChair.png");
+    this.load.image("m3_Chair_set",                          "/maps/map3/assets/Chair_set.png");
+    this.load.image("m3_chair_neonoir",                      "/maps/map3/assets/chair_neonoir.png");
+    this.load.image("m3_laptop",                             "/maps/map3/assets/laptop.png");
+    this.load.image("m3_papers",                             "/maps/map3/assets/papers.png");
+    this.load.image("m3_water_bottle",                       "/maps/map3/assets/water_bottle.png");
+    this.load.image("m3_solo_cup",                           "/maps/map3/assets/solo cup.png");
+    this.load.image("m3_office_filecabinets",                "/maps/map3/assets/office_filecabinets.png");
+    this.load.image("m3_cat-tail_willow_red",                "/maps/map3/assets/cat-tail_willow_red.png");
+    this.load.image("m3_table_coffee",                       "/maps/map3/assets/table_coffee.png");
+    this.load.image("m3_books_stack",                        "/maps/map3/assets/books stack [1x2].png");
+    this.load.image("m3_book",                               "/maps/map3/assets/book [1x1].png");
+    this.load.image("m3_document_sepia",                     "/maps/map3/assets/document sepia [1x1].png");
+    this.load.image("m3_succulent_blue",                     "/maps/map3/assets/succulent_blue [1x1].png");
+    this.load.image("m3_water_cooler",                       "/maps/map3/assets/water_cooler.png");
+    this.load.image("m3_trashcan_w_lid",                     "/maps/map3/assets/trashcan_w_lid.png");
+    this.load.image("m3_wallclock_white",                    "/maps/map3/assets/wallclock_white.png");
+    this.load.image("m3_globe_blue_0",                       "/maps/map3/assets/globe_blue_0.png");
+    this.load.image("m3_poster_7",                           "/maps/map3/assets/poster_7 [3x2].png");
+    this.load.image("m3_dresser_wood_left",                  "/maps/map3/assets/dresser_wood_left [1x2].png");
+    this.load.image("m3_plant_spiky",                        "/maps/map3/assets/plant_spiky [1x2].png");
+    this.load.image("m3_file_pdf",                           "/maps/map3/assets/file pdf [1x1].png");
+    this.load.image("m3_quill",                              "/maps/map3/assets/quill.png");
+    this.load.image("m3_shelf_ikea_v2",                      "/maps/map3/assets/shelf_ikea_v2.png");
+    this.load.image("m3_cabinet_corner_darkwood_left",       "/maps/map3/assets/cabinet_corner_darkwood_left.png");
+    this.load.image("m3_whiteboard",                         "/maps/map3/assets/whiteboard.png");
+    this.load.image("m3_dresser_2x2_black_right",            "/maps/map3/assets/dresser_2x2_black_right.png");
+    this.load.image("m3_cyberpunk",                          "/maps/map3/assets/cyberpunk.png");
+    this.load.image("m3_welcome_mat",                        "/maps/map3/assets/welcome mat [4ishx2].png");
+    this.load.image("m3_Rugs",                               "/maps/map3/assets/Rugs[5x5].png");
+    this.load.image("m3_banner_ox",                          "/maps/map3/assets/banner_ox [1x2].png");
+    this.load.tilemapTiledJSON("interview-room",             "/maps/map3/interview-room.json");
   }
 
   create() {

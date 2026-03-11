@@ -9,18 +9,40 @@ export default function Toast() {
 
   if (!toast.isVisible) return null;
 
+  const palette =
+    toast.type === "error"
+      ? {
+          border: "rgba(239, 124, 120, 0.22)",
+          iconBg: "var(--danger-soft)",
+          text: "var(--danger)",
+        }
+      : toast.type === "success"
+        ? {
+            border: "rgba(122, 194, 142, 0.22)",
+            iconBg: "var(--success-soft)",
+            text: "var(--success)",
+          }
+        : {
+            border: "rgba(239, 188, 130, 0.2)",
+            iconBg: "var(--accent-soft)",
+            text: "var(--accent-strong)",
+          };
+
   return (
-    <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[9999] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 min-w-[300px] animate-in fade-in slide-in-from-top-4 duration-200 border ${
-      toast.type === 'error' ? 'bg-white border-rose-100 text-rose-600' :
-      toast.type === 'success' ? 'bg-white border-emerald-100 text-emerald-600' :
-      'bg-white border-blue-100 text-blue-600'
-    }`}>
-      {/* Icon */}
-      <div className={`p-1.5 rounded-full ${
-        toast.type === 'error' ? 'bg-rose-100' :
-        toast.type === 'success' ? 'bg-emerald-100' :
-        'bg-blue-100'
-      }`}>
+    <div
+      className="fixed left-1/2 top-6 z-[9999] flex min-w-[300px] -translate-x-1/2 items-center gap-3 rounded-full border px-4 py-3 shadow-2xl"
+      style={{
+        background: "rgba(14, 19, 28, 0.88)",
+        borderColor: palette.border,
+        color: palette.text,
+        backdropFilter: "blur(18px)",
+      }}
+    >
+      {/* Icon */} 
+      <div
+        className="rounded-full p-1.5"
+        style={{ background: palette.iconBg }}
+      >
         {toast.type === 'error' ? (
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
             <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm-1.72 6.97a.75.75 0 10-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 101.06 1.06L12 13.06l1.72 1.72a.75.75 0 101.06-1.06L13.06 12l1.72-1.72a.75.75 0 10-1.06-1.06L12 10.94l-1.72-1.72z" clipRule="evenodd" />
@@ -37,12 +59,15 @@ export default function Toast() {
       </div>
 
       {/* Message */}
-      <div className="flex-1 text-sm font-medium">
+      <div className="flex-1 text-sm font-medium text-[var(--text-primary)]">
         {toast.message}
       </div>
 
       {/* Close Button */}
-      <button onClick={hideToast} className="text-slate-400 hover:text-slate-600 p-1">
+      <button
+        onClick={hideToast}
+        className="rounded-full p-1 text-[var(--text-soft)] hover:bg-white/5 hover:text-[var(--text-primary)]"
+      >
         <X className="w-5 h-5" />
       </button>
     </div>

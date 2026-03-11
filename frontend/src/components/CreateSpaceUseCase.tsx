@@ -34,14 +34,15 @@ export default function CreateSpaceUseCase({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: "easeInOut" }}
+      transition={{ type: "spring", stiffness: 260, damping: 28 }}
       className="w-full max-w-3xl"
     >
       <div className="text-center mb-8">
-        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
+        <p className="surface-label mb-3">Create Space</p>
+        <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] mb-2">
           What are you looking to do?
         </h1>
-        <p className="text-gray-600">
+        <p className="text-[var(--text-muted)]">
           Choose a template to get started.
         </p>
       </div>
@@ -55,7 +56,7 @@ export default function CreateSpaceUseCase({
               onClick={() => onSelect(useCase.id)}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
+              transition={{ type: "spring", stiffness: 240, damping: 28, delay: index * 0.06 }}
               className="w-full group"
             >
               <div className="card card-hover p-6 flex flex-col md:flex-row items-center gap-6 text-left">
@@ -70,12 +71,12 @@ export default function CreateSpaceUseCase({
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <Icon className="w-6 h-6 text-indigo-600" />
-                    <h2 className="text-xl font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                    <Icon className="h-5 w-5 text-[var(--accent)]" />
+                    <h2 className="font-display text-xl font-semibold tracking-[-0.03em] text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-strong)]">
                       {useCase.title}
                     </h2>
                   </div>
-                  <p className="text-gray-600">{useCase.description}</p>
+                  <p className="text-[var(--text-muted)]">{useCase.description}</p>
                 </div>
               </div>
             </motion.button>

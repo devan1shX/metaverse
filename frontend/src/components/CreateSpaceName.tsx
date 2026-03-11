@@ -26,24 +26,25 @@ export default function CreateSpaceName({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: "easeInOut" }}
+      transition={{ type: "spring", stiffness: 260, damping: 28 }}
       className="w-full max-w-lg"
     >
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl mb-4">
-          <Sparkles className="w-8 h-8 text-white" />
+        <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-[22px] border border-[rgba(239,188,130,0.2)] bg-[rgba(215,163,102,0.12)] text-[var(--accent-strong)] shadow-[0_10px_30px_rgba(215,163,102,0.16)]">
+          <Sparkles className="h-7 w-7" />
         </div>
-        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
+        <p className="surface-label mb-3">Create Space</p>
+        <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.04em] text-[var(--text-primary)] mb-2">
           Name Your Space
         </h1>
-        <p className="text-gray-600">
+        <p className="text-[var(--text-muted)]">
           Choose a unique name for your team's virtual space
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="card p-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="mb-2 block text-sm font-medium text-[var(--text-secondary)]">
             Space Name
           </label>
           <input
@@ -51,12 +52,10 @@ export default function CreateSpaceName({
             value={spaceName}
             onChange={(e) => setSpaceName(e.target.value)}
             placeholder="e.g., Team Headquarters, Innovation Hub"
-            className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-lg text-gray-900 placeholder-gray-400
-            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
-            transition-all duration-200 text-base"
+            className="input-field text-base"
             required
           />
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-[var(--text-soft)]">
             This name will appear in your space URL
           </p>
         </div>

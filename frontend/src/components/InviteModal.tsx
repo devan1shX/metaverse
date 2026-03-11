@@ -104,17 +104,18 @@ export function InviteModal({ isOpen, onClose, spaceId, spaceName }: InviteModal
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button className="overlay-backdrop" onClick={onClose} aria-label="Close invite modal" />
+      <div className="modal-shell relative z-10 flex w-full max-w-md flex-col p-0">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+        <div className="modal-header flex items-center justify-between p-5">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Invite People</h2>
-            <p className="text-sm text-gray-500">Add members to {spaceName}</p>
+            <h2 className="font-display text-2xl font-semibold tracking-[-0.04em] text-[var(--text-primary)]">Invite People</h2>
+            <p className="text-sm text-[var(--text-muted)]">Add members to {spaceName}</p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-full transition-colors"
+            className="modal-close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -123,28 +124,42 @@ export function InviteModal({ isOpen, onClose, spaceId, spaceName }: InviteModal
         {/* Search Bar */}
         <div className="p-5 pb-0">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-soft)] w-4 h-4" />
             <input
               type="search"
               placeholder="Search by name or email"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all"
+              className="input-field rounded-2xl py-2.5 pl-10 pr-4 text-sm"
             />
           </div>
         </div>
 
         {/* Messages */}
         {error && (
-          <div className="mx-5 mt-4 p-3 bg-red-50 border border-red-100 rounded-lg flex items-center gap-2">
-            <X className="w-4 h-4 text-red-500 flex-shrink-0" />
-            <p className="text-red-600 text-sm">{error}</p>
+          <div
+            className="mx-5 mt-4 flex items-center gap-2 rounded-2xl border p-3"
+            style={{
+              background: "var(--danger-soft)",
+              borderColor: "rgba(239, 124, 120, 0.18)",
+              color: "var(--danger)",
+            }}
+          >
+            <X className="w-4 h-4 flex-shrink-0" />
+            <p className="text-sm">{error}</p>
           </div>
         )}
         {successMessage && (
-          <div className="mx-5 mt-4 p-3 bg-green-50 border border-green-100 rounded-lg flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-            <p className="text-green-600 text-sm">{successMessage}</p>
+          <div
+            className="mx-5 mt-4 flex items-center gap-2 rounded-2xl border p-3"
+            style={{
+              background: "var(--success-soft)",
+              borderColor: "rgba(122, 194, 142, 0.18)",
+              color: "var(--success)",
+            }}
+          >
+            <CheckCircle className="w-4 h-4 flex-shrink-0" />
+            <p className="text-sm">{successMessage}</p>
           </div>
         )}
 
@@ -160,21 +175,21 @@ export function InviteModal({ isOpen, onClose, spaceId, spaceName }: InviteModal
               {filteredUsers.map((user) => (
                 <div
                   key={user.id}
-                  className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl border border-transparent hover:border-gray-100 transition-all group"
+                  className="group flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] p-3 transition-all hover:border-white/12 hover:bg-white/[0.05]"
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white text-sm flex-shrink-0 shadow-sm">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[rgba(239,188,130,0.2)] bg-[rgba(215,163,102,0.12)] text-sm font-bold text-[var(--accent-strong)] shadow-sm">
                       {user.username.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-gray-900 font-medium text-sm truncate">{user.username}</p>
-                      <p className="text-gray-500 text-xs truncate">{user.email}</p>
+                      <p className="truncate text-sm font-medium text-[var(--text-primary)]">{user.username}</p>
+                      <p className="truncate text-xs text-[var(--text-muted)]">{user.email}</p>
                     </div>
                   </div>
                   <button
                     onClick={() => handleSendInvite(user.id, user.username)}
                     disabled={sendingTo === user.id}
-                    className="ml-3 flex items-center gap-1.5 bg-white hover:bg-indigo-50 text-indigo-600 border border-indigo-200 hover:border-indigo-300 px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                    className="btn-secondary ml-3 min-h-0 rounded-full px-3 py-2 text-xs disabled:cursor-not-allowed"
                   >
                     {sendingTo === user.id ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -190,11 +205,11 @@ export function InviteModal({ isOpen, onClose, spaceId, spaceName }: InviteModal
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                <UserPlus className="w-8 h-8 text-gray-300" />
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-white/8 bg-white/[0.03]">
+                <UserPlus className="w-8 h-8 text-[var(--text-soft)]" />
               </div>
-              <h3 className="text-gray-900 font-medium mb-1">No users found</h3>
-              <p className="text-gray-500 text-sm">
+              <h3 className="mb-1 font-medium text-[var(--text-primary)]">No users found</h3>
+              <p className="text-sm text-[var(--text-muted)]">
                 {searchQuery
                   ? `We couldn't find anyone matching "${searchQuery}"`
                   : "There are no users available to invite right now."}

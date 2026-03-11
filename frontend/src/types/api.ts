@@ -292,9 +292,24 @@ export interface AdminUsersResponse {
 // Health Check Types
 export interface HealthCheckResponse {
   success: boolean
+  status: 'healthy' | 'degraded' | 'unhealthy'
   message: string
   timestamp: string
   uptime: number
+  total_latency_ms?: number
+  summary?: {
+    total: number
+    healthy: number
+    degraded: number
+    unhealthy: number
+    overall: 'healthy' | 'degraded' | 'unhealthy'
+  }
+  services?: Record<string, {
+    status: 'healthy' | 'degraded' | 'unhealthy'
+    latency_ms?: number
+    error?: string
+    details?: any
+  }>
 }
 
 // WebSocket Types

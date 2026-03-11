@@ -45,7 +45,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div className="flex flex-col min-h-screen bg-gray-50">
+      <div className="page-shell flex min-h-screen flex-col">
         <DashboardHeader 
           avatarUrl={selectedAvatar} 
           onEditAvatar={() => setIsAvatarModalOpen(true)}

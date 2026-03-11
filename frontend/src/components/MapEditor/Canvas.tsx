@@ -79,8 +79,8 @@ const Canvas = forwardRef<HTMLCanvasElement, CanvasProps>(({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Clear canvas with light background (slate-50)
-    ctx.fillStyle = "#f8fafc";
+    // Clear canvas with a dark neutral so the world stays prominent against glass overlays.
+    ctx.fillStyle = "#0d131d";
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     // Draw tiles from ALL visible layers (in order: Ground → Walls → Objects → Above)
@@ -127,9 +127,9 @@ const Canvas = forwardRef<HTMLCanvasElement, CanvasProps>(({
       }
     });
 
-    // Draw grid with slate-300 color for light theme (subtle)
+    // Draw a restrained grid so the map stays primary.
     if (showGrid) {
-      ctx.strokeStyle = "#cbd5e1";
+      ctx.strokeStyle = "rgba(214, 223, 234, 0.12)";
       ctx.lineWidth = 0.5;
 
       for (let x = 0; x <= mapData.width; x++) {
@@ -189,8 +189,7 @@ const Canvas = forwardRef<HTMLCanvasElement, CanvasProps>(({
         ctx.globalAlpha = 1.0;
       }
       
-      // Draw stamp outline - Cyan/Teal for dark mode visibility
-      ctx.strokeStyle = "#22d3ee";
+      ctx.strokeStyle = "#efbc82";
       ctx.lineWidth = 2;
       ctx.strokeRect(
         hoveredTile.x * mapData.tilewidth,
@@ -200,7 +199,7 @@ const Canvas = forwardRef<HTMLCanvasElement, CanvasProps>(({
       );
     } else if (hoveredTile) {
       // Draw single tile highlight
-      ctx.strokeStyle = "#22d3ee";
+      ctx.strokeStyle = "#efbc82";
       ctx.lineWidth = 2;
       ctx.strokeRect(
         hoveredTile.x * mapData.tilewidth,
@@ -308,7 +307,7 @@ const Canvas = forwardRef<HTMLCanvasElement, CanvasProps>(({
 
   return (
     <div 
-      className="inline-block border-2 border-slate-200 shadow-lg bg-slate-50 transition-all origin-top-left"   
+      className="origin-top-left inline-block overflow-hidden rounded-[24px] border border-[var(--border-strong)] bg-[#0d131d] shadow-[0_24px_72px_rgba(2,6,12,0.55)] transition-all"   
       style={{ 
         width: `${canvasWidth * scale}px`,
         height: `${canvasHeight * scale}px`,

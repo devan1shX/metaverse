@@ -1,22 +1,38 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Sparkles } from 'lucide-react'
 
 export function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="page-shell flex min-h-screen items-center justify-center px-6">
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.5, ease: 'easeInOut' }}
-        className="flex flex-col items-center"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -12 }}
+        transition={{ type: 'spring', stiffness: 220, damping: 26 }}
+        className="glass-panel flex min-w-[240px] flex-col items-center rounded-[28px] px-10 py-9"
       >
-        <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-          <Sparkles className="w-8 h-8 text-white animate-pulse" />
+        <div className="mb-5 flex items-center gap-2">
+          {[0, 1, 2].map((index) => (
+            <motion.span
+              key={index}
+              className="h-2.5 w-2.5 rounded-full bg-[var(--accent)]"
+              animate={{ opacity: [0.35, 1, 0.35], y: [0, -4, 0] }}
+              transition={{
+                duration: 1.2,
+                repeat: Infinity,
+                delay: index * 0.12,
+                ease: 'easeInOut',
+              }}
+            />
+          ))}
         </div>
-        <p className="text-indigo-600 font-semibold">Loading...</p>
+        <p className="font-display text-lg font-medium tracking-[-0.03em] text-[var(--text-primary)]">
+          Entering space
+        </p>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
+          Syncing the world around you
+        </p>
       </motion.div>
     </div>
   )
