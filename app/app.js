@@ -3,7 +3,7 @@ const cors = require('cors');
 const { logger } = require('./utils/logger');
 const {login_routes} = require('./routes/rest/post/login');
 const {signup_routes} = require('./routes/rest/post/signup');
-const {log_out_router} = require('./controllers/logout');
+const {log_out_router} = require('./routes/rest/post/logout');
 const protectedRoutes = require('./routes/rest/protected');
 const { user_routes } = require('./routes/rest/users'); 
 const { dashboard_routes } = require('./routes/rest/dashboard');
@@ -48,6 +48,16 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increased limit for map JSON
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Global security headers for all routes
+app.use((req, res, next) => {
+    res.set({
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'X-XSS-Protection': '1; mode=block',
+    });
+    next();
+});
+
 // Initialize database
 const {init_db} = require('./config/init_db');
 if (Config.skipCleaner) {
@@ -67,7 +77,7 @@ init_db(Config.skipCleaner).then(() => {
 // free routes 
 app.use('/metaverse/login', login_routes);
 app.use('/metaverse/signup', signup_routes);
-app.post('/metaverse/logout', log_out_router);
+app.use('/metaverse/logout', log_out_router);
 app.use('/metaverse/auth/firebase-sync', firebaseSyncRoute);
 
 app.use('/metaverse/protected', protectedRoutes);

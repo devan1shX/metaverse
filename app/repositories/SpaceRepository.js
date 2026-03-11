@@ -36,8 +36,8 @@ class SpaceRepository {
       const spaceResult = await client.query(
         `INSERT INTO ${this.tableName} (
           id, name, description, map_image_url, map_id, admin_user_id,
-          is_public, max_users, is_active, created_at, updated_at, objects
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          is_public, max_users, is_active, space_type, interview_config, created_at, updated_at, objects
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *`,
         [
           dbObject.id,
@@ -49,6 +49,8 @@ class SpaceRepository {
           dbObject.is_public,
           dbObject.max_users,
           dbObject.is_active,
+          dbObject.space_type,
+          dbObject.interview_config,
           dbObject.created_at,
           dbObject.updated_at,
           dbObject.objects
@@ -256,8 +258,10 @@ class SpaceRepository {
           is_public = $6,
           max_users = $7,
           is_active = $8,
-          updated_at = $9,
-          objects = $10
+          space_type = $9,
+          interview_config = $10,
+          updated_at = $11,
+          objects = $12
         WHERE id = $1
         RETURNING *`,
         [
@@ -269,6 +273,8 @@ class SpaceRepository {
           dbObject.is_public,
           dbObject.max_users,
           dbObject.is_active,
+          dbObject.space_type,
+          dbObject.interview_config,
           new Date(),
           dbObject.objects
         ]

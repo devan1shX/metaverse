@@ -1,45 +1,11 @@
 const express = require('express');
-const { verifyFirebaseToken } = require('../../middleware/firebaseAuth');
-const UserService = require('../../services/UserService');
+const { verifyAuthToken, attachDbUser } = require('../../middleware/firebaseAuth');
 const { logger } = require('../../utils/logger');
 
 const router = express.Router();
-const userService = new UserService();
 
-/**
- * Helper middleware to get PostgreSQL user from Firebase UID
- * Attaches req.dbUser after Firebase verification
- */
-async function attachDbUser(req, res, next) {
-  try {
-    const result = await userService.getUserByEmail(req.firebaseUser.email);
-    if (!result.success || !result.user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found in database',
-      });
-    }
-    req.dbUser = result.user;
-    req.user = {
-      user_id: result.user.id,
-      email: result.user.email,
-      username: result.user.username,
-      role: result.user.role,
-    };
-    next();
-  } catch (error) {
-    logger.error('[attachDbUser] Error fetching database user', {
-      error: error.message,
-    });
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch user data',
-    });
-  }
-}
-
-// Protected route - requires valid Firebase token
-router.get('/profile', verifyFirebaseToken, attachDbUser, (req, res) => {
+// Protected route - requires valid auth token (Firebase or JWT)
+router.get('/profile', verifyAuthToken, attachDbUser, (req, res) => {
     try {
         logger.info('Profile access', { user_id: req.user.user_id });
         
@@ -59,7 +25,7 @@ router.get('/profile', verifyFirebaseToken, attachDbUser, (req, res) => {
 });
 
 // Admin only route
-router.get('/admin/users', verifyFirebaseToken, attachDbUser, (req, res) => {
+router.get('/admin/users', verifyAuthToken, attachDbUser, (req, res) => {
     // Check admin role
     if (req.user.role !== 'admin') {
         return res.status(403).json({ message: 'Admin access required.' });
@@ -80,7 +46,7 @@ router.get('/admin/users', verifyFirebaseToken, attachDbUser, (req, res) => {
 });
 
 // Participant route (accessible by participants and admins)
-router.get('/game/status', verifyFirebaseToken, attachDbUser, (req, res) => {
+router.get('/game/status', verifyAuthToken, attachDbUser, (req, res) => {
     // Check role
     if (req.user.role !== 'participant' && req.user.role !== 'admin') {
         return res.status(403).json({ message: 'Participant access required.' });

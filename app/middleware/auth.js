@@ -1,10 +1,17 @@
 const jwt = require('jsonwebtoken');
 const { Config } = require('../config/config');
 const { logger } = require('../utils/logger');
-const { isTokenBlacklisted } = require('../controllers/logout');
+const { isTokenBlacklisted } = require('../services/AuthService');
+
+// =============================================  //
+// LEGACY: JWT-only authentication middleware.
+// Currently no routes use this middleware — all protected routes
+// use firebaseAuth.js (verifyAuthToken) instead. Kept for reference
+// and potential future use. Token blacklist checks use AuthService.
+// =============================================  //
 
 // Middleware to verify JWT tokens
-function authenticateToken(req, res, next) {
+async function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -20,7 +27,7 @@ function authenticateToken(req, res, next) {
     }
 
     // Check if token is blacklisted
-    if (isTokenBlacklisted(token)) {
+    if (await isTokenBlacklisted(token)) {
         logger.warn('Access denied: Token is blacklisted', { 
             ip: req.ip, 
             path: req.path,

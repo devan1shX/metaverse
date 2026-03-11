@@ -2,6 +2,8 @@ const Space = require('../models/Space');
 const SpaceRepository = require('../repositories/SpaceRepository');
 const UserRepository = require('../repositories/UserRepository');
 const { logger } = require('../utils/logger');
+const fs = require('fs').promises;
+const path = require('path');
 
 /**
  * SpaceService Class
@@ -690,6 +692,17 @@ class SpaceService {
           success: false,
           error: 'Space not found'
         };
+      }
+
+      // Cleanup dynamically generated map physical files
+      if (space.mapId && space.mapId.startsWith('dynamic-')) {
+        try {
+          const mapPath = path.join(__dirname, '../../frontend/public/maps/custom', `${space.mapId}.json`);
+          await fs.unlink(mapPath);
+          logger.info('Deleted associated dynamic map file', { mapId: space.mapId });
+        } catch (err) {
+          logger.warn('Could not delete dynamic map file, it may already be deleted', { error: err.message });
+        }
       }
 
       logger.info('Space deleted permanently', { space_id: spaceId });

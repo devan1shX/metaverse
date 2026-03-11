@@ -17,7 +17,9 @@ async function createSpace(req, res) {
       isPublic, 
       maxUsers,
       mapId,
-      mapImageUrl 
+      mapImageUrl,
+      space_type,
+      interview_config
     } = req.body;
     const adminUserId = req.user.user_id;
     
@@ -58,6 +60,8 @@ async function createSpace(req, res) {
       maxUsers: maxUsers || 50, // Default max users
       mapId: finalMapId, // Use mapId instead of mapType
       mapImageUrl: mapImageUrl, // Pass the map image URL
+      spaceType: space_type || 'general',
+      interviewConfig: interview_config || {},
       objects: [], // Start with empty objects array
       userIds: [], // Start with empty users array
     }; // Create space using SpaceService

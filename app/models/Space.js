@@ -16,6 +16,8 @@ class Space {
     isPublic = true,
     maxUsers = 50,
     isActive = true,
+    spaceType = 'general',
+    interviewConfig = {},
     createdAt = null,
     updatedAt = null,
     // Arrays that will be populated from relationships
@@ -31,6 +33,8 @@ class Space {
     this.isPublic = isPublic;
     this.maxUsers = maxUsers;
     this.isActive = isActive;
+    this.spaceType = spaceType || 'general';
+    this.interviewConfig = interviewConfig || {};
     this.createdAt = createdAt || new Date();
     this.updatedAt = updatedAt || new Date();
     
@@ -245,6 +249,12 @@ class Space {
     if (updateData.maxUsers !== undefined) {
       this.maxUsers = updateData.maxUsers;
     }
+    if (updateData.spaceType !== undefined) {
+      this.spaceType = updateData.spaceType;
+    }
+    if (updateData.interviewConfig !== undefined) {
+      this.interviewConfig = updateData.interviewConfig;
+    }
     this.updatedAt = new Date();
   }
 
@@ -262,6 +272,8 @@ class Space {
       adminUserId: this.adminUserId,
       isPublic: this.isPublic,
       maxUsers: this.maxUsers,
+      spaceType: this.spaceType,
+      interviewConfig: this.interviewConfig,
       currentUsers: this.userIds.length,
       isActive: this.isActive,
       createdAt: this.createdAt,
@@ -285,6 +297,8 @@ class Space {
       is_public: this.isPublic,
       max_users: this.maxUsers,
       is_active: this.isActive,
+      space_type: this.spaceType,
+      interview_config: JSON.stringify(this.interviewConfig),
       created_at: this.createdAt,
       updated_at: this.updatedAt,
       objects: JSON.stringify(this.objects) // Store objects as JSON
@@ -347,6 +361,8 @@ class Space {
       isPublic: dbRow.is_public,
       maxUsers: dbRow.max_users,
       isActive: dbRow.is_active,
+      spaceType: dbRow.space_type || 'general',
+      interviewConfig: typeof dbRow.interview_config === 'string' ? JSON.parse(dbRow.interview_config) : (dbRow.interview_config || {}),
       createdAt: dbRow.created_at,
       updatedAt: dbRow.updated_at,
       userIds: userIds,

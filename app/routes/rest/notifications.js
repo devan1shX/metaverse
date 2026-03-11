@@ -1,6 +1,5 @@
 const express = require('express');
-const { verifyFirebaseToken } = require('../../middleware/firebaseAuth');
-const UserService = require('../../services/UserService');
+const { verifyAuthToken, attachDbUser } = require('../../middleware/firebaseAuth');
 const { logger } = require('../../utils/logger');
 const notificationService = require('../../services/NotificationService');
 const {
@@ -15,38 +14,6 @@ const {
 } = require('../../controllers/notificationController');
 
 const router = express.Router();
-const userService = new UserService();
-
-/**
- * Helper middleware to get PostgreSQL user from Firebase email
- */
-async function attachDbUser(req, res, next) {
-  try {
-    const result = await userService.getUserByEmail(req.firebaseUser.email);
-    if (!result.success || !result.user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found in database',
-      });
-    }
-    req.dbUser = result.user;
-    req.user = {
-      user_id: result.user.id,
-      email: result.user.email,
-      username: result.user.username,
-      role: result.user.role,
-    };
-    next();
-  } catch (error) {
-    logger.error('[attachDbUser] Error fetching database user', {
-      error: error.message,
-    });
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch user data',
-    });
-  }
-}
 
 // Middleware to log notification API access
 router.use((req, res, next) => {
@@ -66,14 +33,14 @@ router.use((req, res, next) => {
  * @access  Private (authenticated users)
  * @query   { type?, status?, limit?, offset?, includeExpired? }
  */
-router.get('/', verifyFirebaseToken, attachDbUser, getUserNotifications);
+router.get('/', verifyAuthToken, attachDbUser, getUserNotifications);
 
 /**
  * @route   GET /notifications/:notificationId
  * @desc    Get notification by ID
  * @access  Private (authenticated users)
  */
-router.get('/:notificationId', verifyFirebaseToken, attachDbUser, getNotificationById);
+router.get('/:notificationId', verifyAuthToken, attachDbUser, getNotificationById);
 
 /**
  * @route   PUT /notifications/:notificationId
@@ -81,7 +48,7 @@ router.get('/:notificationId', verifyFirebaseToken, attachDbUser, getNotificatio
  * @access  Private (system admin only)
  * @body    { title?, message?, status?, isActive? }
  */
-router.put('/:notificationId', verifyFirebaseToken, attachDbUser, (req, res, next) => {
+router.put('/:notificationId', verifyAuthToken, attachDbUser, (req, res, next) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({ message: 'Admin access required.' });
     }
@@ -93,7 +60,7 @@ router.put('/:notificationId', verifyFirebaseToken, attachDbUser, (req, res, nex
  * @desc    Delete notification (admin only)
  * @access  Private (system admin only)
  */
-router.delete('/:notificationId', verifyFirebaseToken, attachDbUser, (req, res, next) => {
+router.delete('/:notificationId', verifyAuthToken, attachDbUser, (req, res, next) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({ message: 'Admin access required.' });
     }
@@ -105,21 +72,21 @@ router.delete('/:notificationId', verifyFirebaseToken, attachDbUser, (req, res, 
  * @desc    Mark notification as read
  * @access  Private (authenticated users)
  */
-router.post('/:notificationId/read', verifyFirebaseToken, attachDbUser, markAsRead);
+router.post('/:notificationId/read', verifyAuthToken, attachDbUser, markAsRead);
 
 /**
  * @route   POST /notifications/:notificationId/unread
  * @desc    Mark notification as unread
  * @access  Private (authenticated users)
  */
-router.post('/:notificationId/unread', verifyFirebaseToken, attachDbUser, markAsUnread);
+router.post('/:notificationId/unread', verifyAuthToken, attachDbUser, markAsUnread);
 
 /**
  * @route   POST /notifications/:notificationId/dismiss
  * @desc    Dismiss notification
  * @access  Private (authenticated users)
  */
-router.post('/:notificationId/dismiss', verifyFirebaseToken, attachDbUser, dismissNotification);
+router.post('/:notificationId/dismiss', verifyAuthToken, attachDbUser, dismissNotification);
 
 // Admin-only routes
 
@@ -129,7 +96,7 @@ router.post('/:notificationId/dismiss', verifyFirebaseToken, attachDbUser, dismi
  * @access  Private (system admin only)
  * @query   { userId?, type?, status?, limit?, offset? }
  */
-router.get('/admin/all', verifyFirebaseToken, attachDbUser, (req, res, next) => {
+router.get('/admin/all', verifyAuthToken, attachDbUser, (req, res, next) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({ message: 'Admin access required.' });
     }
@@ -142,7 +109,7 @@ router.get('/admin/all', verifyFirebaseToken, attachDbUser, (req, res, next) => 
  * @access  Private (system admin only)
  * @body    { notificationIds: string[], updates: object }
  */
-router.post('/admin/bulk-update', verifyFirebaseToken, attachDbUser, async (req, res) => {
+router.post('/admin/bulk-update', verifyAuthToken, attachDbUser, async (req, res) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({ message: 'Admin access required.' });
     }
@@ -199,7 +166,7 @@ router.post('/admin/bulk-update', verifyFirebaseToken, attachDbUser, async (req,
  * @access  Private (system admin only)
  * @body    { notificationIds: string[] }
  */
-router.post('/admin/bulk-delete', verifyFirebaseToken, attachDbUser, async (req, res) => {
+router.post('/admin/bulk-delete', verifyAuthToken, attachDbUser, async (req, res) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({ message: 'Admin access required.' });
     }

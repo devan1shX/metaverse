@@ -1,6 +1,8 @@
 const dashboard_routes = require('express').Router();
 const { dashboard_controller } = require('../../controllers/dashboard');
-const { authenticateToken } = require('../../middleware/auth');
-dashboard_routes.get('/', authenticateToken, dashboard_controller);
+const { verifyAuthToken, attachDbUser } = require('../../middleware/firebaseAuth');
 
-module.exports = {dashboard_routes};
+// Allow both Firebase-authenticated (Google) users and traditional JWT users
+dashboard_routes.get('/', verifyAuthToken, attachDbUser, dashboard_controller);
+
+module.exports = { dashboard_routes };

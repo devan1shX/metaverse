@@ -12,10 +12,10 @@ async function init_db(skipCleaner = false) {
     await db_cleaner(); 
     logger.info('[init_db][init_db] Database reset completed - recreating tables...');
   } else {
-    logger.info('[init_db][init_db] Skipping database reset - using existing tables...');
+    logger.info('Skipping database reset - using existing tables...');
   }
   try {
-    logger.info('[init_db][init_db] Initializing database...');
+    logger.info('Initializing database...');
     const db = await get_async_db();
 
     // Create extension separately with error handling
@@ -56,6 +56,8 @@ async function init_db(skipCleaner = false) {
         max_users INTEGER NOT NULL DEFAULT 50,
         is_active BOOLEAN NOT NULL DEFAULT TRUE,
         count INTEGER NOT NULL DEFAULT 0,
+        space_type VARCHAR(20) DEFAULT 'general',
+        interview_config JSONB DEFAULT '{}'::jsonb,
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         objects JSONB DEFAULT '[]'::jsonb,
@@ -147,10 +149,10 @@ async function init_db(skipCleaner = false) {
       CREATE INDEX IF NOT EXISTS idx_blacklisted_tokens_expires_at ON blacklisted_tokens(expires_at);
     `);
 
-    logger.info("[init_db][init_db] Database tables created successfully (users, spaces, user_spaces, notifications, messages, blacklisted_tokens)");
+    logger.info("Database tables created successfully (users, spaces, user_spaces, notifications, messages, blacklisted_tokens)");
     await add_admin();
   } catch (error) {
-    logger.error('[init_db][init_db] Database initialization failed', { error: error.message, stack: error.stack });
+    logger.error('Database initialization failed', { error: error.message, stack: error.stack });
     throw error;
   }
 }

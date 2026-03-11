@@ -4,7 +4,7 @@ const express = require('express');
 const { logger } = require('../../../utils/logger');
 const { login_controller } = require('../../../controllers/login');
 const { 
-    validateLogin, 
+    validateLoginRequest, 
     rateLimitAuth, 
     sanitizeAuthRequest, 
     logAuthAttempt 
@@ -16,26 +16,23 @@ function addpath(req, res, next){
     req.body.path="login";
     next()
 }
-
-// Apply middleware in order: sanitize -> rate limit -> validate -> log -> controller
 login_routes.post('/', 
     addpath,
     sanitizeAuthRequest,
-    rateLimitAuth(5, 15 * 60 * 1000), // 5 attempts per 15 minutes
-    validateLogin,
+    rateLimitAuth(process.env.RATE_LIMIT_MAX_ATTEMPTS, process.env.RATE_LIMIT_WINDOW_MS), // 5 attempts per 15 minutes
+    validateLoginRequest,
     logAuthAttempt,
     login_controller
 );
 
-// Health check for login API
 login_routes.get('/health', (req, res) => {
     res.status(200).json({
         success: true,
         message: "Login API is healthy",
         timestamp: new Date().toISOString(),
         rateLimit: {
-            maxAttempts: 5,
-            windowMinutes: 15
+            maxAttempts: process.env.RATE_LIMIT_MAX_ATTEMPTS,
+            windowMinutes: process.env.RATE_LIMIT_WINDOW_MS / 60000
         }
     });
 });

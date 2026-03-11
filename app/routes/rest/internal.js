@@ -7,7 +7,8 @@ const {
     getUserNotifications,
     getUserStatus,
     getSpaceDetails,
-    getSystemStats
+    getSystemStats,
+    getConsolidatedHealth
 } = require('../../controllers/internalController');
 
 const router = express.Router();
@@ -72,13 +73,6 @@ router.get('/api/stats', verifyFirebaseToken, attachDbUser, (req, res, next) => 
 });
 
 // Health check endpoint
-router.get('/api/health', (req, res) => {
-    res.status(200).json({
-        success: true,
-        message: "Internal API is healthy",
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime()
-    });
-});
+router.get('/api/health', getConsolidatedHealth);
 
 module.exports = router;

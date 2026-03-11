@@ -1,6 +1,5 @@
 const express = require('express');
-const { verifyFirebaseToken } = require('../../middleware/firebaseAuth');
-const UserService = require('../../services/UserService');
+const { verifyAuthToken, attachDbUser } = require('../../middleware/firebaseAuth');
 const { 
     validateSpaceCreation, 
     validateSpaceUpdate, 
@@ -20,45 +19,8 @@ const {
 } = require('../../controllers/spaceController');
 const SpaceService = require('../../services/SpaceService');
 
-
-
-
 const router = express.Router();
-
 const spaceService = new SpaceService();
-const userService = new UserService();
-
-/**
- * Helper middleware to get PostgreSQL user from Firebase email
- * Attaches req.dbUser and req.user after Firebase verification
- */
-async function attachDbUser(req, res, next) {
-  try {
-    const result = await userService.getUserByEmail(req.firebaseUser.email);
-    if (!result.success || !result.user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found in database',
-      });
-    }
-    req.dbUser = result.user;
-    req.user = {
-      user_id: result.user.id,
-      email: result.user.email,
-      username: result.user.username,
-      role: result.user.role,
-    };
-    next();
-  } catch (error) {
-    logger.error('[attachDbUser] Error fetching database user', {
-      error: error.message,
-    });
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch user data',
-    });
-  }
-}
 
 // Middleware to log space API access
 router.use((req, res, next) => {
@@ -78,7 +40,7 @@ router.use((req, res, next) => {
  * @access  Private (authenticated users)
  * @body    { name, description?, isPublic?, maxUsers?, mapType? }
  */
-router.post('/', verifyFirebaseToken, attachDbUser, validateSpaceCreation, createSpace);
+router.post('/', verifyAuthToken, attachDbUser, validateSpaceCreation, createSpace);
 
 /**
  * @route   GET /spaces
@@ -86,7 +48,7 @@ router.post('/', verifyFirebaseToken, attachDbUser, validateSpaceCreation, creat
  * @access  Private (authenticated users)
  * @query   { isPublic?, limit?, offset?, search?, adminUserId? }
  */
-router.get('/', verifyFirebaseToken, attachDbUser, validateSpaceQuery, getAllSpaces);
+router.get('/', verifyAuthToken, attachDbUser, validateSpaceQuery, getAllSpaces);
 
 /**
  * @route   GET /spaces/my-spaces
@@ -94,14 +56,14 @@ router.get('/', verifyFirebaseToken, attachDbUser, validateSpaceQuery, getAllSpa
  * @access  Private (authenticated users)
  * @query   { includeInactive? }
  */
-router.get('/my-spaces', verifyFirebaseToken, attachDbUser, getMySpaces);
+router.get('/my-spaces', verifyAuthToken, attachDbUser, getMySpaces);
 
 /**
  * @route   GET /spaces/:spaceId
  * @desc    Get space by ID with complete database row and all users
  * @access  Private (authenticated users)
  */
-router.get('/:spaceId', verifyFirebaseToken, attachDbUser, validateSpaceId, getSpaceById);
+router.get('/:spaceId', verifyAuthToken, attachDbUser, validateSpaceId, getSpaceById);
 
 /**
  * @route   PUT /spaces/:spaceId
@@ -109,28 +71,28 @@ router.get('/:spaceId', verifyFirebaseToken, attachDbUser, validateSpaceId, getS
  * @access  Private (space admin or system admin)
  * @body    { name?, description?, isPublic?, maxUsers?, mapType? }
  */
-router.put('/:spaceId', verifyFirebaseToken, attachDbUser, validateSpaceId, validateSpaceUpdate, updateSpace);
+router.put('/:spaceId', verifyAuthToken, attachDbUser, validateSpaceId, validateSpaceUpdate, updateSpace);
 
 /**
  * @route   DELETE /spaces/:spaceId
  * @desc    Delete space (admin only)
  * @access  Private (space admin or system admin)
  */
-router.delete('/:spaceId', verifyFirebaseToken, attachDbUser, validateSpaceId, deleteSpace);
+router.delete('/:spaceId', verifyAuthToken, attachDbUser, validateSpaceId, deleteSpace);
 
 /**
  * @route   POST /spaces/:spaceId/join
  * @desc    Join a space
  * @access  Private (authenticated users)
  */
-router.post('/:spaceId/join', verifyFirebaseToken, attachDbUser, validateSpaceId, joinSpace);
+router.post('/:spaceId/join', verifyAuthToken, attachDbUser, validateSpaceId, joinSpace);
 
 /**
  * @route   POST /spaces/:spaceId/leave
  * @desc    Leave a space
  * @access  Private (authenticated users)
  */
-router.post('/:spaceId/leave', verifyFirebaseToken, attachDbUser, validateSpaceId, leaveSpace);
+router.post('/:spaceId/leave', verifyAuthToken, attachDbUser, validateSpaceId, leaveSpace);
 
 // Admin-only routes
 
@@ -139,7 +101,7 @@ router.post('/:spaceId/leave', verifyFirebaseToken, attachDbUser, validateSpaceI
  * @desc    Get all spaces including inactive (admin only)
  * @access  Private (system admin only)
  */
-router.get('/admin/all', verifyFirebaseToken, attachDbUser, (req, res, next) => {
+router.get('/admin/all', verifyAuthToken, attachDbUser, (req, res, next) => {
     // Check admin role
     if (req.user.role !== 'admin') {
         return res.status(403).json({ message: 'Admin access required.' });
@@ -154,7 +116,7 @@ router.get('/admin/all', verifyFirebaseToken, attachDbUser, (req, res, next) => 
  * @desc    Deactivate a space (admin only)
  * @access  Private (system admin only)
  */
-router.post('/:spaceId/admin/deactivate', verifyFirebaseToken, attachDbUser, async (req, res) => {
+router.post('/:spaceId/admin/deactivate', verifyAuthToken, attachDbUser, async (req, res) => {
     // Check admin role
     if (req.user.role !== 'admin') {
         return res.status(403).json({ message: 'Admin access required.' });

@@ -181,7 +181,7 @@ router.get('/:mapId', verifyFirebaseToken, attachDbUser, async (req, res) => {
   try {
     const { mapId } = req.params;
 
-    if (!mapId || !mapId.startsWith('custom-')) {
+    if (!mapId || (!mapId.startsWith('custom-') && !mapId.startsWith('dynamic-'))) {
       return res.status(400).json({
         success: false,
         message: 'Invalid map ID format'

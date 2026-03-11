@@ -34,8 +34,6 @@ class UserService {
       
       // Create user instance
       const user = new User(userData);
-
-      // Validate user data
       const validation = user.validate();
       if (!validation.isValid) {
         logger.warn('[UserService][createUser] User validation failed', { errors: validation.errors });
@@ -73,14 +71,14 @@ class UserService {
       // Create user in database
       const createdUser = await this.userRepository.create(user);
       if (!createdUser) {
-        logger.error('[UserService][createUser] Failed to create user in database');
+        logger.error('Failed to create user in database');
         return {
           success: false,
           errors: ['Failed to create user']
         };
       }
 
-      logger.info('[UserService][createUser] User created successfully', { user_id: createdUser.id });
+      logger.info('[UserService][createUser] User created successfully', { user:userData });
       return {
         success: true,
         user: createdUser
@@ -670,7 +668,7 @@ class UserService {
    */
   async findOrCreateFromFirebase(firebaseUser, userLevel = 'participant') {
     try {
-      logger.info('[UserService][findOrCreateFromFirebase] Syncing Firebase user', {
+      logger.info('Syncing Firebase user', {
         uid: firebaseUser.uid,
         email: firebaseUser.email?.substring(0, 3) + '***',
       });
@@ -680,7 +678,7 @@ class UserService {
       
       if (existingUserResult.success && existingUserResult.user) {
         // User already exists
-        logger.info('[UserService][findOrCreateFromFirebase] Existing user found', {
+        logger.info('Existing user found', {
           user_id: existingUserResult.user.id,
         });
         return {
@@ -742,6 +740,5 @@ class UserService {
   }
   
 }
-
 
 module.exports = UserService;

@@ -1,4 +1,6 @@
 // logger.js
+const path = require('path');
+
 class Logger {
     constructor(options = {}) {
       this.environment = options.environment || process.env.NODE_ENV || 'development';
@@ -16,6 +18,43 @@ class Logger {
       this.includeLevel = options.includeLevel !== false;
       this.includeColors = options.includeColors !== false;
       this.customPrefix = options.prefix || '';
+    }
+  
+    // Get caller file and line number using V8 stack trace API
+    getCallerLocation() {
+      // Preserve any existing Error.prepareStackTrace
+      const originalPrepareStackTrace = Error.prepareStackTrace;
+      try {
+        Error.prepareStackTrace = (err, structuredStackTrace) => structuredStackTrace;
+        const err = new Error();
+        const stack = err.stack;
+        if (!Array.isArray(stack)) {
+          return null;
+        }
+        // Stack frames:
+        // 0: getCallerLocation
+        // 1: formatMessage
+        // 2: level method (info/warn/error/debug)
+        // 3: actual caller in app code (what we care about)
+        const callerFrame = stack[3] || stack[2];
+        if (!callerFrame || typeof callerFrame.getFileName !== 'function') {
+          return null;
+        }
+        const file = callerFrame.getFileName();
+        const line = callerFrame.getLineNumber();
+        const column = callerFrame.getColumnNumber();
+        if (!file || !line) {
+          return null;
+        }
+        // Convert to path relative to current working directory to avoid long
+        // absolute paths in logs while keeping them clickable in editors.
+        const relativeFile = path.relative(process.cwd(), file) || file;
+        return { file: relativeFile, line, column };
+      } catch (_e) {
+        return null;
+      } finally {
+        Error.prepareStackTrace = originalPrepareStackTrace;
+      }
     }
   
     setLogLevels() {
@@ -37,6 +76,12 @@ class Logger {
   
     formatMessage(level, message, meta = {}) {
       let formattedMessage = '';
+      
+      // Add caller location (file:line) first so editors/IDEs can make it clickable
+      const location = this.getCallerLocation();
+      if (location) {
+        formattedMessage += `${location.file}:${location.line} `;
+      }
       
       // Add timestamp
       if (this.includeTimestamp) {

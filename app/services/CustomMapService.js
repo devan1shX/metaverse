@@ -35,8 +35,8 @@ class CustomMapService {
     try {
       await this.ensureDirectory();
 
-      // Generate unique map ID
-      const mapId = `custom-${uuid4()}`;
+      // Use explicitly provided ID from mapData if available, otherwise generate new one
+      const mapId = mapData.customMapMetadata?.mapId || `custom-${uuid4()}`;
       
       // Add metadata to map
       const enhancedMapData = {

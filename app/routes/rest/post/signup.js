@@ -2,7 +2,7 @@ const express = require('express');
 const { logger } = require('../../../utils/logger');
 const { signup_controller } = require('../../../controllers/signup');
 const { 
-    validateSignup, 
+    validateSignupRequest, 
     rateLimitAuth, 
     sanitizeAuthRequest, 
     logAuthAttempt 
@@ -20,7 +20,7 @@ signup_routes.post('/',
     // =============================================  // 
     rateLimitAuth(3, 10 * 60 * 1000), // 3 signup attempts per 10 minutes (stricter than login)
     // =============================================  // 
-    validateSignup,
+    validateSignupRequest,
     logAuthAttempt,
     signup_controller
 );

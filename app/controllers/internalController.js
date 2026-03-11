@@ -1,11 +1,151 @@
 const UserService = require('../services/UserService');
 const SpaceService = require('../services/SpaceService');
 const NotificationService = require('../services/NotificationService');
+const { Config } = require('../config/config');
+const redisClient = require('../config/redis_config');
+const { get_async_db } = require('../config/db_conn');
 const { logger } = require('../utils/logger');
 
 // Use singleton instances (no need to create new instances)
 const userService = new UserService();
 const spaceService = new SpaceService();
+const HEALTH_TIMEOUT_MS = 3500;
+
+function getServiceStatusSummary(services) {
+    const values = Object.values(services);
+    const healthy = values.filter((service) => service.status === 'healthy').length;
+    const degraded = values.filter((service) => service.status === 'degraded').length;
+    const unhealthy = values.filter((service) => service.status === 'unhealthy').length;
+
+    let overall = 'healthy';
+    if (unhealthy > 0) {
+        overall = 'unhealthy';
+    } else if (degraded > 0) {
+        overall = 'degraded';
+    }
+
+    return {
+        overall,
+        total: values.length,
+        healthy,
+        degraded,
+        unhealthy
+    };
+}
+
+async function checkDatabaseHealth() {
+    const startedAt = Date.now();
+    try {
+        const pool = await get_async_db();
+        const result = await pool.query('SELECT NOW() AS db_time');
+        return {
+            status: 'healthy',
+            latency_ms: Date.now() - startedAt,
+            details: {
+                connected: true,
+                db_time: result.rows?.[0]?.db_time || null
+            }
+        };
+    } catch (error) {
+        return {
+            status: 'unhealthy',
+            latency_ms: Date.now() - startedAt,
+            error: error.message,
+            details: {
+                connected: false
+            }
+        };
+    }
+}
+
+async function checkRedisHealth() {
+    const startedAt = Date.now();
+    try {
+        if (!redisClient?.isOpen) {
+            return {
+                status: 'degraded',
+                latency_ms: Date.now() - startedAt,
+                error: 'Redis client is not connected',
+                details: {
+                    connected: false,
+                    ready: Boolean(redisClient?.isReady)
+                }
+            };
+        }
+
+        const pingResponse = await redisClient.ping();
+        return {
+            status: pingResponse === 'PONG' ? 'healthy' : 'degraded',
+            latency_ms: Date.now() - startedAt,
+            details: {
+                connected: true,
+                ready: Boolean(redisClient?.isReady),
+                ping: pingResponse
+            }
+        };
+    } catch (error) {
+        return {
+            status: 'unhealthy',
+            latency_ms: Date.now() - startedAt,
+            error: error.message,
+            details: {
+                connected: false,
+                ready: Boolean(redisClient?.isReady)
+            }
+        };
+    }
+}
+
+async function checkHttpJsonService(name, url) {
+    const startedAt = Date.now();
+    const abortController = new AbortController();
+    const timeoutHandle = setTimeout(() => abortController.abort(), HEALTH_TIMEOUT_MS);
+
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            signal: abortController.signal
+        });
+
+        const textBody = await response.text();
+        let parsedBody = null;
+
+        try {
+            parsedBody = textBody ? JSON.parse(textBody) : null;
+        } catch (parseError) {
+            parsedBody = {
+                parse_error: parseError.message,
+                raw: textBody
+            };
+        }
+
+        clearTimeout(timeoutHandle);
+        const status = response.ok && parsedBody?.success !== false ? 'healthy' : 'unhealthy';
+
+        return {
+            service: name,
+            status,
+            latency_ms: Date.now() - startedAt,
+            details: {
+                url,
+                http_status: response.status,
+                response: parsedBody
+            }
+        };
+    } catch (error) {
+        clearTimeout(timeoutHandle);
+        const isTimeout = error.name === 'AbortError';
+        return {
+            service: name,
+            status: 'unhealthy',
+            latency_ms: Date.now() - startedAt,
+            error: isTimeout ? `Timeout after ${HEALTH_TIMEOUT_MS}ms` : error.message,
+            details: {
+                url
+            }
+        };
+    }
+}
 
 /**
  * Get user spaces (internal API)
@@ -379,10 +519,90 @@ async function getSystemStats(req, res) {
     }
 }
 
+/**
+ * Get consolidated health report for all services
+ * GET /internal/health
+ */
+async function getConsolidatedHealth(req, res) {
+    const startedAt = Date.now();
+    const backendPort = Config.BackendPort || 3000;
+    const backendBaseUrl = `http://127.0.0.1:${backendPort}`;
+    const wsHost = process.env.WS_HOST || '127.0.0.1';
+    const wsPort = Config.WS_PORT || 5001;
+    const wsHealthUrl = `http://${wsHost}:${wsPort}/ws/health`;
+
+    try {
+        logger.info('[internalController][getConsolidatedHealth] Getting consolidated health report');
+
+        const [
+            database,
+            redis,
+            spaces_api,
+            invites_api,
+            notifications_api,
+            websocket_api
+        ] = await Promise.all([
+            checkDatabaseHealth(),
+            checkRedisHealth(),
+            checkHttpJsonService('spaces_api', `${backendBaseUrl}/metaverse/spaces/health/check`),
+            checkHttpJsonService('invites_api', `${backendBaseUrl}/metaverse/invites/health/check`),
+            checkHttpJsonService('notifications_api', `${backendBaseUrl}/metaverse/notifications/health/check`),
+            checkHttpJsonService('websocket_api', wsHealthUrl)
+        ]);
+
+        const backend_api = {
+            status: 'healthy',
+            latency_ms: 0,
+            details: {
+                process_uptime_seconds: process.uptime(),
+                memory_usage: process.memoryUsage(),
+                node_version: process.version,
+                pid: process.pid
+            }
+        };
+
+        const services = {
+            backend_api,
+            database,
+            redis,
+            spaces_api,
+            invites_api,
+            notifications_api,
+            websocket_api
+        };
+
+        const summary = getServiceStatusSummary(services);
+        return res.status(200).json({
+            success: summary.overall === 'healthy',
+            status: summary.overall,
+            message: `Consolidated health report: ${summary.overall}`,
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+            total_latency_ms: Date.now() - startedAt,
+            summary,
+            services
+        });
+    } catch (error) {
+        logger.error('[internalController][getConsolidatedHealth] Error getting health report', {
+            error: error.message,
+            stack: error.stack
+        });
+
+        return res.status(500).json({
+            success: false,
+            status: 'unhealthy',
+            message: 'Failed to build consolidated health report',
+            timestamp: new Date().toISOString(),
+            error: error.message
+        });
+    }
+}
+
 module.exports = {
     getUserSpaces,
     getUserNotifications,
     getUserStatus,
     getSpaceDetails,
-    getSystemStats
+    getSystemStats,
+    getConsolidatedHealth
 };
